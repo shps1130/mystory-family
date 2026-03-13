@@ -971,6 +971,12 @@ export default function MyStoryFamily() {
       .map(m => `${m.role === "user" ? (user?.firstName || "Person") : "Guide"}: ${m.content}`)
       .join("\n\n");
 
+    // Need at least something to write from
+    if (!transcript.trim()) {
+      setGeneratingNarrative(false);
+      return;
+    }
+
     try {
       const res = await fetch("/.netlify/functions/claude", {
         method: "POST",
@@ -983,12 +989,30 @@ export default function MyStoryFamily() {
         }),
       });
       const data = await res.json();
-      const narrative = data.content?.[0]?.text || "";
-      if (narrative) {
-        setChapterNarratives(prev => ({ ...prev, [chKey]: narrative }));
+
+      // Check for API-level errors
+      if (data.error) {
+        console.error("Memoir API error:", data.error);
+        // Fall back to a formatted version of the conversation
+        const fallback = messages
+          .filter(m => m.role === "user" && m.content?.trim())
+          .map(m => m.content.trim())
+          .join("\n\n");
+        if (fallback) setChapterNarratives(prev => ({ ...prev, [chKey]: fallback }));
+      } else {
+        const narrative = data.content?.[0]?.text || "";
+        if (narrative) {
+          setChapterNarratives(prev => ({ ...prev, [chKey]: narrative }));
+        }
       }
     } catch (e) {
       console.error("Memoir generation failed:", e);
+      // Fallback: show user responses formatted nicely
+      const fallback = messages
+        .filter(m => m.role === "user" && m.content?.trim())
+        .map(m => m.content.trim())
+        .join("\n\n");
+      if (fallback) setChapterNarratives(prev => ({ ...prev, [chKey]: fallback }));
     }
     setGeneratingNarrative(false);
   };
