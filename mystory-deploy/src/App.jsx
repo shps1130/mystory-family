@@ -1664,7 +1664,7 @@ export default function MyStoryFamily() {
                 ["✦", "All remaining chapters with " + (persona?.name || "your guide"), "Faith, Family, Becoming You, Wisdom & Legacy"],
                 ["📄", "Your complete digital legacy book", "Beautifully formatted PDF, yours to keep and share"],
                 ["🔒", "Saved forever", "Come back anytime — your story waits for you"],
-                ["📖", "Option to add a printed copy", "Professionally bound books from $99, ordered any time"],
+                ["📖", "Option to add a printed copy", "Professionally bound books from $79, ordered any time"],
               ].map(([icon, title, sub]) => (
                 <div key={title} style={{ display: "flex", gap: 14, marginBottom: 16, alignItems: "flex-start" }}>
                   <div style={{ fontSize: 18, width: 28, flexShrink: 0, marginTop: 2 }} aria-hidden="true">{icon}</div>
@@ -1859,9 +1859,14 @@ export default function MyStoryFamily() {
                 </button>
               </div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 16px 12px", background: "white", borderRadius: "0 0 14px 14px", border: `${highContrast ? 2 : 1}px solid ${highContrast ? "#9a7a50" : "rgba(180,140,80,0.18)"}`, borderTop: "1px solid rgba(180,140,80,0.1)" }}>
-                <span style={{ fontSize: fs(13), color: tc("#b8a070", "#6b5030"), fontFamily: "'Lato',sans-serif", fontStyle: "italic" }}>
-                  Or just start typing and {persona?.name || "I"}'ll help you shape it into your story
-                </span>
+                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  <span style={{ fontSize: fs(13), color: tc("#b8a070", "#6b5030"), fontFamily: "'Lato',sans-serif", fontStyle: "italic" }}>
+                    Or just start typing and {persona?.name || "I"}'ll help you shape it into your story
+                  </span>
+                  <span style={{ fontSize: fs(12), color: tc("#c4a882", "#8b7355"), fontFamily: "'Lato',sans-serif" }}>
+                    📱 On your phone? Tap the <strong style={{ color: tc("#9a7a50","#6b5030") }}>🎤</strong> on your keyboard and just talk — {persona?.name || "Grace"} will do the rest
+                  </span>
+                </div>
                 <button className="help-btn" onClick={helpMeWrite} disabled={!input.trim() || writingHelp} aria-label="Help me write this"
                   style={{ background: input.trim() ? "rgba(184,134,11,0.1)" : "transparent", border: `${highContrast ? 2 : 1}px solid ${input.trim() ? "rgba(184,134,11,0.35)" : "rgba(180,140,80,0.2)"}`, color: input.trim() ? tc("#7a5030", "#3d2b1a") : tc("#c4a882", "#8b7355"), fontFamily: "'Lato',sans-serif", fontSize: fs(12), fontWeight: 600, padding: "8px 16px", borderRadius: 100, cursor: input.trim() ? "pointer" : "default", whiteSpace: "nowrap", minHeight: 40 }}>
                   {writingHelp ? "Shaping your story..." : `✦ Help me write this`}
