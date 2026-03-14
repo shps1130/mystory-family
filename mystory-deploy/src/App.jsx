@@ -677,12 +677,11 @@ export default function MyStoryFamily() {
       if (raw) {
         const s = JSON.parse(raw);
         if (paymentSuccess && s?.user?.email) {
-          // Returning from Stripe — mark as paid and restore
+          // Returning from Stripe — mark as paid and restore to chapter preview
           s.hasPaid = true;
           localStorage.setItem("mystory_session", JSON.stringify(s));
-          restoreSession(s);
-          // Give them a moment to land before the toast
-          setTimeout(() => announce("Payment confirmed. Welcome back — let's continue your story."), 600);
+          restoreSession(s, true);
+          setTimeout(() => announce("Payment confirmed — let's continue your story. ✦"), 600);
           return;
         }
         if (paymentCancelled && s?.user?.email) {
@@ -704,6 +703,7 @@ export default function MyStoryFamily() {
         onboardAnswers, persona, systemPrompt,
         chapters, activeChapter, chapterHistory,
         messages, hasPaid, enabledChapters, chapterNarratives,
+        previewChapter,
         ...overrides,
       };
       localStorage.setItem("mystory_session", JSON.stringify(session));
@@ -715,7 +715,7 @@ export default function MyStoryFamily() {
   }, [user, screen, hasPaid, chapterHistory, messages, activeChapter, persona]);
 
   // ── RESTORE SAVED SESSION ─────────────────────────────────────────────────
-  const restoreSession = (s) => {
+  const restoreSession = (s, fromPayment = false) => {
     setUser(s.user);
     setBookSize(s.bookSize || null);
     setPromoCode(s.promoCode || "");
@@ -730,9 +730,18 @@ export default function MyStoryFamily() {
     setHasPaid(s.hasPaid || false);
     setEnabledChapters(s.enabledChapters || BASE_CHAPTERS.map(c => c.id));
     setChapterNarratives(s.chapterNarratives || {});
-    // Always land on chat if they were mid-book, otherwise onboarding
-    const landOn = s.chapters?.length > 0 ? "chat" : "onboarding";
-    setScreen(landOn);
+
+    if (fromPayment && s.previewChapter) {
+      // Coming back from Stripe — drop them right back on chapter preview, paid
+      setPreviewChapter(s.previewChapter);
+      setScreen("chat");
+      setShowPaywall(false);
+    } else {
+      // Normal restore — land on chat if mid-book, otherwise onboarding
+      const landOn = s.chapters?.length > 0 ? "chat" : "onboarding";
+      setScreen(landOn);
+    }
+
     setSavedSession(null);
     announce(`Welcome back, ${s.user.firstName}. Your story is right where you left it.`);
   };
