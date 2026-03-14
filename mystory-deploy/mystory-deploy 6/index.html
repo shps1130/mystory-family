@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Preserve your story for the people who matter most. A guided legacy interview that becomes a beautifully printed book for your family." />
+    <meta property="og:title" content="MyStory.Family — Preserve Your Legacy" />
+    <meta property="og:description" content="Your first chapter is free. A personal guide walks with you — one story at a time." />
+    <meta property="og:image" content="/og-image.png" />
+    <title>MyStory.Family — Preserve Your Story</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400;1,600&family=Lato:wght@300;400;600;700&display=swap" rel="stylesheet" />
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      html { font-size: 16px; }
+      body {
+        background: #fdf6ec;
+        color: #3d2b1a;
+        font-family: 'Cormorant Garamond', Georgia, serif;
+        min-height: 100vh;
+        -webkit-font-smoothing: antialiased;
+      }
+      #root { min-height: 100vh; display: flex; flex-direction: column; }
+      * { -webkit-tap-highlight-color: transparent; }
+      button:focus-visible, input:focus-visible, textarea:focus-visible {
+        outline: 3px solid #b8860b;
+        outline-offset: 2px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
