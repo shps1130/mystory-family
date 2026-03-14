@@ -875,7 +875,7 @@ export default function MyStoryFamily() {
     if (!title.trim()) return;
     setGeneratingPrompts(true);
     try {
-      const res = await fetch("/.netlify/functions/claude", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 800, system: PROMPT_GEN_SYSTEM, messages: [{ role: "user", content: `Chapter: "${title}"` }] }) });
+      const res = await fetch("/api/claude", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 800, system: PROMPT_GEN_SYSTEM, messages: [{ role: "user", content: `Chapter: "${title}"` }] }) });
       const data = await res.json();
       const rawPrompts = JSON.parse((data.content?.[0]?.text || "[]").replace(/```json|```/g, "").trim());
       setCustomChapter({ title: title.trim(), icon: "✨", isCustom: true, color: "#f0eae4", photoPrompt: `Add a photo connected to your ${title} story.`, prompts: rawPrompts.map(q => ({ question: q, angles: [] })) });
@@ -909,7 +909,7 @@ export default function MyStoryFamily() {
     setWritingHelp(true);
     announce("Shaping your story…");
     try {
-      const res = await fetch("/.netlify/functions/claude", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 600, system: WRITING_HELP_PROMPT, messages: [{ role: "user", content: `Question: "${getQuestion(chapter.prompts[activePrompt])}"\n\nWhat they've written so far: "${input}"` }] }) });
+      const res = await fetch("/api/claude", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 600, system: WRITING_HELP_PROMPT, messages: [{ role: "user", content: `Question: "${getQuestion(chapter.prompts[activePrompt])}"\n\nWhat they've written so far: "${input}"` }] }) });
       const data = await res.json();
       setInput(data.content?.[0]?.text || input);
       helpMeWriteJustUsed.current = true;
@@ -924,7 +924,7 @@ export default function MyStoryFamily() {
     setRevisingLoading(true);
     announce("Revising your paragraph…");
     try {
-      const res = await fetch("/.netlify/functions/claude", {
+      const res = await fetch("/api/claude", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 600, system: WRITING_HELP_REVISE_PROMPT,
           messages: [{ role: "user", content: `Original paragraph:\n"${originalText}"\n\nCorrection needed: "${correctionNote}"\n\nPlease revise the paragraph incorporating this correction.` }] }),
@@ -956,7 +956,7 @@ export default function MyStoryFamily() {
     setLoading(true);
     try {
       const fullSystem = systemPrompt + chapterContext + angleNudge;
-      const res = await fetch("/.netlify/functions/claude", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 1000, system: fullSystem, messages: next.map(m => ({ role: m.role, content: m.content })) }) });
+      const res = await fetch("/api/claude", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 1000, system: fullSystem, messages: next.map(m => ({ role: m.role, content: m.content })) }) });
       const data = await res.json();
       setMessages([...next, { role: "assistant", content: data.content?.[0]?.text || "I'm here with you. Tell me more." }]);
       announce("New response received.");
@@ -987,7 +987,7 @@ export default function MyStoryFamily() {
     }
 
     try {
-      const res = await fetch("/.netlify/functions/claude", {
+      const res = await fetch("/api/claude", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1489,13 +1489,33 @@ export default function MyStoryFamily() {
       {/* ── PERSONA REVEAL ── */}
       {screen === "reveal" && persona && (
         <main id="main-content" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "78vh", textAlign: "center", padding: "40px 24px", animation: "fadeIn 0.6s ease forwards" }}>
-          <div style={{ maxWidth: 500, width: "100%" }}>
+          <div style={{ maxWidth: 560, width: "100%" }}>
             <p style={{ fontSize: fs(12), letterSpacing: "2.5px", textTransform: "uppercase", color: tc("#8b7355", "#4a3020"), fontFamily: "'Lato',sans-serif", marginBottom: 28 }}>Your guide is ready</p>
             <div style={{ width: 100, height: 100, borderRadius: "50%", background: personaAvatarBg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 44, margin: "0 auto 24px", boxShadow: "0 8px 32px rgba(93,61,26,0.2)", animation: "revealGlow 2s ease-in-out" }} aria-hidden="true">
               {personaAvatar}
             </div>
             <h1 style={{ fontSize: fs(42), fontWeight: 300, color: tc("#3d2b1a", "#1a0e00"), fontStyle: "italic", marginBottom: 8 }}>Meet {persona.name}</h1>
-            <p style={{ fontSize: fs(15), color: tc("#8b7355", "#4a3020"), fontFamily: "'Lato',sans-serif", letterSpacing: "1.5px", textTransform: "uppercase", marginBottom: 24 }}>{persona.role}</p>
+            <p style={{ fontSize: fs(15), color: tc("#8b7355", "#4a3020"), fontFamily: "'Lato',sans-serif", letterSpacing: "1.5px", textTransform: "uppercase", marginBottom: 28 }}>{persona.role}</p>
+
+            {/* Welcome video — Grace/Sage intro */}
+            {persona.name === "Grace" && (
+              <div style={{ marginBottom: 32, borderRadius: 16, overflow: "hidden", boxShadow: "0 12px 48px rgba(93,61,26,0.2)", border: "1px solid rgba(180,140,80,0.2)", background: "#1a0f05" }}>
+                <div style={{ position: "relative", paddingBottom: "56.25%", height: 0 }}>
+                  <iframe
+                    src="https://app.heygen.com/embeds/8d4c1596985d4662808e658d05f3eb01"
+                    title="A message from Grace"
+                    frameBorder="0"
+                    allow="encrypted-media; fullscreen;"
+                    allowFullScreen
+                    style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}
+                  />
+                </div>
+                <div style={{ padding: "10px 16px", background: "rgba(61,43,26,0.6)" }}>
+                  <p style={{ fontSize: fs(12), color: "rgba(245,232,204,0.6)", fontFamily: "'Lato',sans-serif", fontStyle: "italic", margin: 0 }}>A personal message from Grace before you begin</p>
+                </div>
+              </div>
+            )}
+
             <p style={{ fontSize: fs(18), color: tc("#5c4a35", "#2a1a0a"), lineHeight: 1.85, fontStyle: "italic", marginBottom: 16 }}>
               {persona.name === "Grace"
                 ? `${persona.name} is your faith-centered writing companion. She listens deeply, honors what you share, and helps shape your story with warmth and reverence.`
@@ -1781,6 +1801,21 @@ export default function MyStoryFamily() {
             </div>
 
             <div role="log" aria-label="Conversation" aria-live="polite" style={{ flex: 1, overflowY: "auto", paddingBottom: 16, display: "flex", flexDirection: "column", gap: 18, minHeight: 260, maxHeight: 360 }}>
+
+              {/* Welcome video — shows on chapter 1 until user sends first message */}
+              {activeChapter === 0 && messages.filter(m => m.role === "user").length === 0 && (
+                <div style={{ borderRadius: 12, overflow: "hidden", border: "1px solid rgba(180,140,80,0.2)", boxShadow: "0 4px 20px rgba(93,61,26,0.1)", background: "#000", aspectRatio: "16/9", width: "100%" }}>
+                  <iframe
+                    width="100%" height="100%"
+                    src="https://app.heygen.com/embeds/3818fb42e03440408140a6addde9d192"
+                    title="Welcome from Grace"
+                    frameBorder="0"
+                    allow="encrypted-media; fullscreen;"
+                    allowFullScreen
+                    style={{ display: "block", width: "100%", height: "100%", minHeight: 220 }}
+                  />
+                </div>
+              )}
               {messages.map((msg, i) => (
                 <div key={i}>
                   <div style={{ display: "flex", gap: 12, flexDirection: msg.role === "user" ? "row-reverse" : "row", animation: "fadeUp 0.35s ease forwards" }}>
