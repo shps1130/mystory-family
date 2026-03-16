@@ -691,6 +691,7 @@ export default function MyStoryFamily() {
   const [showPaywall, setShowPaywall] = useState(false);
   const [chapterNarratives, setChapterNarratives] = useState({}); // { chapterId: "prose..." }
   const [generatingNarrative, setGeneratingNarrative] = useState(false);
+  const [dismissedVideos, setDismissedVideos] = useState({});
   const [revisingIdx, setRevisingIdx] = useState(null);
   const [revisionInput, setRevisionInput] = useState("");
   const [revisingLoading, setRevisingLoading] = useState(false);
@@ -1241,7 +1242,7 @@ export default function MyStoryFamily() {
   const showAngles = !anglesUsed && currentAngles.length > 0 && messages.length <= 1;
   const progress = chapters.length ? Math.round((activeChapter / chapters.length) * 100) : 0;
   const userMessageCount = messages.filter(m => m.role === "user").length;
-  const showChapterControls = userMessageCount >= 3;
+  const showChapterControls = userMessageCount >= 1;
   const personaAvatar = persona?.avatar || "🌿";
   const personaAvatarBg = persona?.avatarBg || "linear-gradient(135deg,#5c3d1e,#8b5e34)";
 
@@ -2032,47 +2033,54 @@ export default function MyStoryFamily() {
               )}
             </div>
 
-            <div role="log" aria-label="Conversation" aria-live="polite" style={{ flex: 1, overflowY: "auto", paddingBottom: 16, display: "flex", flexDirection: "column", gap: 18, minHeight: 260, maxHeight: 360 }}>
-
-              {/* Book complete celebration video */}
-              {messages.some(m => m.content?.includes("extraordinary")) && (
-                <div style={{ borderRadius: 12, overflow: "hidden", border: "1px solid rgba(180,140,80,0.2)", boxShadow: "0 4px 20px rgba(93,61,26,0.1)", background: "#000", aspectRatio: "16/9", width: "100%" }}>
-                  <iframe
-                    width="100%" height="100%"
-                    src="https://app.heygen.com/embeds/24c71acaec054add8b55ae4053297433"
-                    title="Your legacy is complete"
-                    frameBorder="0"
-                    allow="encrypted-media; fullscreen;"
-                    allowFullScreen
-                    style={{ display: "block", width: "100%", height: "100%", minHeight: 220 }}
-                  />
-                </div>
-              )}
-              {messages.filter(m => m.role === "user").length === 0 && (() => {
-                const chapterVideos = {
-                  "early-life": "4184003e4d2943b0b7c7489136f42e31",
-                  "faith": "9d7bf4bb7654418593406ddb3bc42093",
-                  "becoming-you": "44e503c5182b4cb39f7330b3e9be70a5",
-                  "family-love": "e6499e21f45f4dd09adedb0b58e4b595",
-                  "wisdom": "48986e0d7d68415faa4c19e9ac8220dd",
-                };
-                const welcomeVideoId = "6c365a15c25a47acbce8056ddb53120e";
-                const videoId = activeChapter === 0 ? welcomeVideoId : chapterVideos[chapter?.id];
-                if (!videoId) return null;
-                return (
-                  <div style={{ borderRadius: 12, overflow: "hidden", border: "1px solid rgba(180,140,80,0.2)", boxShadow: "0 4px 20px rgba(93,61,26,0.1)", background: "#000", aspectRatio: "16/9", width: "100%" }}>
+            {/* Section intro video — shown at start of each section, dismissible */}
+            {(() => {
+              const chapterVideos = {
+                "early-life": "4184003e4d2943b0b7c7489136f42e31",
+                "faith": "9d7bf4bb7654418593406ddb3bc42093",
+                "becoming-you": "44e503c5182b4cb39f7330b3e9be70a5",
+                "family-love": "e6499e21f45f4dd09adedb0b58e4b595",
+                "wisdom": "48986e0d7d68415faa4c19e9ac8220dd",
+              };
+              const welcomeVideoId = "6c365a15c25a47acbce8056ddb53120e";
+              const videoId = activeChapter === 0 ? welcomeVideoId : chapterVideos[chapter?.id];
+              if (!videoId || dismissedVideos[chapter?.id || activeChapter]) return null;
+              return (
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ borderRadius: 12, overflow: "hidden", border: "1px solid rgba(180,140,80,0.2)", boxShadow: "0 4px 20px rgba(93,61,26,0.1)", background: "#000", position: "relative", paddingBottom: "56.25%", height: 0 }}>
                     <iframe
-                      width="100%" height="100%"
                       src={`https://app.heygen.com/embeds/${videoId}`}
                       title={activeChapter === 0 ? "Welcome from Grace" : `${chapter.title} introduction`}
                       frameBorder="0"
-                      allow="encrypted-media; fullscreen;"
+                      allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
                       allowFullScreen
-                      style={{ display: "block", width: "100%", height: "100%", minHeight: 220 }}
+                      style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }}
                     />
                   </div>
-                );
-              })()}
+                  <button onClick={() => setDismissedVideos(p => ({ ...p, [chapter?.id || activeChapter]: true }))}
+                    style={{ display: "block", margin: "8px auto 0", background: "none", border: "1px solid rgba(180,140,80,0.3)", color: "#7a5c3a", fontFamily: "'Lato',sans-serif", fontSize: fs(12), cursor: "pointer", padding: "6px 20px", borderRadius: 100, minHeight: 32 }}>
+                    ✓ Got it, let's begin
+                  </button>
+                </div>
+              );
+            })()}
+
+            {/* Book complete celebration video */}
+            {messages.some(m => m.content?.includes("extraordinary")) && (
+              <div style={{ marginBottom: 16, borderRadius: 12, overflow: "hidden", border: "1px solid rgba(180,140,80,0.2)", boxShadow: "0 4px 20px rgba(93,61,26,0.1)", background: "#000", position: "relative", paddingBottom: "56.25%", height: 0 }}>
+                <iframe
+                  src="https://app.heygen.com/embeds/24c71acaec054add8b55ae4053297433"
+                  title="Your legacy is complete"
+                  frameBorder="0"
+                  allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
+                  allowFullScreen
+                  style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }}
+                />
+              </div>
+            )}
+
+            <div role="log" aria-label="Conversation" aria-live="polite" style={{ flex: 1, overflowY: "auto", paddingBottom: 16, display: "flex", flexDirection: "column", gap: 18, minHeight: 260, maxHeight: 360 }}>
+
               {messages.map((msg, i) => (
                 <div key={i}>
                   <div style={{ display: "flex", gap: 12, flexDirection: msg.role === "user" ? "row-reverse" : "row", animation: "fadeUp 0.35s ease forwards" }}>
