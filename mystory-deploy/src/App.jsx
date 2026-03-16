@@ -601,6 +601,12 @@ export default function MyStoryFamily() {
   const [signupError, setSignupError] = useState("");
   const [signinFields, setSigninFields] = useState({ email: "", password: "" });
   const [signinError, setSigninError] = useState("");
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotNewPassword, setForgotNewPassword] = useState("");
+  const [forgotConfirm, setForgotConfirm] = useState("");
+  const [forgotError, setForgotError] = useState("");
+  const [forgotSuccess, setForgotSuccess] = useState(false);
   const [savedSession, setSavedSession] = useState(null); // detected on mount
   const [enabledChapters, setEnabledChapters] = useState(BASE_CHAPTERS.map(c => c.id));
   const [customChapter, setCustomChapter] = useState(null);
@@ -788,6 +794,31 @@ export default function MyStoryFamily() {
     setUser(match);
     setSigninError("");
     setScreen("onboarding");
+  };
+
+  const handleForgotPassword = () => {
+    setForgotError("");
+    if (!forgotEmail.includes("@")) { setForgotError("Please enter your email address."); return; }
+    if (forgotNewPassword.length < 6) { setForgotError("New password must be at least 6 characters."); return; }
+    if (forgotNewPassword !== forgotConfirm) { setForgotError("Passwords don't match."); return; }
+    const existing = JSON.parse(localStorage.getItem("mystory_accounts") || "[]");
+    const idx = existing.findIndex(a => a.email.toLowerCase() === forgotEmail.toLowerCase());
+    if (idx === -1) { setForgotError("We couldn't find an account with that email address."); return; }
+    existing[idx].password = forgotNewPassword;
+    localStorage.setItem("mystory_accounts", JSON.stringify(existing));
+    // Also update session if it exists
+    try {
+      const raw = localStorage.getItem("mystory_session");
+      if (raw) {
+        const s = JSON.parse(raw);
+        if (s?.user?.email?.toLowerCase() === forgotEmail.toLowerCase()) {
+          s.user.password = forgotNewPassword;
+          localStorage.setItem("mystory_session", JSON.stringify(s));
+        }
+      }
+    } catch {}
+    setForgotSuccess(true);
+    setForgotError("");
   };
 
   const handleSignout = () => {
@@ -1358,9 +1389,53 @@ export default function MyStoryFamily() {
               {signinError && <p role="alert" style={{ fontSize: fs(13), color: "#c0392b", fontFamily: "'Lato',sans-serif", marginBottom: 14, lineHeight: 1.5 }}>{signinError}</p>}
 
               <button onClick={handleSignin}
-                style={{ width: "100%", background: "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", padding: "17px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(18), letterSpacing: 0.5, cursor: "pointer", boxShadow: "0 4px 20px rgba(93,61,26,0.2)", minHeight: 56, marginBottom: 16 }}>
+                style={{ width: "100%", background: "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", padding: "17px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(18), letterSpacing: 0.5, cursor: "pointer", boxShadow: "0 4px 20px rgba(93,61,26,0.2)", minHeight: 56, marginBottom: 12 }}>
                 Continue My Story →
               </button>
+
+              <button onClick={() => { setShowForgotPassword(true); setForgotSuccess(false); setForgotError(""); setForgotEmail(signinFields.email); setForgotNewPassword(""); setForgotConfirm(""); }}
+                style={{ display: "block", width: "100%", background: "none", border: "none", color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", fontSize: fs(13), cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3, marginBottom: 12, minHeight: 36 }}>
+                Forgot your password?
+              </button>
+
+              {showForgotPassword && (
+                <div style={{ background: "rgba(184,134,11,0.06)", border: "1px solid rgba(184,134,11,0.2)", borderRadius: 12, padding: "20px", marginBottom: 16 }}>
+                  {forgotSuccess ? (
+                    <div style={{ textAlign: "center" }}>
+                      <div style={{ fontSize: 28, marginBottom: 10 }}>✦</div>
+                      <p style={{ fontSize: fs(15), color: tc("#3d2b1a","#1a0e00"), fontFamily: "'Cormorant Garamond',serif", fontStyle: "italic", marginBottom: 12 }}>Password updated. You can sign in now.</p>
+                      <button onClick={() => { setShowForgotPassword(false); setForgotSuccess(false); }}
+                        style={{ background: "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", padding: "10px 24px", borderRadius: 100, fontFamily: "'Lato',sans-serif", fontSize: fs(13), cursor: "pointer", minHeight: 40 }}>
+                        Sign In →
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <p style={{ fontSize: fs(13), color: tc("#6b5540","#3a2510"), fontFamily: "'Lato',sans-serif", marginBottom: 14, lineHeight: 1.6 }}>
+                        Enter your email and choose a new password.
+                      </p>
+                      {[["Email Address", forgotEmail, setForgotEmail, "email"], ["New Password", forgotNewPassword, setForgotNewPassword, "password"], ["Confirm Password", forgotConfirm, setForgotConfirm, "password"]].map(([label, val, setter, type]) => (
+                        <div key={label} style={{ marginBottom: 10 }}>
+                          <label style={{ display: "block", fontSize: fs(11), color: tc("#7a5c3a","#4a3020"), fontFamily: "'Lato',sans-serif", marginBottom: 4, fontWeight: 600, letterSpacing: "0.5px" }}>{label}</label>
+                          <input type={type} value={val} onChange={e => setter(e.target.value)}
+                            style={{ width: "100%", border: "1.5px solid rgba(180,140,80,0.3)", borderRadius: 8, padding: "10px 12px", fontFamily: "'Lato',sans-serif", fontSize: fs(14), color: tc("#3d2b1a","#1a0e00"), background: "#fffdf5", outline: "none", boxSizing: "border-box", minHeight: 44 }} />
+                        </div>
+                      ))}
+                      {forgotError && <p style={{ fontSize: fs(13), color: "#c0392b", fontFamily: "'Lato',sans-serif", marginBottom: 10 }}>{forgotError}</p>}
+                      <div style={{ display: "flex", gap: 10 }}>
+                        <button onClick={handleForgotPassword}
+                          style={{ flex: 1, background: "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", padding: "11px", borderRadius: 100, fontFamily: "'Lato',sans-serif", fontSize: fs(13), cursor: "pointer", minHeight: 44 }}>
+                          Update Password
+                        </button>
+                        <button onClick={() => setShowForgotPassword(false)}
+                          style={{ background: "none", border: "1.5px solid rgba(180,140,80,0.3)", color: tc("#6b5540","#3a2510"), fontFamily: "'Lato',sans-serif", fontSize: fs(13), cursor: "pointer", padding: "11px 18px", borderRadius: 100, minHeight: 44 }}>
+                          Cancel
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
 
               <p style={{ textAlign: "center", fontSize: fs(13), color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif" }}>
                 New here?{" "}
@@ -1802,13 +1877,13 @@ export default function MyStoryFamily() {
 
             <div role="log" aria-label="Conversation" aria-live="polite" style={{ flex: 1, overflowY: "auto", paddingBottom: 16, display: "flex", flexDirection: "column", gap: 18, minHeight: 260, maxHeight: 360 }}>
 
-              {/* Welcome video — shows on chapter 1 until user sends first message */}
-              {activeChapter === 0 && messages.filter(m => m.role === "user").length === 0 && (
+              {/* Book complete celebration video */}
+              {messages.some(m => m.content?.includes("extraordinary")) && (
                 <div style={{ borderRadius: 12, overflow: "hidden", border: "1px solid rgba(180,140,80,0.2)", boxShadow: "0 4px 20px rgba(93,61,26,0.1)", background: "#000", aspectRatio: "16/9", width: "100%" }}>
                   <iframe
                     width="100%" height="100%"
-                    src="https://app.heygen.com/embeds/6c365a15c25a47acbce8056ddb53120e"
-                    title="Welcome from Grace"
+                    src="https://app.heygen.com/embeds/24c71acaec054add8b55ae4053297433"
+                    title="Your legacy is complete"
                     frameBorder="0"
                     allow="encrypted-media; fullscreen;"
                     allowFullScreen
@@ -1816,6 +1891,31 @@ export default function MyStoryFamily() {
                   />
                 </div>
               )}
+              {messages.filter(m => m.role === "user").length === 0 && (() => {
+                const chapterVideos = {
+                  "early-life": "4184003e4d2943b0b7c7489136f42e31",
+                  "faith": "9d7bf4bb7654418593406ddb3bc42093",
+                  "becoming-you": "44e503c5182b4cb39f7330b3e9be70a5",
+                  "family-love": "e6499e21f45f4dd09adedb0b58e4b595",
+                  "wisdom": "48986e0d7d68415faa4c19e9ac8220dd",
+                };
+                const welcomeVideoId = "6c365a15c25a47acbce8056ddb53120e";
+                const videoId = activeChapter === 0 ? welcomeVideoId : chapterVideos[chapter?.id];
+                if (!videoId) return null;
+                return (
+                  <div style={{ borderRadius: 12, overflow: "hidden", border: "1px solid rgba(180,140,80,0.2)", boxShadow: "0 4px 20px rgba(93,61,26,0.1)", background: "#000", aspectRatio: "16/9", width: "100%" }}>
+                    <iframe
+                      width="100%" height="100%"
+                      src={`https://app.heygen.com/embeds/${videoId}`}
+                      title={activeChapter === 0 ? "Welcome from Grace" : `${chapter.title} introduction`}
+                      frameBorder="0"
+                      allow="encrypted-media; fullscreen;"
+                      allowFullScreen
+                      style={{ display: "block", width: "100%", height: "100%", minHeight: 220 }}
+                    />
+                  </div>
+                );
+              })()}
               {messages.map((msg, i) => (
                 <div key={i}>
                   <div style={{ display: "flex", gap: 12, flexDirection: msg.role === "user" ? "row-reverse" : "row", animation: "fadeUp 0.35s ease forwards" }}>
