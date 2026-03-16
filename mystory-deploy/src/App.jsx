@@ -71,21 +71,6 @@ const ONBOARDING_STEPS = [
     type: "multi_chips",
     chips: ["The storyteller", "The quiet one", "The funny one", "The strong one", "The faithful one", "The caretaker", "The adventurer", "The peacemaker", "The steady one", "The dreamer"],
   },
-  {
-    id: "mustInclude",
-    question: "Is there something you really want to make sure makes it into this book?",
-    subtext: "A person, a moment, a chapter of life — anything that must be told.",
-    type: "text",
-    placeholder: "Take your time with this one...",
-  },
-  {
-    id: "keepPrivate",
-    question: "Is there anything you'd rather leave out or keep private?",
-    subtext: "This is your book. You decide what goes in it. Nothing you share here will be asked about.",
-    type: "text",
-    placeholder: "Anything at all is fine to share here...",
-    optional: true,
-  },
 ];
 
 // ─── PERSONAS ─────────────────────────────────────────────────────────────────
@@ -450,11 +435,36 @@ function PrintUpgradeCard({ isLast, promoCode, promoInfo, fs, tc, highContrast }
 // ─── CHAPTER PREVIEW ─────────────────────────────────────────────────────────
 function ChapterPreview({ chapter, chapterMessages, chapterPhotos, onContinue, onAddMore, nextChapterTitle, isLast, fs, tc, highContrast, promoCode, promoInfo, narrative, generatingNarrative }) {
   const chPhotos = chapterPhotos || [];
+  const [editMode, setEditMode] = useState(false);
+  const [editInput, setEditInput] = useState("");
+  const [editLoading, setEditLoading] = useState(false);
+  const [editedNarrative, setEditedNarrative] = useState(null);
+  const displayNarrative = editedNarrative || narrative;
+
+  const handleEdit = async () => {
+    if (!editInput.trim() || editLoading) return;
+    setEditLoading(true);
+    try {
+      const res = await fetch("/api/claude", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 3000,
+          system: `You are a memoir editor. The user has a completed memoir section and wants to make a change to it. Apply their requested change warmly and naturally — keep their voice, keep the warmth, just incorporate the edit. Return ONLY the full revised prose. No preamble, no explanation.`,
+          messages: [{ role: "user", content: `Here is the current memoir section:\n\n${displayNarrative}\n\nThe change I'd like: ${editInput}` }],
+        }),
+      });
+      const data = await res.json();
+      const revised = data.content?.[0]?.text;
+      if (revised) { setEditedNarrative(revised); setEditMode(false); setEditInput(""); }
+    } catch {}
+    setEditLoading(false);
+  };
 
   // Split narrative into paragraphs for book-like rendering
-  const paragraphs = narrative
-    ? narrative.split(/\n+/).map(p => p.trim()).filter(p => p.length > 0)
-    : [];
+  const paragraphs = (displayNarrative || narrative || "")
+    .split(/\n+/).map(p => p.trim()).filter(p => p.length > 0);
 
   // Interleave photos naturally — first photo after paragraph 2, second after paragraph 4
   const photoPositions = { 2: chPhotos[0], 4: chPhotos[1], 6: chPhotos[2] };
@@ -465,7 +475,7 @@ function ChapterPreview({ chapter, chapterMessages, chapterPhotos, onContinue, o
         <div style={{ fontSize: 36, marginBottom: 10 }} aria-hidden="true">✨</div>
         <h2 style={{ fontSize: fs(28), fontWeight: 600, color: tc("#3d2b1a","#1a0e00"), marginBottom: 6 }}>{chapter.title} — Complete</h2>
         <p style={{ fontSize: fs(16), color: "#6b5540", fontStyle: "italic", fontFamily: "'Cormorant Garamond',Georgia,serif" }}>
-          {generatingNarrative ? "Writing your chapter…" : "Here's a glimpse of how this chapter will look in your book"}
+          {generatingNarrative ? "Writing your section…" : "Here's a glimpse of how this section will look in your book"}
         </p>
       </div>
 
@@ -489,7 +499,7 @@ function ChapterPreview({ chapter, chapterMessages, chapterPhotos, onContinue, o
             <div style={{ textAlign: "center", padding: "48px 0" }}>
               <div style={{ fontSize: 32, marginBottom: 20, animation: "pulse 1.5s ease-in-out infinite" }} aria-hidden="true">✦</div>
               <p style={{ fontSize: fs(18), color: "#6b5540", fontStyle: "italic", fontFamily: "'Cormorant Garamond',Georgia,serif", marginBottom: 10 }}>
-                Writing your chapter…
+                Writing your section…
               </p>
               <p style={{ fontSize: fs(13), color: "#a89070", fontFamily: "'Lato',sans-serif" }}>
                 Shaping your stories into beautiful prose
@@ -551,7 +561,7 @@ function ChapterPreview({ chapter, chapterMessages, chapterPhotos, onContinue, o
             /* Fallback if narrative unavailable */
             <div style={{ textAlign: "center", padding: "32px 0" }}>
               <p style={{ fontSize: fs(15), color: "#a89070", fontStyle: "italic", lineHeight: 1.8 }}>
-                Your chapter is ready. Continue to see the full formatted version in your book.
+                Your section is ready. Continue to see the full formatted version in your book.
               </p>
             </div>
           )}
@@ -570,15 +580,65 @@ function ChapterPreview({ chapter, chapterMessages, chapterPhotos, onContinue, o
         <PrintUpgradeCard isLast={isLast} promoCode={promoCode} promoInfo={promoInfo} fs={fs} tc={tc} highContrast={highContrast} />
       )}
 
+      {/* Do you like this? — AI editor */}
+      {!generatingNarrative && narrative && (
+        <div style={{ background: "white", borderRadius: 16, padding: "24px 28px", marginBottom: 20, border: "1px solid rgba(180,140,80,0.15)", boxShadow: "0 4px 20px rgba(93,61,26,0.06)" }}>
+          {!editMode ? (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+              <div>
+                <div style={{ fontSize: fs(16), fontWeight: 600, color: tc("#3d2b1a","#1a0e00"), fontFamily: "'Cormorant Garamond',serif", marginBottom: 4 }}>
+                  Do you like how this reads?
+                </div>
+                <div style={{ fontSize: fs(13), color: tc("#6b5540","#3a2510"), fontFamily: "'Lato',sans-serif" }}>
+                  Ask for any change — fix a name, add a detail, make it shorter or longer
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <button onClick={() => setEditMode(true)}
+                  style={{ background: "rgba(184,134,11,0.08)", border: "1.5px solid rgba(184,134,11,0.3)", color: tc("#7a5030","#3d2b1a"), fontFamily: "'Lato',sans-serif", fontSize: fs(13), fontWeight: 600, padding: "10px 20px", borderRadius: 100, cursor: "pointer", minHeight: 44 }}>
+                  ✦ Make a change
+                </button>
+                {editedNarrative && (
+                  <button onClick={() => setEditedNarrative(null)}
+                    style={{ background: "transparent", border: "1.5px solid rgba(180,140,80,0.2)", color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", fontSize: fs(12), padding: "10px 16px", borderRadius: 100, cursor: "pointer", minHeight: 44 }}>
+                    Undo changes
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div>
+              <div style={{ fontSize: fs(15), color: tc("#3d2b1a","#1a0e00"), fontFamily: "'Cormorant Garamond',serif", fontStyle: "italic", marginBottom: 14 }}>
+                What would you like to change?
+              </div>
+              <textarea value={editInput} onChange={e => setEditInput(e.target.value)}
+                placeholder="e.g. My dad's name was Robert, not Bob. Make the second paragraph shorter. Add that we had a dog named Buster."
+                rows={3}
+                style={{ width: "100%", border: "1.5px solid rgba(180,140,80,0.3)", borderRadius: 10, padding: "12px 14px", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(15), color: tc("#3d2b1a","#1a0e00"), background: "#fffdf5", outline: "none", resize: "none", lineHeight: 1.7, boxSizing: "border-box", marginBottom: 12 }} />
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={handleEdit} disabled={!editInput.trim() || editLoading}
+                  style={{ flex: 1, background: editInput.trim() && !editLoading ? "linear-gradient(135deg,#5c3d1e,#8b5e34)" : "rgba(139,94,52,0.2)", color: "#fdf6ec", border: "none", padding: "13px", borderRadius: 100, fontFamily: "'Lato',sans-serif", fontSize: fs(14), fontWeight: 600, cursor: editInput.trim() && !editLoading ? "pointer" : "not-allowed", minHeight: 48, transition: "all 0.2s" }}>
+                  {editLoading ? "Updating your section…" : "Update My Section ✦"}
+                </button>
+                <button onClick={() => { setEditMode(false); setEditInput(""); }}
+                  style={{ background: "transparent", border: "1.5px solid rgba(180,140,80,0.3)", color: tc("#6b5540","#3a2510"), fontFamily: "'Lato',sans-serif", fontSize: fs(13), padding: "13px 20px", borderRadius: 100, cursor: "pointer", minHeight: 48 }}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Navigation */}
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
         <button onClick={onContinue} disabled={generatingNarrative}
           style={{ background: generatingNarrative ? "rgba(139,94,52,0.3)" : "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", padding: "18px 52px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(18), letterSpacing: 1, cursor: generatingNarrative ? "not-allowed" : "pointer", boxShadow: generatingNarrative ? "none" : "0 4px 20px rgba(93,61,26,0.2)", minHeight: 56, transition: "all 0.3s" }}>
-          {generatingNarrative ? "Writing your chapter…" : isLast ? "Complete My Legacy Story ✦" : `Continue to ${nextChapterTitle} →`}
+          {generatingNarrative ? "Writing your section…" : isLast ? "Complete My Legacy Story ✦" : `Continue to ${nextChapterTitle} →`}
         </button>
         {!generatingNarrative && (
           <button onClick={onAddMore} style={{ background: "transparent", border: "2px solid rgba(180,140,80,0.4)", color: "#6b4c2a", fontFamily: "'Lato',sans-serif", fontSize: fs(13), letterSpacing: "1px", textTransform: "uppercase", padding: "13px 28px", borderRadius: 100, cursor: "pointer", minHeight: 48 }}>
-            ← Go back & add more to this chapter
+            ← Go back & add more to this section
           </button>
         )}
       </div>
@@ -618,6 +678,8 @@ export default function MyStoryFamily() {
   const [messages, setMessages] = useState([]);
   const [chapterHistory, setChapterHistory] = useState({});
   const [input, setInput] = useState("");
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef(null);
   const [loading, setLoading] = useState(false);
   const [writingHelp, setWritingHelp] = useState(false);
   const [toast, setToast] = useState(null);
@@ -950,6 +1012,34 @@ export default function MyStoryFamily() {
     textareaRef.current?.focus();
   };
 
+  const toggleMic = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) { showToast("Voice input isn't supported in this browser. Try Chrome or Safari."); return; }
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+      return;
+    }
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = "en-US";
+    recognitionRef.current = recognition;
+    let finalTranscript = input;
+    recognition.onstart = () => setIsListening(true);
+    recognition.onresult = (e) => {
+      let interim = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) finalTranscript += e.results[i][0].transcript + " ";
+        else interim = e.results[i][0].transcript;
+      }
+      setInput(finalTranscript + interim);
+    };
+    recognition.onerror = () => setIsListening(false);
+    recognition.onend = () => { setIsListening(false); setInput(t => t.trim()); };
+    recognition.start();
+  };
+
   const reviseGhostwritten = async (idx, originalText, correctionNote) => {
     if (!correctionNote.trim() || revisingLoading) return;
     setRevisingLoading(true);
@@ -1057,12 +1147,18 @@ export default function MyStoryFamily() {
     setGeneratingNarrative(false);
   };
 
+  const [showBetweenSections, setShowBetweenSections] = useState(false);
+  const [betweenSectionAnswers, setBetweenSectionAnswers] = useState({ mustInclude: "", keepPrivate: "" });
+
   const continueFromPreview = () => {
     const nextC = previewChapter.chapterIndex + 1;
-    // Paywall: trigger after chapter 1 (index 0) if not yet paid
-    // Skip paywall if they came in via a school promo code — institution covers access
     if (previewChapter.chapterIndex === 0 && !hasPaid && !promoInfo?.schoolShare) {
       setShowPaywall(true);
+      return;
+    }
+    // Show between-sections coaching screen after section 1 (paid)
+    if (previewChapter.chapterIndex === 0 && (hasPaid || promoInfo?.schoolShare)) {
+      setShowBetweenSections(true);
       return;
     }
     advanceToChapter(nextC);
@@ -1071,13 +1167,23 @@ export default function MyStoryFamily() {
   const advanceToChapter = (nextC) => {
     setPreviewChapter(null);
     setShowPaywall(false);
+    setShowBetweenSections(false);
+    // Update system prompt with any mustInclude/keepPrivate answers
+    if (betweenSectionAnswers.mustInclude || betweenSectionAnswers.keepPrivate) {
+      const updatedProfile = {
+        ...onboardAnswers,
+        mustInclude: betweenSectionAnswers.mustInclude || onboardAnswers.mustInclude,
+        keepPrivate: betweenSectionAnswers.keepPrivate || onboardAnswers.keepPrivate,
+      };
+      setSystemPrompt(buildSystemPrompt(persona, updatedProfile));
+    }
     if (nextC < chapters.length) {
       setActiveChapter(nextC);
       setActivePrompt(0);
       setAnglesUsed(false);
       setChapterContext(buildChapterContext(chapters[nextC]));
-      setMessages([{ role: "assistant", content: `You've completed ${chapters[nextC - 1].title}. What you've shared is precious. 💛\n\nNow let's step into the next chapter of your life...\n\n*${getQuestion(chapters[nextC].prompts[0])}*` }]);
-      announce(`Starting chapter: ${chapters[nextC].title}`);
+      setMessages([{ role: "assistant", content: `You've completed ${chapters[nextC - 1].title}. What you've shared is precious. 💛\n\nNow let's step into the next section of your life...\n\n*${getQuestion(chapters[nextC].prompts[0])}*` }]);
+      announce(`Starting section: ${chapters[nextC].title}`);
     } else {
       setMessages([{ role: "assistant", content: `You've done something extraordinary. Your stories, your wisdom, everything you've shared — preserved forever for the people you love. ${persona?.avatar || "🕊️"}\n\nThank you for trusting me with your legacy.` }]);
       announce("Congratulations! Your legacy story is complete.");
@@ -1125,7 +1231,7 @@ export default function MyStoryFamily() {
   };
 
   const chapterComplete = () => {
-    showToast("✦ Chapter saved — beautifully done.");
+    showToast("✦ Section saved — beautifully done.");
     setShowPhotoPanel(false);
     completeChapter();
   };
@@ -1302,7 +1408,7 @@ export default function MyStoryFamily() {
             </button>
           )}
           <p style={{ marginTop: 22, fontSize: fs(14), color: tc("#a89070", "#5c3d1e"), fontFamily: "'Lato',sans-serif", lineHeight: 1.7, textAlign: "center" }}>
-            First chapter free · no card required<br />
+            First section free · no card required<br />
             <span style={{ fontSize: fs(13), opacity: 0.8 }}>Unlock your full legacy book for $99 when you're ready</span>
           </p>
         </main>
@@ -1660,14 +1766,14 @@ export default function MyStoryFamily() {
         <main id="main-content" style={{ maxWidth: 720, margin: "0 auto", padding: "44px 24px", width: "100%" }}>
           <p style={{ fontSize: fs(12), letterSpacing: "2.5px", textTransform: "uppercase", color: "#b8860b", fontFamily: "'Lato',sans-serif", marginBottom: 8 }}>Step 2 of 3</p>
           <h1 style={{ fontSize: fs(34), fontWeight: 600, color: tc("#3d2b1a", "#1a0e00"), marginBottom: 8 }}>Shape Your Book</h1>
-          <p style={{ fontSize: fs(17), color: tc("#6b5540", "#3d2b1a"), fontStyle: "italic", marginBottom: 28, lineHeight: 1.7 }}>Every life is different. Choose which chapters belong in yours — and add your own if something important is missing.</p>
+          <p style={{ fontSize: fs(17), color: tc("#6b5540", "#3d2b1a"), fontStyle: "italic", marginBottom: 28, lineHeight: 1.7 }}>Every life is different. Choose which sections belong in yours — and add your own if something important is missing.</p>
           <div style={{ textAlign: "center", marginBottom: 28 }}>
             <button className="start-btn" onClick={startChat} disabled={enabledChapters.length === 0}
               style={{ background: persona ? personaAvatarBg : "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", padding: "16px 48px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(18), letterSpacing: 1, cursor: "pointer", boxShadow: "0 4px 20px rgba(93,61,26,0.2)", minHeight: 56 }}>
               Begin My Interview with {persona?.name || "My Guide"} ✦
             </button>
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 36 }} role="group" aria-label="Chapter selection">
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 36 }} role="group" aria-label="Section selection">
             {BASE_CHAPTERS.map(ch => {
               const on = enabledChapters.includes(ch.id);
               return (
@@ -1689,12 +1795,12 @@ export default function MyStoryFamily() {
           </div>
           <div style={{ background: "white", borderRadius: 12, border: `${highContrast ? "2px" : "1.5px"} dashed ${highContrast ? "#7a5c3a" : "rgba(180,140,80,0.4)"}`, padding: "22px 24px", marginBottom: 32 }}>
             <h2 style={{ fontSize: fs(16), fontWeight: 600, color: tc("#5c3d1e", "#2a1000"), marginBottom: 6 }}>✦ Add Your Own Chapter</h2>
-            <p style={{ fontSize: fs(14), color: tc("#7a6040", "#4a3020"), fontFamily: "'Lato',sans-serif", marginBottom: 16, lineHeight: 1.65 }}>Have a chapter that's uniquely yours? Name it and {persona?.name || "our AI"} will craft the perfect prompts instantly.</p>
+            <p style={{ fontSize: fs(14), color: tc("#7a6040", "#4a3020"), fontFamily: "'Lato',sans-serif", marginBottom: 16, lineHeight: 1.65 }}>Have a section that's uniquely yours? Name it and {persona?.name || "our AI"} will craft the perfect prompts instantly.</p>
             {!customChapter ? (
               <>
                 <div style={{ display: "flex", gap: 10 }}>
-                  <label htmlFor="custom-chapter-input" style={{ position: "absolute", left: -9999, width: 1 }}>Custom chapter name</label>
-                  <input id="custom-chapter-input" value={customInput} onChange={e => setCustomInput(e.target.value)} onKeyDown={e => e.key === "Enter" && generateCustomPrompts(customInput)}
+                  <label htmlFor="custom-section-input" style={{ position: "absolute", left: -9999, width: 1 }}>Custom section name</label>
+                  <input id="custom-section-input" value={customInput} onChange={e => setCustomInput(e.target.value)} onKeyDown={e => e.key === "Enter" && generateCustomPrompts(customInput)}
                     placeholder="e.g. My Military Service, Our Immigration Story..."
                     style={{ flex: 1, border: `${highContrast ? 2 : 1.5}px solid ${highContrast ? "#7a5c3a" : "rgba(180,140,80,0.3)"}`, borderRadius: 8, padding: "12px 14px", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(17), color: tc("#3d2b1a", "#1a0e00"), background: "#fffdf5", outline: "none", minHeight: 48 }} />
                   <button className="gen-btn" onClick={() => generateCustomPrompts(customInput)} disabled={!customInput.trim() || generatingPrompts}
@@ -1739,6 +1845,57 @@ export default function MyStoryFamily() {
       )}
 
       {/* ── PAYWALL ── */}
+      {/* Between sections — coaching moment */}
+      {screen === "chat" && showBetweenSections && (
+        <main id="main-content" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "78vh", padding: "40px 24px", animation: "fadeUp 0.4s ease forwards" }}>
+          <div style={{ maxWidth: 560, width: "100%", textAlign: "center" }}>
+            <div style={{ fontSize: 44, marginBottom: 16 }} aria-hidden="true">{persona?.avatar || "🕊️"}</div>
+            <h2 style={{ fontSize: fs(36), fontWeight: 300, fontStyle: "italic", color: tc("#3d2b1a","#1a0e00"), marginBottom: 16, lineHeight: 1.2 }}>You just did something wonderful.</h2>
+            <p style={{ fontSize: fs(18), color: tc("#6b5540","#3a2510"), fontFamily: "'Cormorant Garamond',serif", fontStyle: "italic", lineHeight: 1.85, marginBottom: 36 }}>
+              That first section is always the hardest — and you did it beautifully. {persona?.name || "Grace"} now knows your voice, your pace, and a little piece of your story.
+            </p>
+            <p style={{ fontSize: fs(16), color: tc("#7a5c3a","#4a3020"), fontFamily: "'Lato',sans-serif", lineHeight: 1.7, marginBottom: 32 }}>
+              Before we move on, <strong>you're in the driver's seat.</strong> A couple of optional things you can tell {persona?.name || "Grace"} to make your book even more personal:
+            </p>
+
+            <div style={{ background: "white", borderRadius: 16, padding: "28px 32px", boxShadow: "0 8px 40px rgba(93,61,26,0.1)", border: "1px solid rgba(180,140,80,0.15)", textAlign: "left", marginBottom: 24 }}>
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ display: "block", fontSize: fs(13), color: tc("#7a5c3a","#4a3020"), fontFamily: "'Lato',sans-serif", fontWeight: 600, marginBottom: 6, letterSpacing: "0.5px" }}>
+                  Is there a story you really want to make sure makes it into your book?
+                </label>
+                <p style={{ fontSize: fs(12), color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", marginBottom: 8, fontStyle: "italic" }}>Optional — {persona?.name || "Grace"} will find it naturally either way</p>
+                <textarea value={betweenSectionAnswers.mustInclude}
+                  onChange={e => setBetweenSectionAnswers(p => ({ ...p, mustInclude: e.target.value }))}
+                  placeholder="A person, a moment, something that must be told..."
+                  rows={2}
+                  style={{ width: "100%", border: "1.5px solid rgba(180,140,80,0.3)", borderRadius: 8, padding: "10px 14px", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(15), color: tc("#3d2b1a","#1a0e00"), background: "#fffdf5", outline: "none", resize: "none", lineHeight: 1.7, boxSizing: "border-box" }} />
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: fs(13), color: tc("#7a5c3a","#4a3020"), fontFamily: "'Lato',sans-serif", fontWeight: 600, marginBottom: 6, letterSpacing: "0.5px" }}>
+                  Is there anything you'd prefer we don't include?
+                </label>
+                <p style={{ fontSize: fs(12), color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", marginBottom: 8, fontStyle: "italic" }}>Optional — your story, your boundaries</p>
+                <textarea value={betweenSectionAnswers.keepPrivate}
+                  onChange={e => setBetweenSectionAnswers(p => ({ ...p, keepPrivate: e.target.value }))}
+                  placeholder="Anything you'd rather leave out..."
+                  rows={2}
+                  style={{ width: "100%", border: "1.5px solid rgba(180,140,80,0.3)", borderRadius: 8, padding: "10px 14px", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(15), color: tc("#3d2b1a","#1a0e00"), background: "#fffdf5", outline: "none", resize: "none", lineHeight: 1.7, boxSizing: "border-box" }} />
+              </div>
+            </div>
+
+            <p style={{ fontSize: fs(13), color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", marginBottom: 24, fontStyle: "italic" }}>
+              Both fields are completely optional. {persona?.name || "Grace"} is wonderful at finding the right stories on her own.
+            </p>
+
+            <button onClick={() => advanceToChapter(1)}
+              style={{ background: "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", padding: "20px 52px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(20), letterSpacing: 0.5, cursor: "pointer", boxShadow: "0 6px 28px rgba(93,61,26,0.25)", minHeight: 60, transition: "all 0.2s" }}>
+              Continue My Story →
+            </button>
+          </div>
+        </main>
+      )}
+
       {screen === "chat" && showPaywall && previewChapter && (
         <main id="main-content" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "78vh", padding: "40px 24px", animation: "fadeUp 0.5s ease forwards" }}>
           <div style={{ maxWidth: 560, width: "100%", textAlign: "center" }}>
@@ -1748,7 +1905,7 @@ export default function MyStoryFamily() {
               {personaAvatar}
             </div>
 
-            <p style={{ fontSize: fs(12), letterSpacing: "2.5px", textTransform: "uppercase", color: "#b8860b", fontFamily: "'Lato',sans-serif", marginBottom: 16 }}>Your first chapter is complete</p>
+            <p style={{ fontSize: fs(12), letterSpacing: "2.5px", textTransform: "uppercase", color: "#b8860b", fontFamily: "'Lato',sans-serif", marginBottom: 16 }}>Your first section is complete</p>
 
             <h2 style={{ fontSize: fs(36), fontWeight: 300, color: tc("#3d2b1a","#1a0e00"), fontStyle: "italic", lineHeight: 1.25, marginBottom: 16 }}>
               That was just the beginning.
@@ -1765,7 +1922,7 @@ export default function MyStoryFamily() {
             <div style={{ background: "white", borderRadius: 16, border: "1.5px solid rgba(180,140,80,0.2)", padding: "24px 28px", marginBottom: 28, textAlign: "left", boxShadow: "0 4px 20px rgba(93,61,26,0.07)" }}>
               <div style={{ fontSize: fs(12), letterSpacing: "2px", textTransform: "uppercase", color: "#b8860b", fontFamily: "'Lato',sans-serif", marginBottom: 16, textAlign: "center" }}>What you get for $99</div>
               {[
-                ["✦", "All remaining chapters with " + (persona?.name || "your guide"), "Faith, Family, Becoming You, Wisdom & Legacy"],
+                ["✦", "All remaining sections with " + (persona?.name || "your guide"), "Faith, Family, Becoming You, Wisdom & Legacy"],
                 ["📄", "Your complete digital legacy book", "Beautifully formatted PDF, yours to keep and share"],
                 ["🔒", "Saved forever", "Come back anytime — your story waits for you"],
                 ["📖", "Option to add a printed copy", "Professionally bound books from $79, ordered any time"],
@@ -1829,8 +1986,8 @@ export default function MyStoryFamily() {
       {screen === "chat" && !previewChapter && !showPaywall && chapter && (
         <div style={{ display: "flex", flex: 1, maxWidth: 1080, margin: "0 auto", width: "100%", padding: "32px 24px", gap: 32 }}>
           {/* Sidebar */}
-          <nav aria-label="Chapter navigation" style={{ width: 210, flexShrink: 0 }}>
-            <div style={{ fontSize: fs(11), letterSpacing: "2px", textTransform: "uppercase", color: tc("#8b7355", "#4a3020"), fontFamily: "'Lato',sans-serif", marginBottom: 14 }}>Your Chapters</div>
+          <nav aria-label="Section navigation" style={{ width: 210, flexShrink: 0 }}>
+            <div style={{ fontSize: fs(11), letterSpacing: "2px", textTransform: "uppercase", color: tc("#8b7355", "#4a3020"), fontFamily: "'Lato',sans-serif", marginBottom: 14 }}>Your Sections</div>
             {chapters.map((ch, idx) => {
               const chPhotos = (photos[ch.id || ch.title] || []).length;
               const isDone = idx < activeChapter;
@@ -1866,7 +2023,7 @@ export default function MyStoryFamily() {
           {/* Chat area */}
           <main id="main-content" style={{ flex: 1, display: "flex", flexDirection: "column" }}>
             <div style={{ marginBottom: 18 }}>
-              <p style={{ fontSize: fs(12), letterSpacing: "2px", textTransform: "uppercase", color: "#b8860b", fontFamily: "'Lato',sans-serif" }}>Chapter {activeChapter + 1} of {chapters.length}</p>
+              <p style={{ fontSize: fs(12), letterSpacing: "2px", textTransform: "uppercase", color: "#b8860b", fontFamily: "'Lato',sans-serif" }}>Section {activeChapter + 1} of {chapters.length}</p>
               <h2 style={{ fontSize: fs(28), fontWeight: 600, color: tc("#3d2b1a", "#1a0e00"), marginTop: 4 }}>{chapter.icon} {chapter.title}</h2>
               {userMessageCount > 0 && (
                 <p style={{ fontSize: fs(12), color: tc("#a89070", "#6b5030"), fontFamily: "'Lato',sans-serif", marginTop: 6 }}>
@@ -1997,6 +2154,15 @@ export default function MyStoryFamily() {
                   aria-label="Type your story here. Press Enter to send, Shift+Enter for a new line."
                   rows={1}
                   style={{ flex: 1, border: "none", outline: "none", resize: "none", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(17), color: tc("#3d2b1a", "#1a0e00"), background: "transparent", lineHeight: 1.7, minHeight: 36, maxHeight: 140, overflowY: "auto" }} />
+                <button onClick={toggleMic} aria-label={isListening ? "Stop listening" : "Start voice input"} title={isListening ? "Tap to stop" : "Tap to speak"}
+                  style={{ width: 46, height: 46, borderRadius: "50%", background: isListening ? "linear-gradient(135deg,#c0392b,#e74c3c)" : "rgba(184,134,11,0.12)", border: `1.5px solid ${isListening ? "#c0392b" : "rgba(184,134,11,0.3)"}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all 0.2s", minWidth: 46, animation: isListening ? "pulse 1.5s ease-in-out infinite" : "none" }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <rect x="9" y="2" width="6" height="11" rx="3" fill={isListening ? "white" : "#b8860b"} />
+                    <path d="M5 10a7 7 0 0014 0" stroke={isListening ? "white" : "#b8860b"} strokeWidth="2" strokeLinecap="round" fill="none"/>
+                    <line x1="12" y1="19" x2="12" y2="22" stroke={isListening ? "white" : "#b8860b"} strokeWidth="2" strokeLinecap="round"/>
+                    <line x1="9" y1="22" x2="15" y2="22" stroke={isListening ? "white" : "#b8860b"} strokeWidth="2" strokeLinecap="round"/>
+                  </svg>
+                </button>
                 <button className="send-btn" onClick={() => sendMessage()} disabled={!input.trim() || loading} aria-label="Send your response"
                   style={{ width: 46, height: 46, borderRadius: "50%", background: personaAvatarBg, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all 0.2s", opacity: (!input.trim() || loading) ? 0.35 : 1, minWidth: 46 }}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M22 2L11 13" stroke="#fdf6ec" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="#fdf6ec" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -2008,7 +2174,7 @@ export default function MyStoryFamily() {
                     Or just start typing and {persona?.name || "I"}'ll help you shape it into your story
                   </span>
                   <span style={{ fontSize: fs(12), color: tc("#c4a882", "#8b7355"), fontFamily: "'Lato',sans-serif" }}>
-                    📱 On your phone? Tap the <strong style={{ color: tc("#9a7a50","#6b5030") }}>🎤</strong> on your keyboard and just talk — {persona?.name || "Grace"} will do the rest
+                    🎤 Tap the microphone to speak — or use your keyboard mic on mobile
                   </span>
                 </div>
                 <button className="help-btn" onClick={helpMeWrite} disabled={!input.trim() || writingHelp} aria-label="Help me write this"
@@ -2040,11 +2206,11 @@ export default function MyStoryFamily() {
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, marginTop: 14 }}>
                 <button className="complete-btn" onClick={chapterComplete}
                   style={{ background: "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", padding: "14px 36px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(17), letterSpacing: 0.5, cursor: "pointer", boxShadow: "0 4px 16px rgba(93,61,26,0.2)", minHeight: 52, transition: "all 0.2s" }}>
-                  ✦ This chapter feels complete
+                  ✦ This section feels complete
                 </button>
                 <button className="next-btn" onClick={exploreNewAngle} disabled={loading}
                   style={{ background: "transparent", border: `${highContrast ? 2 : 1.5}px solid rgba(180,140,80,0.4)`, color: tc("#7a5030", "#3d2b1a"), fontFamily: "'Lato',sans-serif", fontSize: fs(12), letterSpacing: "1px", textTransform: "uppercase", padding: "10px 22px", borderRadius: 100, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.4 : 1, minHeight: 44, transition: "all 0.2s" }}>
-                  Take me somewhere new in this chapter →
+                  Take me somewhere new in this section →
                 </button>
               </div>
             )}
