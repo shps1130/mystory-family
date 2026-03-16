@@ -1807,7 +1807,7 @@ export default function MyStoryFamily() {
                 <div style={{ borderRadius: 12, overflow: "hidden", border: "1px solid rgba(180,140,80,0.2)", boxShadow: "0 4px 20px rgba(93,61,26,0.1)", background: "#000", aspectRatio: "16/9", width: "100%" }}>
                   <iframe
                     width="100%" height="100%"
-                    src="https://app.heygen.com/embeds/3818fb42e03440408140a6addde9d192"
+                    src="https://app.heygen.com/embeds/6c365a15c25a47acbce8056ddb53120e"
                     title="Welcome from Grace"
                     frameBorder="0"
                     allow="encrypted-media; fullscreen;"
