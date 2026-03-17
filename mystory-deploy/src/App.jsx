@@ -737,29 +737,46 @@ export default function MyStoryFamily() {
       const paymentSuccess = params.get("payment_success") === "true";
       const paymentCancelled = params.get("payment_cancelled") === "true";
 
-      // Clean the URL immediately so it doesn't linger
       if (paymentSuccess || paymentCancelled) {
         window.history.replaceState({}, "", window.location.pathname);
       }
 
+      // Try localStorage first for fast load, then sync with Supabase
       const raw = localStorage.getItem("mystory_session");
       if (raw) {
         const s = JSON.parse(raw);
         if (paymentSuccess && s?.user?.email) {
-          // Returning from Stripe — mark as paid and restore to chapter preview
           s.hasPaid = true;
           localStorage.setItem("mystory_session", JSON.stringify(s));
+          // Also save paid status to Supabase
+          fetch("/api/session-save", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: s.user.email, session: s }),
+          }).catch(() => {});
           restoreSession(s, true);
           setTimeout(() => announce("Payment confirmed — let's continue your story. ✦"), 600);
           return;
         }
         if (paymentCancelled && s?.user?.email) {
-          // Returned without paying — restore to paywall
           restoreSession(s);
           setTimeout(() => setShowPaywall(true), 400);
           return;
         }
-        if (s?.user?.email) setSavedSession(s);
+        if (s?.user?.email) {
+          // Load fresh session from Supabase in background
+          fetch(`/api/session-load?email=${encodeURIComponent(s.user.email)}`)
+            .then(r => r.json())
+            .then(data => {
+              if (data.session) {
+                localStorage.setItem("mystory_session", JSON.stringify(data.session));
+                setSavedSession(data.session);
+              } else {
+                setSavedSession(s);
+              }
+            })
+            .catch(() => setSavedSession(s));
+        }
       }
     } catch {}
   }, []);
@@ -775,7 +792,16 @@ export default function MyStoryFamily() {
         previewChapter,
         ...overrides,
       };
+      // Always save to localStorage for instant restore
       localStorage.setItem("mystory_session", JSON.stringify(session));
+      // Also save to Supabase for cross-device access
+      if (session.user?.email) {
+        fetch("/api/session-save", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: session.user.email, session }),
+        }).catch(() => {});
+      }
     } catch {}
   };
 
@@ -816,79 +842,84 @@ export default function MyStoryFamily() {
   };
 
   // ── ACCOUNT HELPERS ───────────────────────────────────────────────────────
-  const handleSignup = () => {
+  const handleSignup = async () => {
     const { firstName, lastName, email, password } = signupFields;
     if (!firstName.trim()) { setSignupError("Please enter your first name."); return; }
     if (!lastName.trim()) { setSignupError("Please enter your last name."); return; }
     if (!email.includes("@")) { setSignupError("Please enter a valid email address."); return; }
     if (password.length < 6) { setSignupError("Password must be at least 6 characters."); return; }
-    // Check for existing account in localStorage
-    const existing = JSON.parse(localStorage.getItem("mystory_accounts") || "[]");
-    if (existing.find(a => a.email.toLowerCase() === email.toLowerCase())) {
-      setSignupError("An account with that email already exists. Please sign in instead."); return;
+    setSignupError("Creating your account…");
+    try {
+      const res = await fetch("/api/auth-signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ firstName, lastName, email, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setSignupError(data.error || "Could not create account. Please try again."); return; }
+      setUser(data.user);
+      setSignupError("");
+      setScreen("onboarding");
+    } catch {
+      setSignupError("Connection error. Please check your internet and try again.");
     }
-    const newUser = { firstName: firstName.trim(), lastName: lastName.trim(), email: email.trim().toLowerCase(), password };
-    localStorage.setItem("mystory_accounts", JSON.stringify([...existing, newUser]));
-    setUser(newUser);
-    setSignupError("");
-    setScreen("onboarding");
   };
 
-  const handleSignin = () => {
+  const handleSignin = async () => {
     const { email, password } = signinFields;
     if (!email.includes("@")) { setSigninError("Please enter your email address."); return; }
     if (!password) { setSigninError("Please enter your password."); return; }
-    // Check accounts
-    const existing = JSON.parse(localStorage.getItem("mystory_accounts") || "[]");
-    const match = existing.find(a => a.email.toLowerCase() === email.toLowerCase() && a.password === password);
-    if (!match) { setSigninError("That email and password don't match. Please try again."); return; }
-    // Check for saved session for this account
+    setSigninError("Signing in…");
     try {
-      const raw = localStorage.getItem("mystory_session");
-      if (raw) {
-        const s = JSON.parse(raw);
-        if (s?.user?.email?.toLowerCase() === email.toLowerCase()) {
-          restoreSession(s);
-          return;
-        }
+      const res = await fetch("/api/auth-signin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setSigninError(data.error || "That email and password don't match."); return; }
+      setSigninError("");
+      if (data.session) {
+        // Has saved session — restore it
+        localStorage.setItem("mystory_session", JSON.stringify(data.session));
+        restoreSession(data.session);
+      } else {
+        // New user — start fresh
+        setUser(data.user);
+        setScreen("onboarding");
       }
-    } catch {}
-    // Account exists but no saved session — start fresh
-    setUser(match);
-    setSigninError("");
-    setScreen("onboarding");
+    } catch {
+      setSigninError("Connection error. Please check your internet and try again.");
+    }
   };
 
-  const handleForgotPassword = () => {
+  const handleForgotPassword = async () => {
     setForgotError("");
     if (!forgotEmail.includes("@")) { setForgotError("Please enter your email address."); return; }
     if (forgotNewPassword.length < 6) { setForgotError("New password must be at least 6 characters."); return; }
     if (forgotNewPassword !== forgotConfirm) { setForgotError("Passwords don't match."); return; }
-    const existing = JSON.parse(localStorage.getItem("mystory_accounts") || "[]");
-    const idx = existing.findIndex(a => a.email.toLowerCase() === forgotEmail.toLowerCase());
-    if (idx === -1) { setForgotError("We couldn't find an account with that email address."); return; }
-    existing[idx].password = forgotNewPassword;
-    localStorage.setItem("mystory_accounts", JSON.stringify(existing));
-    // Also update session if it exists
+    setForgotError("Updating password…");
     try {
-      const raw = localStorage.getItem("mystory_session");
-      if (raw) {
-        const s = JSON.parse(raw);
-        if (s?.user?.email?.toLowerCase() === forgotEmail.toLowerCase()) {
-          s.user.password = forgotNewPassword;
-          localStorage.setItem("mystory_session", JSON.stringify(s));
-        }
-      }
-    } catch {}
-    setForgotSuccess(true);
-    setForgotError("");
+      const res = await fetch("/api/auth-forgot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: forgotEmail, newPassword: forgotNewPassword }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setForgotError(data.error || "Could not update password."); return; }
+      setForgotSuccess(true);
+      setForgotError("");
+    } catch {
+      setForgotError("Connection error. Please try again.");
+    }
   };
 
   const handleSignout = () => {
     if (window.confirm("Sign out? Your progress is saved and you can continue any time.")) {
       setUser(null);
       setScreen("welcome");
-      setSavedSession(JSON.parse(localStorage.getItem("mystory_session") || "null"));
+      setSavedSession(null);
+      localStorage.removeItem("mystory_session");
     }
   };
 
