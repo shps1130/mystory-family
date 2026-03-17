@@ -52,19 +52,6 @@ const ONBOARDING_STEPS = [
     placeholder: "Or tell us in your own words...",
   },
   {
-    id: "faith",
-    question: "How much has faith shaped your story?",
-    subtext: "There's no right answer — this simply helps us find the right voice for your book.",
-    type: "scale",
-    options: [
-      { value: 1, label: "Not much", desc: "My story is more about life and family" },
-      { value: 2, label: "Some", desc: "Faith was present but not central" },
-      { value: 3, label: "Quite a bit", desc: "Faith shaped many of my choices" },
-      { value: 4, label: "Deeply", desc: "My faith is woven through everything" },
-      { value: 5, label: "Everything", desc: "My story is inseparable from my faith" },
-    ],
-  },
-  {
     id: "personality",
     question: "How would the people who love you describe you?",
     subtext: "Choose all that feel true — this is how your voice will come through on the page.",
@@ -83,25 +70,12 @@ const PERSONAS = {
     tagline: "She listens with her whole heart",
     intro: (profile) => `I've been looking forward to meeting you. 🕊️\n\nI'm Grace, and I'm here to help you tell the story only you can tell — the one your family will carry long after this moment.\n\nI know ${profile.audience ? `you're writing this for ${profile.audience}` : "this is for the people you love most"}. I know how much your faith has shaped who you are. And I promise to hold everything you share with the care it deserves.\n\nThere's no rush here. No wrong answer. Start wherever feels natural — or just begin typing and I'll help shape it into something beautiful.\n\n*${profile.firstQuestion}*`,
   },
-  sage: {
-    name: "Sage",
-    avatar: "🌿",
-    avatarBg: "linear-gradient(135deg,#3a6b4a,#5c9b6a)",
-    role: "Your legacy guide & story companion",
-    tagline: "She finds the meaning in the everyday",
-    intro: (profile) => `I've been looking forward to meeting you. 🌿\n\nI'm Sage, and I'm here to help you tell the story only you can tell — the one your family will carry long after this moment.\n\nI know ${profile.audience ? `you're writing this for ${profile.audience}` : "this is for the people you love most"}. And I can already tell there's a richness to your life worth capturing on every page.\n\nThere's no rush here. No wrong answer. Start wherever feels natural — or just begin typing and I'll help shape it into something beautiful.\n\n*${profile.firstQuestion}*`,
-  },
 };
 
 // ─── DYNAMIC SYSTEM PROMPT ────────────────────────────────────────────────────
 const buildSystemPrompt = (persona, profile) => {
-  const isGrace = persona.name === "Grace";
-  const faithLevel = profile.faithScale || 1;
-  const faithVoice = faithLevel >= 4
-    ? "You speak naturally about God, faith, scripture, and spiritual meaning. References to God's hand, answered prayer, and biblical wisdom feel natural and authentic in your voice — never preachy, always warm."
-    : faithLevel === 3
-    ? "You are spiritually warm and comfortable with faith language. You might gently reference God, purpose, or meaning when it arises naturally, but you don't lead with it."
-    : "You are spiritually curious and respectful. You might reference something larger at work in a moment, or speak of meaning and purpose, but you don't use specifically religious language unless the person introduces it.";
+  const isGrace = true;
+  const faithVoice = "You speak naturally about God, faith, scripture, and spiritual meaning. References to God's hand, answered prayer, and biblical wisdom feel natural and authentic in your voice — never preachy, always warm.";
 
   const personalityNote = profile.personality?.length
     ? `The person describes themselves as: ${profile.personality.join(", ")}. Honor this in how you engage — match your energy to theirs.`
@@ -1075,7 +1049,7 @@ export default function MyStoryFamily() {
     } else {
       // All done — assign persona and build system prompt
       const faithLevel = newAnswers.faith || 1;
-      const chosenPersona = faithLevel >= 3 ? PERSONAS.grace : PERSONAS.sage;
+      const chosenPersona = PERSONAS.grace;
       const firstQ = getQuestion(BASE_CHAPTERS.find(c => enabledChapters.includes(c.id))?.prompts[0] || BASE_CHAPTERS[0].prompts[0]);
       const profile = {
         audience: newAnswers.audience,
@@ -1935,8 +1909,7 @@ export default function MyStoryFamily() {
 
             <p style={{ fontSize: fs(18), color: tc("#5c4a35", "#2a1a0a"), lineHeight: 1.85, fontStyle: "italic", marginBottom: 16 }}>
               {persona.name === "Grace"
-                ? `${persona.name} is your faith-centered writing companion. She listens deeply, honors what you share, and helps shape your story with warmth and reverence.`
-                : `${persona.name} is your story companion. She finds meaning in the everyday, draws out the details that matter, and helps your voice come through on every page.`}
+                {`${persona.name} is your faith-centered writing companion. She listens deeply, honors what you share, and helps shape your story with warmth and reverence.`}
             </p>
             <p style={{ fontSize: fs(15), color: tc("#8b7355", "#5c3d1e"), fontFamily: "'Lato',sans-serif", marginBottom: 40, lineHeight: 1.7 }}>
               {persona.tagline}
