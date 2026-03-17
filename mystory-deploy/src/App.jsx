@@ -1893,7 +1893,7 @@ export default function MyStoryFamily() {
               <div style={{ marginBottom: 32, borderRadius: 16, overflow: "hidden", boxShadow: "0 12px 48px rgba(93,61,26,0.2)", border: "1px solid rgba(180,140,80,0.2)", background: "#1a0f05" }}>
                 <div style={{ position: "relative", paddingBottom: "56.25%", height: 0 }}>
                   <iframe
-                    src="https://app.heygen.com/embeds/8d4c1596985d4662808e658d05f3eb01"
+                    src="https://app.heygen.com/embeds/6c365a15c25a47acbce8056ddb53120e"
                     title="A message from Grace"
                     frameBorder="0"
                     allow="encrypted-media; fullscreen;"
@@ -2239,10 +2239,10 @@ export default function MyStoryFamily() {
             {/* Section intro video — shown at start of each section, dismissible */}
             {(() => {
               const chapterVideos = {
-                "early-life": "6c365a15c25a47acbce8056ddb53120e",
-                "becoming-you": "4184003e4d2943b0b7c7489136f42e31",
+                "early-life": "4184003e4d2943b0b7c7489136f42e31",
+                "becoming-you": "e6499e21f45f4dd09adedb0b58e4b595",
                 "faith": "9d7bf4bb7654418593406ddb3bc42093",
-                "family-love": "e6499e21f45f4dd09adedb0b58e4b595",
+                "family-love": "44e503c5182b4cb39f7330b3e9be70a5",
                 "wisdom": "48986e0d7d68415faa4c19e9ac8220dd",
               };
               const videoId = chapterVideos[chapter?.id];
