@@ -2073,21 +2073,20 @@ export default function MyStoryFamily() {
             {/* Section intro video — shown at start of each section, dismissible */}
             {(() => {
               const chapterVideos = {
-                "early-life": "4184003e4d2943b0b7c7489136f42e31",
+                "early-life": "6c365a15c25a47acbce8056ddb53120e",
+                "becoming-you": "4184003e4d2943b0b7c7489136f42e31",
                 "faith": "9d7bf4bb7654418593406ddb3bc42093",
-                "becoming-you": "44e503c5182b4cb39f7330b3e9be70a5",
                 "family-love": "e6499e21f45f4dd09adedb0b58e4b595",
                 "wisdom": "48986e0d7d68415faa4c19e9ac8220dd",
               };
-              const welcomeVideoId = "6c365a15c25a47acbce8056ddb53120e";
-              const videoId = activeChapter === 0 ? welcomeVideoId : chapterVideos[chapter?.id];
+              const videoId = chapterVideos[chapter?.id];
               if (!videoId || dismissedVideos[chapter?.id || activeChapter]) return null;
               return (
                 <div style={{ marginBottom: 16 }}>
                   <div style={{ borderRadius: 12, overflow: "hidden", border: "1px solid rgba(180,140,80,0.2)", boxShadow: "0 4px 20px rgba(93,61,26,0.1)", background: "#000", position: "relative", paddingBottom: "56.25%", height: 0 }}>
                     <iframe
                       src={`https://app.heygen.com/embeds/${videoId}`}
-                      title={activeChapter === 0 ? "Welcome from Grace" : `${chapter.title} introduction`}
+                      title={`${chapter.title} introduction`}
                       frameBorder="0"
                       allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
                       allowFullScreen
