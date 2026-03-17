@@ -1906,8 +1906,7 @@ export default function MyStoryFamily() {
             </div>
 
             <p style={{ fontSize: fs(18), color: tc("#5c4a35", "#2a1a0a"), lineHeight: 1.85, fontStyle: "italic", marginBottom: 16 }}>
-              {persona.name === "Grace"
-                {`${persona.name} is your faith-centered writing companion. She listens deeply, honors what you share, and helps shape your story with warmth and reverence.`}
+              {`${persona.name} is your faith-centered writing companion. She listens deeply, honors what you share, and helps shape your story with warmth and reverence.`}
             </p>
             <p style={{ fontSize: fs(15), color: tc("#8b7355", "#5c3d1e"), fontFamily: "'Lato',sans-serif", marginBottom: 40, lineHeight: 1.7 }}>
               {persona.tagline}
