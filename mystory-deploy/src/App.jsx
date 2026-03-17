@@ -1888,24 +1888,22 @@ export default function MyStoryFamily() {
             <h1 style={{ fontSize: fs(42), fontWeight: 300, color: tc("#3d2b1a", "#1a0e00"), fontStyle: "italic", marginBottom: 8 }}>Meet {persona.name}</h1>
             <p style={{ fontSize: fs(15), color: tc("#8b7355", "#4a3020"), fontFamily: "'Lato',sans-serif", letterSpacing: "1.5px", textTransform: "uppercase", marginBottom: 28 }}>{persona.role}</p>
 
-            {/* Welcome video — Grace/Sage intro */}
-            {persona.name === "Grace" && (
-              <div style={{ marginBottom: 32, borderRadius: 16, overflow: "hidden", boxShadow: "0 12px 48px rgba(93,61,26,0.2)", border: "1px solid rgba(180,140,80,0.2)", background: "#1a0f05" }}>
-                <div style={{ position: "relative", paddingBottom: "56.25%", height: 0 }}>
-                  <iframe
-                    src="https://app.heygen.com/embeds/6c365a15c25a47acbce8056ddb53120e"
-                    title="A message from Grace"
-                    frameBorder="0"
-                    allow="encrypted-media; fullscreen;"
-                    allowFullScreen
-                    style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}
-                  />
-                </div>
-                <div style={{ padding: "10px 16px", background: "rgba(61,43,26,0.6)" }}>
-                  <p style={{ fontSize: fs(12), color: "rgba(245,232,204,0.6)", fontFamily: "'Lato',sans-serif", fontStyle: "italic", margin: 0 }}>A personal message from Grace before you begin</p>
-                </div>
+            {/* Grace intro video */}
+            <div style={{ marginBottom: 32, borderRadius: 16, overflow: "hidden", boxShadow: "0 12px 48px rgba(93,61,26,0.2)", border: "1px solid rgba(180,140,80,0.2)", background: "#1a0f05" }}>
+              <div style={{ position: "relative", paddingBottom: "56.25%", height: 0 }}>
+                <iframe
+                  src="https://app.heygen.com/embeds/6c365a15c25a47acbce8056ddb53120e"
+                  title="A message from Grace"
+                  frameBorder="0"
+                  allow="encrypted-media; fullscreen;"
+                  allowFullScreen
+                  style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}
+                />
               </div>
-            )}
+              <div style={{ padding: "10px 16px", background: "rgba(61,43,26,0.6)" }}>
+                <p style={{ fontSize: fs(12), color: "rgba(245,232,204,0.6)", fontFamily: "'Lato',sans-serif", fontStyle: "italic", margin: 0 }}>A personal message from Grace before you begin</p>
+              </div>
+            </div>
 
             <p style={{ fontSize: fs(18), color: tc("#5c4a35", "#2a1a0a"), lineHeight: 1.85, fontStyle: "italic", marginBottom: 16 }}>
               {persona.name === "Grace"
