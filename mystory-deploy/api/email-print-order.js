@@ -63,7 +63,7 @@ export default async function handler(req, res) {
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${RESEND_API_KEY}` },
       body: JSON.stringify({
         from: "MyStory.Family Orders <orders@mystory.family>",
-        to: ["hello@mystory.family"],
+        to: ["info@mystory.family"],
         subject: `📚 New Print Order — ${shipping.name} — ${option}`,
         html: adminHtml,
       }),
