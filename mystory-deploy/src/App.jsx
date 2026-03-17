@@ -741,30 +741,56 @@ export default function MyStoryFamily() {
         window.history.replaceState({}, "", window.location.pathname);
       }
 
-      // Try localStorage first for fast load, then sync with Supabase
       const raw = localStorage.getItem("mystory_session");
+      const pendingEmail = localStorage.getItem("mystory_pending_email");
+
+      // Returning from Stripe — try localStorage first, then Supabase
+      if (paymentSuccess) {
+        const emailToUse = raw ? JSON.parse(raw)?.user?.email : pendingEmail;
+        if (emailToUse) {
+          fetch(`/api/session-load?email=${encodeURIComponent(emailToUse)}`)
+            .then(r => r.json())
+            .then(data => {
+              if (data.session) {
+                const s = { ...data.session, hasPaid: true };
+                localStorage.setItem("mystory_session", JSON.stringify(s));
+                localStorage.removeItem("mystory_pending_email");
+                // Save paid status back to Supabase
+                fetch("/api/session-save", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ email: emailToUse, session: s }),
+                }).catch(() => {});
+                restoreSession(s, true);
+                setTimeout(() => announce("Payment confirmed — let's continue your story. ✦"), 600);
+              }
+            })
+            .catch(() => {});
+          return;
+        }
+      }
+
+      if (paymentCancelled) {
+        const emailToUse = raw ? JSON.parse(raw)?.user?.email : pendingEmail;
+        if (emailToUse) {
+          fetch(`/api/session-load?email=${encodeURIComponent(emailToUse)}`)
+            .then(r => r.json())
+            .then(data => {
+              if (data.session) {
+                localStorage.setItem("mystory_session", JSON.stringify(data.session));
+                restoreSession(data.session);
+                setTimeout(() => setShowPaywall(true), 400);
+              }
+            })
+            .catch(() => {});
+          return;
+        }
+      }
+
+      // Normal page load — restore from localStorage, sync with Supabase
       if (raw) {
         const s = JSON.parse(raw);
-        if (paymentSuccess && s?.user?.email) {
-          s.hasPaid = true;
-          localStorage.setItem("mystory_session", JSON.stringify(s));
-          // Also save paid status to Supabase
-          fetch("/api/session-save", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email: s.user.email, session: s }),
-          }).catch(() => {});
-          restoreSession(s, true);
-          setTimeout(() => announce("Payment confirmed — let's continue your story. ✦"), 600);
-          return;
-        }
-        if (paymentCancelled && s?.user?.email) {
-          restoreSession(s);
-          setTimeout(() => setShowPaywall(true), 400);
-          return;
-        }
         if (s?.user?.email) {
-          // Load fresh session from Supabase in background
           fetch(`/api/session-load?email=${encodeURIComponent(s.user.email)}`)
             .then(r => r.json())
             .then(data => {
@@ -1230,21 +1256,21 @@ export default function MyStoryFamily() {
 
   const handlePayment = () => {
     // Save full session before leaving — so we can restore it on return
-    saveSession({ hasPaid: false }); // hasPaid stays false until Stripe confirms
+    saveSession({ hasPaid: false });
 
-    // Build the Stripe Payment Link URL
-    // Pre-fill their email so they don't have to type it again
+    // Save email separately as a failsafe for cross-device/cleared storage restore
+    if (user?.email) {
+      localStorage.setItem("mystory_pending_email", user.email);
+    }
+
     const params = new URLSearchParams();
     if (user?.email) params.set("prefilled_email", user.email);
-    // Tell Stripe where to send them after success and after cancel
     params.set("success_url", `${APP_URL}?payment_success=true`);
     params.set("cancel_url", `${APP_URL}?payment_cancelled=true`);
 
     const stripeUrl = `${STRIPE_PAYMENT_LINK}?${params.toString()}`;
 
-    // Check if this is a placeholder link (during development)
     if (STRIPE_PAYMENT_LINK.includes("REPLACE_WITH_YOUR_LINK")) {
-      // Dev mode: simulate payment so we can keep building
       setHasPaid(true);
       const nextC = previewChapter ? previewChapter.chapterIndex + 1 : 1;
       advanceToChapter(nextC);
@@ -1252,7 +1278,6 @@ export default function MyStoryFamily() {
       return;
     }
 
-    // Production: redirect to Stripe
     window.location.href = stripeUrl;
   };
 
