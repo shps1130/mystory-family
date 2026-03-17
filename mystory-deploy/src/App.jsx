@@ -323,9 +323,39 @@ function PhotoUpload({ chapterId, photos, onAdd, onRemove, fs }) {
 }
 
 // ─── PRINT UPGRADE CARD ──────────────────────────────────────────────────────
-function PrintUpgradeCard({ isLast, promoCode, promoInfo, fs, tc, highContrast }) {
+function PrintUpgradeCard({ isLast, promoCode, promoInfo, fs, tc, highContrast, userEmail, userName }) {
   const [selected, setSelected] = useState(null);
   const [expanded, setExpanded] = useState(isLast);
+  const [showShipping, setShowShipping] = useState(false);
+  const [shippingFields, setShippingFields] = useState({ name: userName || "", address: "", city: "", state: "", zip: "", country: "USA" });
+  const [orderLoading, setOrderLoading] = useState(false);
+  const [orderSuccess, setOrderSuccess] = useState(false);
+  const [orderError, setOrderError] = useState("");
+
+  const submitOrder = async () => {
+    const { name, address, city, state, zip, country } = shippingFields;
+    if (!name || !address || !city || !state || !zip) { setOrderError("Please fill in all shipping fields."); return; }
+    setOrderLoading(true);
+    setOrderError("");
+    try {
+      const selectedOption = PRINT_OPTIONS.find(o => o.id === selected);
+      await fetch("/api/email-print-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userEmail,
+          userName: name,
+          option: selectedOption?.label,
+          price: discountedPrice(selectedOption?.price),
+          shipping: { name, address, city, state, zip, country },
+        }),
+      });
+      setOrderSuccess(true);
+    } catch {
+      setOrderError("Something went wrong. Please try again.");
+    }
+    setOrderLoading(false);
+  };
 
   const PRINT_OPTIONS = [
     { id: "one", label: "1 Printed Copy", price: 79, desc: "Professionally bound, delivered to your door", icon: "📖" },
@@ -419,14 +449,54 @@ function PrintUpgradeCard({ isLast, promoCode, promoInfo, fs, tc, highContrast }
           </div>
         )}
 
-        <button disabled={!selected}
-          style={{ width: "100%", background: selected ? "linear-gradient(135deg,#5c3d1e,#8b5e34)" : "rgba(139,94,52,0.15)", color: selected ? "#fdf6ec" : "#a89070", border: "none", padding: "16px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(17), letterSpacing: 0.5, cursor: selected ? "pointer" : "not-allowed", transition: "all 0.2s", minHeight: 54 }}>
-          {selected ? `Add ${PRINT_OPTIONS.find(o => o.id === selected)?.label} — $${discountedPrice(PRINT_OPTIONS.find(o => o.id === selected)?.price)} ✦` : "Select an option above"}
-        </button>
-        <p style={{ fontSize: fs(11), color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", textAlign: "center", marginTop: 10, lineHeight: 1.6 }}>
-          Billed separately when your book is complete · Cancel any time before printing
-        </p>
-        {!isLast && <button onClick={() => setExpanded(false)} style={{ display: "block", margin: "6px auto 0", background: "none", border: "none", color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", fontSize: fs(12), cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3, minHeight: 36, padding: "4px 12px" }}>Not now</button>}
+        {/* Shipping address form — shown after selecting an option */}
+        {showShipping ? (
+          <div style={{ animation: "slideDown 0.25s ease forwards" }}>
+            <div style={{ fontSize: fs(15), fontWeight: 600, color: tc("#3d2b1a","#1a0e00"), fontFamily: "'Cormorant Garamond',serif", marginBottom: 4 }}>
+              Where should we send your book?
+            </div>
+            <p style={{ fontSize: fs(12), color: tc("#8b7355","#5c3d1e"), fontFamily: "'Lato',sans-serif", marginBottom: 14 }}>
+              {PRINT_OPTIONS.find(o => o.id === selected)?.label} — ${discountedPrice(PRINT_OPTIONS.find(o => o.id === selected)?.price)}
+            </p>
+            {[["name","Full Name","text"],["address","Street Address","text"],["city","City","text"],["state","State","text"],["zip","ZIP Code","text"],["country","Country","text"]].map(([key, label, type]) => (
+              <div key={key} style={{ marginBottom: 10 }}>
+                <label style={{ display: "block", fontSize: fs(11), color: tc("#7a5c3a","#4a3020"), fontFamily: "'Lato',sans-serif", fontWeight: 600, marginBottom: 4, letterSpacing: "0.5px" }}>{label}</label>
+                <input type={type} value={shippingFields[key] || ""} onChange={e => setShippingFields(p => ({ ...p, [key]: e.target.value }))}
+                  style={{ width: "100%", border: "1.5px solid rgba(180,140,80,0.3)", borderRadius: 8, padding: "10px 12px", fontFamily: "'Lato',sans-serif", fontSize: fs(14), color: tc("#3d2b1a","#1a0e00"), background: "#fffdf5", outline: "none", boxSizing: "border-box", minHeight: 44 }} />
+              </div>
+            ))}
+            {orderError && <p style={{ fontSize: fs(13), color: "#c0392b", fontFamily: "'Lato',sans-serif", marginBottom: 10 }}>{orderError}</p>}
+            {orderSuccess ? (
+              <div style={{ background: "rgba(184,134,11,0.08)", border: "1px solid rgba(184,134,11,0.25)", borderRadius: 10, padding: "16px", textAlign: "center" }}>
+                <div style={{ fontSize: 28, marginBottom: 8 }}>✦</div>
+                <p style={{ fontSize: fs(15), color: tc("#3d2b1a","#1a0e00"), fontFamily: "'Cormorant Garamond',serif", fontStyle: "italic", marginBottom: 4 }}>Order received!</p>
+                <p style={{ fontSize: fs(13), color: tc("#6b5540","#3a2510"), fontFamily: "'Lato',sans-serif" }}>We'll be in touch at your email to confirm shipping details.</p>
+              </div>
+            ) : (
+              <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+                <button onClick={submitOrder} disabled={orderLoading}
+                  style={{ flex: 1, background: "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", padding: "14px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(16), cursor: "pointer", minHeight: 50, transition: "all 0.2s" }}>
+                  {orderLoading ? "Placing order…" : `Place My Order — $${discountedPrice(PRINT_OPTIONS.find(o => o.id === selected)?.price)} ✦`}
+                </button>
+                <button onClick={() => setShowShipping(false)}
+                  style={{ background: "none", border: "1.5px solid rgba(180,140,80,0.3)", color: tc("#6b5540","#3a2510"), fontFamily: "'Lato',sans-serif", fontSize: fs(13), padding: "14px 16px", borderRadius: 100, cursor: "pointer", minHeight: 50 }}>
+                  Back
+                </button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <>
+            <button disabled={!selected} onClick={() => selected && setShowShipping(true)}
+              style={{ width: "100%", background: selected ? "linear-gradient(135deg,#5c3d1e,#8b5e34)" : "rgba(139,94,52,0.15)", color: selected ? "#fdf6ec" : "#a89070", border: "none", padding: "16px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(17), letterSpacing: 0.5, cursor: selected ? "pointer" : "not-allowed", transition: "all 0.2s", minHeight: 54 }}>
+              {selected ? `Order ${PRINT_OPTIONS.find(o => o.id === selected)?.label} — $${discountedPrice(PRINT_OPTIONS.find(o => o.id === selected)?.price)} ✦` : "Select an option above"}
+            </button>
+            <p style={{ fontSize: fs(11), color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", textAlign: "center", marginTop: 10, lineHeight: 1.6 }}>
+              We'll collect your shipping address on the next step
+            </p>
+          </>
+        )}
+        {!isLast && !showShipping && <button onClick={() => setExpanded(false)} style={{ display: "block", margin: "6px auto 0", background: "none", border: "none", color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", fontSize: fs(12), cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3, minHeight: 36, padding: "4px 12px" }}>Not now</button>}
       </div>
     </div>
   );
@@ -577,7 +647,7 @@ function ChapterPreview({ chapter, chapterMessages, chapterPhotos, onContinue, o
 
       {/* Print upgrade card — only show when narrative is ready */}
       {!generatingNarrative && (
-        <PrintUpgradeCard isLast={isLast} promoCode={promoCode} promoInfo={promoInfo} fs={fs} tc={tc} highContrast={highContrast} />
+        <PrintUpgradeCard isLast={isLast} promoCode={promoCode} promoInfo={promoInfo} fs={fs} tc={tc} highContrast={highContrast} userEmail={user?.email} userName={`${user?.firstName} ${user?.lastName}`} />
       )}
 
       {/* Do you like this? — AI editor */}
@@ -691,6 +761,7 @@ export default function MyStoryFamily() {
   const [showPaywall, setShowPaywall] = useState(false);
   const [chapterNarratives, setChapterNarratives] = useState({}); // { chapterId: "prose..." }
   const [generatingNarrative, setGeneratingNarrative] = useState(false);
+  const [bookComplete, setBookComplete] = useState(false);
   const [dismissedVideos, setDismissedVideos] = useState({});
   const [revisingIdx, setRevisingIdx] = useState(null);
   const [revisionInput, setRevisionInput] = useState("");
@@ -1250,8 +1321,110 @@ export default function MyStoryFamily() {
       announce(`Starting section: ${chapters[nextC].title}`);
     } else {
       setMessages([{ role: "assistant", content: `You've done something extraordinary. Your stories, your wisdom, everything you've shared — preserved forever for the people you love. ${persona?.avatar || "🕊️"}\n\nThank you for trusting me with your legacy.` }]);
+      setBookComplete(true);
       announce("Congratulations! Your legacy story is complete.");
     }
+  };
+
+  const generatePDF = () => {
+    const bookWindow = window.open("", "_blank");
+    const chapterList = chapters.map(ch => {
+      const key = ch.id || ch.title;
+      const narrative = chapterNarratives[key] || "";
+      const chPhotos = photos[key] || [];
+      return { ...ch, narrative, chPhotos };
+    });
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>${user?.firstName} ${user?.lastName} — My Legacy Story</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Lato:wght@300;400;600&display=swap');
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Cormorant Garamond', Georgia, serif; background: white; color: #2a1a0a; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    
+    /* Cover page */
+    .cover { width: 100%; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; background: #fdf6ec; padding: 80px 60px; page-break-after: always; }
+    .cover-ornament { font-size: 56px; margin-bottom: 40px; }
+    .cover-title { font-size: 52px; font-weight: 300; color: #3d2b1a; font-style: italic; line-height: 1.2; margin-bottom: 20px; }
+    .cover-subtitle { font-size: 18px; color: #8b7355; font-family: 'Lato', sans-serif; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 48px; }
+    .cover-divider { width: 80px; height: 1px; background: #b8860b; margin: 0 auto 48px; }
+    .cover-dedication { font-size: 20px; color: #6b5540; font-style: italic; line-height: 1.8; max-width: 440px; }
+    .cover-footer { position: absolute; bottom: 60px; font-size: 13px; color: #b8860b; font-family: 'Lato', sans-serif; letter-spacing: 2px; text-transform: uppercase; }
+
+    /* Chapter pages */
+    .chapter { padding: 72px 80px; page-break-before: always; max-width: 800px; margin: 0 auto; }
+    .chapter-header { margin-bottom: 48px; padding-bottom: 24px; border-bottom: 1px solid rgba(184,134,11,0.2); }
+    .chapter-label { font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: #b8860b; font-family: 'Lato', sans-serif; margin-bottom: 10px; }
+    .chapter-title { font-size: 38px; font-weight: 300; color: #3d2b1a; display: flex; align-items: center; gap: 14px; }
+    .chapter-icon { font-size: 32px; }
+    .chapter-body p { font-size: 17px; line-height: 2.1; color: #2a1a0a; margin-bottom: 22px; text-indent: 1.5em; }
+    .chapter-body p:first-child { text-indent: 0; }
+    .chapter-photo { width: 100%; max-height: 380px; object-fit: cover; border-radius: 4px; margin: 28px 0; border: 1px solid rgba(180,140,80,0.2); }
+    .chapter-photo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 28px 0; }
+    .chapter-photo-grid img { width: 100%; height: 220px; object-fit: cover; border-radius: 4px; border: 1px solid rgba(180,140,80,0.2); }
+
+    /* Back cover */
+    .back-cover { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; background: #3d2b1a; padding: 80px 60px; page-break-before: always; }
+    .back-cover-logo { font-size: 36px; margin-bottom: 20px; }
+    .back-cover-name { font-size: 28px; color: #fdf6ec; font-style: italic; margin-bottom: 8px; }
+    .back-cover-tagline { font-size: 14px; color: rgba(253,246,236,0.6); font-family: 'Lato', sans-serif; letter-spacing: 2px; text-transform: uppercase; }
+
+    @media print {
+      body { -webkit-print-color-adjust: exact; }
+      .cover, .chapter, .back-cover { page-break-after: always; }
+      @page { margin: 0; size: letter; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Cover -->
+  <div class="cover">
+    <div class="cover-ornament">🕊️</div>
+    <h1 class="cover-title">${user?.firstName} ${user?.lastName}</h1>
+    <p class="cover-subtitle">A Legacy Story</p>
+    <div class="cover-divider"></div>
+    <p class="cover-dedication">Preserved for the people I love most</p>
+    <div class="cover-footer">MyStory.Family · ${new Date().getFullYear()}</div>
+  </div>
+
+  <!-- Chapters -->
+  ${chapterList.map((ch, idx) => {
+    const paragraphs = (ch.narrative || "").split(/\n+/).map(p => p.trim()).filter(p => p.length > 0);
+    if (!paragraphs.length) return "";
+    return `
+  <div class="chapter">
+    <div class="chapter-header">
+      <div class="chapter-label">Chapter ${idx + 1}</div>
+      <div class="chapter-title"><span class="chapter-icon">${ch.icon}</span>${ch.title}</div>
+    </div>
+    <div class="chapter-body">
+      ${paragraphs.map((para, i) => {
+        let html = `<p>${para}</p>`;
+        if (ch.chPhotos[0] && i === 1) html += `<img class="chapter-photo" src="${ch.chPhotos[0].url}" alt="Photo">`;
+        if (ch.chPhotos.length >= 3 && i === 3) html += `<div class="chapter-photo-grid">${ch.chPhotos.slice(1, 3).map(p => `<img src="${p.url}" alt="Photo">`).join("")}</div>`;
+        return html;
+      }).join("")}
+    </div>
+  </div>`;
+  }).join("")}
+
+  <!-- Back cover -->
+  <div class="back-cover">
+    <div class="back-cover-logo">🕊️</div>
+    <p class="back-cover-name">${user?.firstName} ${user?.lastName}</p>
+    <p class="back-cover-tagline">MyStory.Family</p>
+  </div>
+
+  <script>window.onload = () => { window.print(); }</script>
+</body>
+</html>`;
+
+    bookWindow.document.write(html);
+    bookWindow.document.close();
   };
 
   const handlePayment = () => {
@@ -1472,7 +1645,7 @@ export default function MyStoryFamily() {
           )}
           <p style={{ marginTop: 22, fontSize: fs(14), color: tc("#a89070", "#5c3d1e"), fontFamily: "'Lato',sans-serif", lineHeight: 1.7, textAlign: "center" }}>
             First section free · no card required<br />
-            <span style={{ fontSize: fs(13), opacity: 0.8 }}>Unlock your full legacy book for $99 when you're ready</span>
+            <span style={{ fontSize: fs(13), opacity: 0.8 }}>Unlock your full book + PDF download for $99 when you're ready</span>
           </p>
         </main>
       )}
@@ -1768,7 +1941,7 @@ export default function MyStoryFamily() {
             <p style={{ fontSize: fs(15), color: tc("#8b7355", "#5c3d1e"), fontFamily: "'Lato',sans-serif", marginBottom: 40, lineHeight: 1.7 }}>
               {persona.tagline}
             </p>
-            <button className="start-btn" onClick={() => setScreen("booksize")}
+            <button className="start-btn" onClick={() => setScreen("setup")}
               style={{ background: personaAvatarBg, color: "#fdf6ec", border: "none", padding: "18px 52px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(19), letterSpacing: 1, cursor: "pointer", boxShadow: "0 4px 24px rgba(93,61,26,0.25)", minHeight: 58 }}>
               Continue with {persona.name} ✦
             </button>
@@ -1777,57 +1950,10 @@ export default function MyStoryFamily() {
       )}
 
       {/* ── BOOK SIZE ── */}
-      {screen === "booksize" && (
-        <main id="main-content" style={{ maxWidth: 940, margin: "0 auto", padding: "44px 24px", width: "100%" }}>
-          <p style={{ fontSize: fs(12), letterSpacing: "2.5px", textTransform: "uppercase", color: "#b8860b", fontFamily: "'Lato',sans-serif", marginBottom: 8 }}>Step 1 of 3</p>
-          <h1 style={{ fontSize: fs(34), fontWeight: 600, color: tc("#3d2b1a", "#1a0e00"), marginBottom: 10 }}>Choose Your Book Format</h1>
-          <p style={{ fontSize: fs(17), color: tc("#6b5540", "#3d2b1a"), fontStyle: "italic", marginBottom: 40, lineHeight: 1.7 }}>Your legacy deserves to be displayed, not hidden in a drawer. Choose the format that feels right — or decide later.</p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 20, marginBottom: 36 }} role="group" aria-label="Book format options">
-            {BOOK_SIZES.map(size => {
-              const selected = bookSize === size.id;
-              return (
-                <div key={size.id} className="sz-card" role="radio" aria-checked={selected} tabIndex={0}
-                  onClick={() => setBookSize(size.id)} onKeyDown={e => (e.key === "Enter" || e.key === " ") && setBookSize(size.id)}
-                  aria-label={`${size.label}, ${size.dims}. ${size.desc}${size.popular ? " Most popular." : ""}`}
-                  style={{ position: "relative", background: selected ? "#fffdf5" : "white", border: `${highContrast ? 3 : 2}px solid ${selected ? "#b8860b" : highContrast ? "#7a5c3a" : "rgba(180,140,80,0.25)"}`, borderRadius: 16, padding: "24px 18px 20px", cursor: "pointer", boxShadow: selected ? "0 8px 32px rgba(93,61,26,0.12)" : "0 2px 8px rgba(93,61,26,0.04)" }}>
-                  {size.popular && <div style={{ position: "absolute", top: -12, left: "50%", transform: "translateX(-50%)", background: "linear-gradient(135deg,#b8860b,#d4a843)", color: "#fdf6ec", fontSize: fs(11), fontFamily: "'Lato',sans-serif", fontWeight: 700, letterSpacing: "1px", textTransform: "uppercase", padding: "5px 16px", borderRadius: 100, whiteSpace: "nowrap" }}>Most Popular</div>}
-                  <div style={{ display: "flex", justifyContent: "center", marginBottom: 16, height: 120, alignItems: "flex-end" }}><BookMockup size={size} selected={selected} /></div>
-                  <div style={{ textAlign: "center", marginBottom: 12 }}>
-                    <div style={{ fontSize: fs(11), letterSpacing: "1.5px", textTransform: "uppercase", color: "#b8860b", fontFamily: "'Lato',sans-serif", marginBottom: 3 }}>{size.tag}</div>
-                    <div style={{ fontSize: fs(20), fontWeight: 600, color: tc("#3d2b1a", "#1a0e00"), marginBottom: 2 }}>{size.label}</div>
-                    <div style={{ fontSize: fs(14), color: tc("#7a6040", "#4a3020"), fontFamily: "'Lato',sans-serif" }}>{size.dims}</div>
-                  </div>
-                  <p style={{ fontSize: fs(14), color: tc("#6b5540", "#3d2b1a"), fontStyle: "italic", lineHeight: 1.65, textAlign: "center", marginBottom: 14 }}>{size.desc}</p>
-                  <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 6 }}>
-                    {size.features.map((f, i) => <li key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={{ color: "#b8860b", fontSize: 12 }} aria-hidden="true">✦</span><span style={{ fontSize: fs(13), color: tc("#6b5540", "#3d2b1a"), fontFamily: "'Lato',sans-serif" }}>{f}</span></li>)}
-                  </ul>
-                  <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid rgba(180,140,80,0.2)", textAlign: "center" }}>
-                    <span style={{ fontSize: fs(13), color: tc("#a89070", "#5c3d1e"), fontFamily: "'Lato',sans-serif", fontStyle: "italic" }}>Pricing coming soon</span>
-                  </div>
-                  {selected && <div style={{ position: "absolute", top: 14, right: 14, width: 26, height: 26, borderRadius: "50%", background: "#b8860b", display: "flex", alignItems: "center", justifyContent: "center" }} aria-hidden="true"><svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="#fdf6ec" strokeWidth="2.2" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg></div>}
-                </div>
-              );
-            })}
-          </div>
-          <div style={{ textAlign: "center" }}>
-            <button className="start-btn" onClick={() => setScreen("setup")} disabled={!bookSize}
-              style={{ background: "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", padding: "18px 54px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(19), letterSpacing: 1, cursor: bookSize ? "pointer" : "not-allowed", opacity: bookSize ? 1 : 0.45, minHeight: 58 }}>
-              Continue with {bookSize ? BOOK_SIZES.find(s => s.id === bookSize)?.label : "Selected"} Format ✦
-            </button>
-            {!bookSize && <p style={{ marginTop: 10, fontSize: fs(14), color: tc("#8b7355", "#4a3020"), fontFamily: "'Lato',sans-serif" }}>Select a format above to continue</p>}
-            <div style={{ marginTop: 16 }}>
-              <button onClick={() => { setBookSize(null); setScreen("setup"); }} style={{ background: "none", border: "none", color: tc("#7a6040", "#4a3020"), fontFamily: "'Lato',sans-serif", fontSize: fs(14), cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3, minHeight: 44, padding: "6px 12px" }}>
-                I'll decide on the format later
-              </button>
-            </div>
-          </div>
-        </main>
-      )}
-
       {/* ── CHAPTER SETUP ── */}
       {screen === "setup" && (
         <main id="main-content" style={{ maxWidth: 720, margin: "0 auto", padding: "44px 24px", width: "100%" }}>
-          <p style={{ fontSize: fs(12), letterSpacing: "2.5px", textTransform: "uppercase", color: "#b8860b", fontFamily: "'Lato',sans-serif", marginBottom: 8 }}>Step 2 of 3</p>
+          <p style={{ fontSize: fs(12), letterSpacing: "2.5px", textTransform: "uppercase", color: "#b8860b", fontFamily: "'Lato',sans-serif", marginBottom: 8 }}>Step 1 of 2</p>
           <h1 style={{ fontSize: fs(34), fontWeight: 600, color: tc("#3d2b1a", "#1a0e00"), marginBottom: 8 }}>Shape Your Book</h1>
           <p style={{ fontSize: fs(17), color: tc("#6b5540", "#3d2b1a"), fontStyle: "italic", marginBottom: 28, lineHeight: 1.7 }}>Every life is different. Choose which sections belong in yours — and add your own if something important is missing.</p>
           <div style={{ textAlign: "center", marginBottom: 28 }}>
@@ -1985,9 +2111,9 @@ export default function MyStoryFamily() {
             <div style={{ background: "white", borderRadius: 16, border: "1.5px solid rgba(180,140,80,0.2)", padding: "24px 28px", marginBottom: 28, textAlign: "left", boxShadow: "0 4px 20px rgba(93,61,26,0.07)" }}>
               <div style={{ fontSize: fs(12), letterSpacing: "2px", textTransform: "uppercase", color: "#b8860b", fontFamily: "'Lato',sans-serif", marginBottom: 16, textAlign: "center" }}>What you get for $99</div>
               {[
+                ["📄", "Your complete book as a beautiful PDF", "Download instantly and share with your whole family — forever"],
                 ["✦", "All remaining sections with " + (persona?.name || "your guide"), "Faith, Family, Becoming You, Wisdom & Legacy"],
-                ["📄", "Your complete digital legacy book", "Beautifully formatted PDF, yours to keep and share"],
-                ["🔒", "Saved forever", "Come back anytime — your story waits for you"],
+                ["🔒", "Saved forever to your account", "Come back anytime on any device — your story waits for you"],
                 ["📖", "Option to add a printed copy", "Professionally bound books from $79, ordered any time"],
               ].map(([icon, title, sub]) => (
                 <div key={title} style={{ display: "flex", gap: 14, marginBottom: 16, alignItems: "flex-start" }}>
@@ -2046,6 +2172,54 @@ export default function MyStoryFamily() {
       )}
 
       {/* ── CHAT ── */}
+      {/* ── BOOK COMPLETE ── */}
+      {screen === "chat" && bookComplete && (
+        <main id="main-content" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "78vh", padding: "40px 24px", animation: "fadeUp 0.5s ease forwards" }}>
+          <div style={{ maxWidth: 600, width: "100%", textAlign: "center" }}>
+
+            <div style={{ fontSize: 64, marginBottom: 24, animation: "pulse 2s ease-in-out infinite" }} aria-hidden="true">🕊️</div>
+            <p style={{ fontSize: fs(12), letterSpacing: "3px", textTransform: "uppercase", color: "#b8860b", fontFamily: "'Lato',sans-serif", marginBottom: 16 }}>Your legacy is complete</p>
+            <h1 style={{ fontSize: fs(44), fontWeight: 300, color: tc("#3d2b1a","#1a0e00"), fontStyle: "italic", lineHeight: 1.2, marginBottom: 20 }}>
+              {user?.firstName}, your book is ready.
+            </h1>
+            <p style={{ fontSize: fs(18), color: tc("#5c4a35","#2a1a0a"), lineHeight: 1.9, fontStyle: "italic", marginBottom: 40, maxWidth: 500, margin: "0 auto 40px" }}>
+              Every story you've shared, every memory you've preserved — it's all here. Your family will treasure this for generations.
+            </p>
+
+            {/* Download PDF */}
+            <div style={{ background: "white", borderRadius: 20, padding: "36px", boxShadow: "0 12px 48px rgba(93,61,26,0.14)", border: "1px solid rgba(180,140,80,0.2)", marginBottom: 24 }}>
+              <div style={{ fontSize: 36, marginBottom: 16 }} aria-hidden="true">📖</div>
+              <h2 style={{ fontSize: fs(24), fontWeight: 400, color: tc("#3d2b1a","#1a0e00"), marginBottom: 10 }}>Download Your Legacy Book</h2>
+              <p style={{ fontSize: fs(15), color: tc("#6b5540","#3a2510"), fontFamily: "'Lato',sans-serif", lineHeight: 1.7, marginBottom: 24 }}>
+                Your complete book — beautifully formatted with all your stories and photos — is ready to save as a PDF and share with your family.
+              </p>
+              <button onClick={generatePDF}
+                style={{ width: "100%", background: "linear-gradient(135deg,#b8860b,#d4a843)", color: "#fdf6ec", border: "none", padding: "20px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(20), letterSpacing: 0.5, cursor: "pointer", boxShadow: "0 6px 28px rgba(184,134,11,0.35)", marginBottom: 12, minHeight: 62, transition: "all 0.2s" }}>
+                ✦ Download My Book as PDF
+              </button>
+              <p style={{ fontSize: fs(12), color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", lineHeight: 1.6 }}>
+                A print preview will open — choose "Save as PDF" to keep your book forever
+              </p>
+            </div>
+
+            {/* Print upgrade */}
+            <div style={{ background: "white", borderRadius: 20, padding: "36px", boxShadow: "0 8px 32px rgba(93,61,26,0.08)", border: "1px solid rgba(180,140,80,0.15)", marginBottom: 24 }}>
+              <div style={{ fontSize: 32, marginBottom: 14 }} aria-hidden="true">📚</div>
+              <h2 style={{ fontSize: fs(22), fontWeight: 400, color: tc("#3d2b1a","#1a0e00"), marginBottom: 10 }}>Want a Printed Copy?</h2>
+              <p style={{ fontSize: fs(15), color: tc("#6b5540","#3a2510"), fontFamily: "'Lato',sans-serif", lineHeight: 1.7, marginBottom: 20 }}>
+                Hold your story in your hands. A professionally bound hardcover book, delivered to your door — starting at $79.
+              </p>
+              <PrintUpgradeCard isLast={true} promoCode={promoCode} promoInfo={promoInfo} fs={fs} tc={tc} highContrast={highContrast} userEmail={user?.email} userName={`${user?.firstName} ${user?.lastName}`} />
+            </div>
+
+            {/* Share */}
+            <p style={{ fontSize: fs(15), color: tc("#8b7355","#5c3d1e"), fontFamily: "'Lato',sans-serif", lineHeight: 1.7, fontStyle: "italic" }}>
+              Thank you for trusting us with your legacy, {user?.firstName}. 🕊️
+            </p>
+          </div>
+        </main>
+      )}
+
       {screen === "chat" && !previewChapter && !showPaywall && chapter && (
         <div style={{ display: "flex", flex: 1, maxWidth: 1080, margin: "0 auto", width: "100%", padding: "32px 24px", gap: 32 }}>
           {/* Sidebar */}
@@ -2075,13 +2249,7 @@ export default function MyStoryFamily() {
                 <div style={{ fontSize: fs(11), color: tc("#8b7355", "#5c3d1e"), fontFamily: "'Lato',sans-serif", fontStyle: "italic", lineHeight: 1.5 }}>{persona.tagline}</div>
               </div>
             )}
-            <div style={{ marginTop: 10, padding: "10px 12px", background: "white", borderRadius: 8, border: "1px solid rgba(180,140,80,0.2)" }}>
-              <div style={{ fontSize: fs(10), letterSpacing: "1.5px", textTransform: "uppercase", color: "#b8860b", fontFamily: "'Lato',sans-serif", marginBottom: 4 }}>Book Format</div>
-              {bookSize
-                ? <div style={{ fontSize: fs(12), color: tc("#3d2b1a", "#1a0e00"), fontFamily: "'Lato',sans-serif", fontWeight: 600 }}>{BOOK_SIZES.find(s => s.id === bookSize)?.label} · {BOOK_SIZES.find(s => s.id === bookSize)?.dims}</div>
-                : <button onClick={() => setScreen("booksize")} style={{ background: "none", border: "none", padding: 0, fontSize: fs(12), color: "#b8860b", fontFamily: "'Lato',sans-serif", cursor: "pointer", textDecoration: "underline", minHeight: 32 }}>Choose format →</button>}
-            </div>
-          </nav>
+            </nav>
 
           {/* Chat area */}
           <main id="main-content" style={{ flex: 1, display: "flex", flexDirection: "column" }}>
