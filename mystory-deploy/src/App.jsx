@@ -859,6 +859,12 @@ export default function MyStoryFamily() {
       if (!res.ok) { setSignupError(data.error || "Could not create account. Please try again."); return; }
       setUser(data.user);
       setSignupError("");
+      // Send welcome email in background
+      fetch("/api/email-welcome", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ firstName: data.user.firstName, email: data.user.email }),
+      }).catch(() => {});
       setScreen("onboarding");
     } catch {
       setSignupError("Connection error. Please check your internet and try again.");
