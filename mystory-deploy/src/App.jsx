@@ -1055,9 +1055,15 @@ export default function MyStoryFamily() {
       // Check paid status from every source
       const localRaw = localStorage.getItem("mystory_session");
       let localHasPaid = false;
-      try { localHasPaid = JSON.parse(localRaw)?.hasPaid === true; } catch {}
+      try {
+        const localSession = JSON.parse(localRaw);
+        // Only use local hasPaid if it belongs to this same user
+        if (localSession?.user?.email?.toLowerCase() === email.toLowerCase()) {
+          localHasPaid = localSession?.hasPaid === true;
+        }
+      } catch {}
       const paidKey = localStorage.getItem("mystory_paid_" + email.toLowerCase()) === "true";
-      const supabasePaid = data.hasPaid === true; // auth-signin now returns this
+      const supabasePaid = data.hasPaid === true;
       const hasPaidFinal = localHasPaid || paidKey || supabasePaid;
 
       if (data.session) {
@@ -1065,7 +1071,6 @@ export default function MyStoryFamily() {
         localStorage.setItem("mystory_session", JSON.stringify(merged));
         restoreSession(merged);
       } else if (localRaw) {
-        // Use existing localStorage session if Supabase has nothing
         try {
           const localSession = JSON.parse(localRaw);
           if (localSession.user?.email?.toLowerCase() === email.toLowerCase()) {
@@ -1075,12 +1080,15 @@ export default function MyStoryFamily() {
             return;
           }
         } catch {}
+        // No matching local session — start fresh but preserve paid status
+        if (hasPaidFinal) localStorage.setItem("mystory_paid_" + email.toLowerCase(), "true");
         setUser(data.user);
-        if (hasPaidFinal) setHasPaid(true);
+        setHasPaid(hasPaidFinal);
         setScreen("onboarding");
       } else {
+        if (hasPaidFinal) localStorage.setItem("mystory_paid_" + email.toLowerCase(), "true");
         setUser(data.user);
-        if (hasPaidFinal) setHasPaid(true);
+        setHasPaid(hasPaidFinal);
         setScreen("onboarding");
       }
     } catch {
@@ -1384,12 +1392,14 @@ export default function MyStoryFamily() {
 
   const continueFromPreview = () => {
     const nextC = previewChapter.chapterIndex + 1;
-    if (previewChapter.chapterIndex === 0 && !hasPaid && !promoInfo?.schoolShare) {
+    // Check paid status from state AND localStorage key as fallback
+    const paidKey = user?.email ? localStorage.getItem("mystory_paid_" + user.email.toLowerCase()) === "true" : false;
+    const isPaid = hasPaid || paidKey;
+    if (previewChapter.chapterIndex === 0 && !isPaid && !promoInfo?.schoolShare) {
       setShowPaywall(true);
       return;
     }
-    // Show between-sections coaching screen after section 1 (paid)
-    if (previewChapter.chapterIndex === 0 && (hasPaid || promoInfo?.schoolShare)) {
+    if (previewChapter.chapterIndex === 0 && (isPaid || promoInfo?.schoolShare)) {
       setShowBetweenSections(true);
       return;
     }
