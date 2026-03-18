@@ -63,12 +63,19 @@ export default async function handler(req, res) {
     ? sessionResult.data[0].session_data
     : null;
 
+  // Merge hasPaid from database into session
+  const hasPaid = user.has_paid === true;
+  const mergedSession = sessionData
+    ? { ...sessionData, hasPaid: sessionData.hasPaid || hasPaid }
+    : null;
+
   return res.status(200).json({
     user: {
       email: user.email,
       firstName: user.first_name,
       lastName: user.last_name,
     },
-    session: sessionData,
+    hasPaid,
+    session: mergedSession,
   });
 }
