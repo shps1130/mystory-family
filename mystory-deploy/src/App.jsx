@@ -891,6 +891,7 @@ export default function MyStoryFamily() {
             const s = { ...JSON.parse(raw), hasPaid: true };
             localStorage.setItem("mystory_session", JSON.stringify(s));
             localStorage.removeItem("mystory_pending_email");
+            if (s.user?.email) localStorage.setItem("mystory_paid_" + s.user.email, "true");
             fetch("/api/session-save", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -1077,16 +1078,20 @@ export default function MyStoryFamily() {
       const data = await res.json();
       if (!res.ok) { setSigninError(data.error || "That email and password don't match."); return; }
       setSigninError("");
+      // Check all sources for hasPaid
+      const localRaw = localStorage.getItem("mystory_session");
+      let localHasPaid = false;
+      try { localHasPaid = JSON.parse(localRaw)?.hasPaid === true; } catch {}
+      const paidKey = localStorage.getItem("mystory_paid_" + email.toLowerCase()) === "true";
+      const hasPaidFromAnySource = localHasPaid || paidKey;
+
       if (data.session) {
-        // Merge hasPaid from localStorage in case Supabase session is behind
-        const localRaw = localStorage.getItem("mystory_session");
-        let localHasPaid = false;
-        try { localHasPaid = JSON.parse(localRaw)?.hasPaid === true; } catch {}
-        const merged = { ...data.session, hasPaid: data.session.hasPaid || localHasPaid };
+        const merged = { ...data.session, hasPaid: data.session.hasPaid || hasPaidFromAnySource };
         localStorage.setItem("mystory_session", JSON.stringify(merged));
         restoreSession(merged);
       } else {
         setUser(data.user);
+        if (hasPaidFromAnySource) setHasPaid(true);
         setScreen("onboarding");
       }
     } catch {
@@ -1117,10 +1122,17 @@ export default function MyStoryFamily() {
 
   const handleSignout = () => {
     if (window.confirm("Sign out? Your progress is saved and you can continue any time.")) {
+      // Save hasPaid and email before clearing so it survives signout
+      const paidStatus = hasPaid;
+      const userEmail = user?.email;
       setUser(null);
       setScreen("welcome");
-      setSavedSession(null);
+      // Keep a minimal record so hasPaid survives
+      if (paidStatus && userEmail) {
+        localStorage.setItem("mystory_paid_" + userEmail, "true");
+      }
       localStorage.removeItem("mystory_session");
+      setSavedSession(null);
     }
   };
 
