@@ -883,9 +883,26 @@ export default function MyStoryFamily() {
       const raw = localStorage.getItem("mystory_session");
       const pendingEmail = localStorage.getItem("mystory_pending_email");
 
-      // Returning from Stripe — try localStorage first, then Supabase
+      // Returning from Stripe — use localStorage first (most reliable for same device)
       if (paymentSuccess) {
-        const emailToUse = raw ? JSON.parse(raw)?.user?.email : pendingEmail;
+        // Try localStorage first
+        if (raw) {
+          try {
+            const s = { ...JSON.parse(raw), hasPaid: true };
+            localStorage.setItem("mystory_session", JSON.stringify(s));
+            localStorage.removeItem("mystory_pending_email");
+            fetch("/api/session-save", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ email: s.user.email, session: s }),
+            }).catch(() => {});
+            restoreSession(s, true);
+            setTimeout(() => announce("Payment confirmed — let's continue your story. ✦"), 600);
+            return;
+          } catch {}
+        }
+        // Fallback to Supabase
+        const emailToUse = pendingEmail;
         if (emailToUse) {
           fetch(`/api/session-load?email=${encodeURIComponent(emailToUse)}`)
             .then(r => r.json())
@@ -894,7 +911,6 @@ export default function MyStoryFamily() {
                 const s = { ...data.session, hasPaid: true };
                 localStorage.setItem("mystory_session", JSON.stringify(s));
                 localStorage.removeItem("mystory_pending_email");
-                // Save paid status back to Supabase
                 fetch("/api/session-save", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
@@ -910,7 +926,15 @@ export default function MyStoryFamily() {
       }
 
       if (paymentCancelled) {
-        const emailToUse = raw ? JSON.parse(raw)?.user?.email : pendingEmail;
+        if (raw) {
+          try {
+            const s = JSON.parse(raw);
+            restoreSession(s);
+            setTimeout(() => setShowPaywall(true), 400);
+            return;
+          } catch {}
+        }
+        const emailToUse = pendingEmail;
         if (emailToUse) {
           fetch(`/api/session-load?email=${encodeURIComponent(emailToUse)}`)
             .then(r => r.json())
@@ -926,21 +950,24 @@ export default function MyStoryFamily() {
         }
       }
 
-      // Normal page load — restore from localStorage, sync with Supabase
+      // Normal page load — localStorage first, then sync Supabase in background
       if (raw) {
         const s = JSON.parse(raw);
         if (s?.user?.email) {
+          // Show saved session immediately for fast UX
+          setSavedSession(s);
+          // Sync with Supabase in background — merge hasPaid from both
           fetch(`/api/session-load?email=${encodeURIComponent(s.user.email)}`)
             .then(r => r.json())
             .then(data => {
               if (data.session) {
-                localStorage.setItem("mystory_session", JSON.stringify(data.session));
-                setSavedSession(data.session);
-              } else {
-                setSavedSession(s);
+                // Keep the highest hasPaid value between local and remote
+                const merged = { ...data.session, hasPaid: data.session.hasPaid || s.hasPaid };
+                localStorage.setItem("mystory_session", JSON.stringify(merged));
+                setSavedSession(merged);
               }
             })
-            .catch(() => setSavedSession(s));
+            .catch(() => {});
         }
       }
     } catch {}
@@ -987,7 +1014,7 @@ export default function MyStoryFamily() {
     setActiveChapter(s.activeChapter || 0);
     setChapterHistory(s.chapterHistory || {});
     setMessages(s.messages || []);
-    setHasPaid(s.hasPaid || false);
+    setHasPaid(s.hasPaid === true);
     setEnabledChapters(s.enabledChapters || BASE_CHAPTERS.map(c => c.id));
     setChapterNarratives(s.chapterNarratives || {});
 
@@ -1051,11 +1078,14 @@ export default function MyStoryFamily() {
       if (!res.ok) { setSigninError(data.error || "That email and password don't match."); return; }
       setSigninError("");
       if (data.session) {
-        // Has saved session — restore it
-        localStorage.setItem("mystory_session", JSON.stringify(data.session));
-        restoreSession(data.session);
+        // Merge hasPaid from localStorage in case Supabase session is behind
+        const localRaw = localStorage.getItem("mystory_session");
+        let localHasPaid = false;
+        try { localHasPaid = JSON.parse(localRaw)?.hasPaid === true; } catch {}
+        const merged = { ...data.session, hasPaid: data.session.hasPaid || localHasPaid };
+        localStorage.setItem("mystory_session", JSON.stringify(merged));
+        restoreSession(merged);
       } else {
-        // New user — start fresh
         setUser(data.user);
         setScreen("onboarding");
       }
