@@ -1246,12 +1246,12 @@ export default function MyStoryFamily() {
       }
     } catch (e) {
       console.error("Memoir generation failed:", e);
-      // Fallback: show user responses formatted nicely
       const fallback = messages
         .filter(m => m.role === "user" && m.content?.trim())
         .map(m => m.content.trim())
         .join("\n\n");
       if (fallback) setChapterNarratives(prev => ({ ...prev, [chKey]: fallback }));
+      else setChapterNarratives(prev => ({ ...prev, [chKey]: "Your stories from this section have been saved." }));
     }
     setGeneratingNarrative(false);
   };
@@ -1989,7 +1989,7 @@ export default function MyStoryFamily() {
       )}
 
       {/* ── CHAPTER PREVIEW ── */}
-      {screen === "chat" && previewChapter && !showPaywall && (
+      {screen === "chat" && previewChapter && !showPaywall && !showBetweenSections && !bookComplete && (
         <ChapterPreview
           chapter={previewChapter.chapter}
           chapterMessages={chapterHistory[previewChapter.chapter.id || previewChapter.chapter.title] || messages}
