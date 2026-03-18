@@ -875,35 +875,40 @@ export default function MyStoryFamily() {
       const params = new URLSearchParams(window.location.search);
       const paymentSuccess = params.get("payment_success") === "true";
       const paymentCancelled = params.get("payment_cancelled") === "true";
+      const paidEmail = params.get("paid_email") || localStorage.getItem("mystory_pending_email");
 
       if (paymentSuccess || paymentCancelled) {
         window.history.replaceState({}, "", window.location.pathname);
       }
 
       const raw = localStorage.getItem("mystory_session");
-      const pendingEmail = localStorage.getItem("mystory_pending_email");
 
-      // Returning from Stripe — use localStorage first (most reliable for same device)
       if (paymentSuccess) {
+        const emailToUse = paidEmail || (raw ? JSON.parse(raw)?.user?.email : null);
+
+        // Mark paid in Supabase and localStorage regardless
+        if (emailToUse) {
+          localStorage.setItem("mystory_paid_" + emailToUse.toLowerCase(), "true");
+          fetch("/api/paid-status", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: emailToUse }),
+          }).catch(() => {});
+        }
+
         // Try localStorage first
         if (raw) {
           try {
             const s = { ...JSON.parse(raw), hasPaid: true };
             localStorage.setItem("mystory_session", JSON.stringify(s));
             localStorage.removeItem("mystory_pending_email");
-            if (s.user?.email) localStorage.setItem("mystory_paid_" + s.user.email, "true");
-            fetch("/api/session-save", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ email: s.user.email, session: s }),
-            }).catch(() => {});
             restoreSession(s, true);
             setTimeout(() => announce("Payment confirmed — let's continue your story. ✦"), 600);
             return;
           } catch {}
         }
-        // Fallback to Supabase
-        const emailToUse = pendingEmail;
+
+        // localStorage empty (mobile Safari) — load from Supabase
         if (emailToUse) {
           fetch(`/api/session-load?email=${encodeURIComponent(emailToUse)}`)
             .then(r => r.json())
@@ -911,19 +916,13 @@ export default function MyStoryFamily() {
               if (data.session) {
                 const s = { ...data.session, hasPaid: true };
                 localStorage.setItem("mystory_session", JSON.stringify(s));
-                localStorage.removeItem("mystory_pending_email");
-                fetch("/api/session-save", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ email: emailToUse, session: s }),
-                }).catch(() => {});
                 restoreSession(s, true);
                 setTimeout(() => announce("Payment confirmed — let's continue your story. ✦"), 600);
               }
             })
             .catch(() => {});
-          return;
         }
+        return;
       }
 
       if (paymentCancelled) {
@@ -935,40 +934,14 @@ export default function MyStoryFamily() {
             return;
           } catch {}
         }
-        const emailToUse = pendingEmail;
-        if (emailToUse) {
-          fetch(`/api/session-load?email=${encodeURIComponent(emailToUse)}`)
-            .then(r => r.json())
-            .then(data => {
-              if (data.session) {
-                localStorage.setItem("mystory_session", JSON.stringify(data.session));
-                restoreSession(data.session);
-                setTimeout(() => setShowPaywall(true), 400);
-              }
-            })
-            .catch(() => {});
-          return;
-        }
+        return;
       }
 
-      // Normal page load — localStorage first, then sync Supabase in background
+      // Normal page load — use localStorage
       if (raw) {
         const s = JSON.parse(raw);
         if (s?.user?.email) {
-          // Show saved session immediately for fast UX
           setSavedSession(s);
-          // Sync with Supabase in background — merge hasPaid from both
-          fetch(`/api/session-load?email=${encodeURIComponent(s.user.email)}`)
-            .then(r => r.json())
-            .then(data => {
-              if (data.session) {
-                // Keep the highest hasPaid value between local and remote
-                const merged = { ...data.session, hasPaid: data.session.hasPaid || s.hasPaid };
-                localStorage.setItem("mystory_session", JSON.stringify(merged));
-                setSavedSession(merged);
-              }
-            })
-            .catch(() => {});
         }
       }
     } catch {}
@@ -1078,20 +1051,36 @@ export default function MyStoryFamily() {
       const data = await res.json();
       if (!res.ok) { setSigninError(data.error || "That email and password don't match."); return; }
       setSigninError("");
-      // Check all sources for hasPaid
+
+      // Check paid status from every source
       const localRaw = localStorage.getItem("mystory_session");
       let localHasPaid = false;
       try { localHasPaid = JSON.parse(localRaw)?.hasPaid === true; } catch {}
       const paidKey = localStorage.getItem("mystory_paid_" + email.toLowerCase()) === "true";
-      const hasPaidFromAnySource = localHasPaid || paidKey;
+      const supabasePaid = data.hasPaid === true; // auth-signin now returns this
+      const hasPaidFinal = localHasPaid || paidKey || supabasePaid;
 
       if (data.session) {
-        const merged = { ...data.session, hasPaid: data.session.hasPaid || hasPaidFromAnySource };
+        const merged = { ...data.session, hasPaid: data.session.hasPaid || hasPaidFinal };
         localStorage.setItem("mystory_session", JSON.stringify(merged));
         restoreSession(merged);
+      } else if (localRaw) {
+        // Use existing localStorage session if Supabase has nothing
+        try {
+          const localSession = JSON.parse(localRaw);
+          if (localSession.user?.email?.toLowerCase() === email.toLowerCase()) {
+            const merged = { ...localSession, hasPaid: localSession.hasPaid || hasPaidFinal };
+            localStorage.setItem("mystory_session", JSON.stringify(merged));
+            restoreSession(merged);
+            return;
+          }
+        } catch {}
+        setUser(data.user);
+        if (hasPaidFinal) setHasPaid(true);
+        setScreen("onboarding");
       } else {
         setUser(data.user);
-        if (hasPaidFromAnySource) setHasPaid(true);
+        if (hasPaidFinal) setHasPaid(true);
         setScreen("onboarding");
       }
     } catch {
@@ -1122,17 +1111,15 @@ export default function MyStoryFamily() {
 
   const handleSignout = () => {
     if (window.confirm("Sign out? Your progress is saved and you can continue any time.")) {
-      // Save hasPaid and email before clearing so it survives signout
-      const paidStatus = hasPaid;
-      const userEmail = user?.email;
+      // Save hasPaid before clearing user state
+      const currentSession = JSON.parse(localStorage.getItem("mystory_session") || "{}");
+      if (user?.email) {
+        localStorage.setItem("mystory_paid_" + user.email, hasPaid ? "true" : "false");
+      }
       setUser(null);
       setScreen("welcome");
-      // Keep a minimal record so hasPaid survives
-      if (paidStatus && userEmail) {
-        localStorage.setItem("mystory_paid_" + userEmail, "true");
-      }
-      localStorage.removeItem("mystory_session");
-      setSavedSession(null);
+      setSavedSession(currentSession.user ? currentSession : null);
+      // Keep session in localStorage — don't wipe it
     }
   };
 
@@ -1548,7 +1535,7 @@ export default function MyStoryFamily() {
 
     const params = new URLSearchParams();
     if (user?.email) params.set("prefilled_email", user.email);
-    params.set("success_url", `${APP_URL}?payment_success=true`);
+    params.set("success_url", `${APP_URL}?payment_success=true&paid_email=${encodeURIComponent(user?.email || "")}`);
     params.set("cancel_url", `${APP_URL}?payment_cancelled=true`);
 
     const stripeUrl = `${STRIPE_PAYMENT_LINK}?${params.toString()}`;
