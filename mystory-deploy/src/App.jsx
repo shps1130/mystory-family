@@ -1119,15 +1119,14 @@ export default function MyStoryFamily() {
 
   const handleSignout = () => {
     if (window.confirm("Sign out? Your progress is saved and you can continue any time.")) {
-      // Save hasPaid before clearing user state
       const currentSession = JSON.parse(localStorage.getItem("mystory_session") || "{}");
-      if (user?.email) {
-        localStorage.setItem("mystory_paid_" + user.email, hasPaid ? "true" : "false");
+      // Only write the paid key if they ARE paid — never overwrite a true with false
+      if (hasPaid && user?.email) {
+        localStorage.setItem("mystory_paid_" + user.email.toLowerCase(), "true");
       }
       setUser(null);
       setScreen("welcome");
       setSavedSession(currentSession.user ? currentSession : null);
-      // Keep session in localStorage — don't wipe it
     }
   };
 
