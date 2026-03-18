@@ -477,17 +477,27 @@ function PrintUpgradeCard({ isLast, promoCode, promoInfo, fs, tc, highContrast, 
 }
 
 // ─── CHAPTER PREVIEW ─────────────────────────────────────────────────────────
-function ChapterPreview({ chapter, chapterMessages, chapterPhotos, onContinue, onAddMore, nextChapterTitle, isLast, fs, tc, highContrast, promoCode, promoInfo, narrative, generatingNarrative }) {
+function ChapterPreview({ chapter, chapterMessages, chapterPhotos, onContinue, onAddMore, nextChapterTitle, isLast, fs, tc, highContrast, promoCode, promoInfo, narrative, generatingNarrative, personaAvatarBg, personaAvatar, userEmail, userName }) {
   const chPhotos = chapterPhotos || [];
-  const [editMode, setEditMode] = useState(false);
+  const [editedNarrative, setEditedNarrative] = useState(null);
+  const [editChat, setEditChat] = useState([]);
   const [editInput, setEditInput] = useState("");
   const [editLoading, setEditLoading] = useState(false);
-  const [editedNarrative, setEditedNarrative] = useState(null);
+  const [showEditChat, setShowEditChat] = useState(false);
+  const editEndRef = useRef(null);
   const displayNarrative = editedNarrative || narrative;
 
-  const handleEdit = async () => {
-    if (!editInput.trim() || editLoading) return;
+  useEffect(() => { editEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [editChat]);
+
+  const sendEditMessage = async (text) => {
+    const msg = text || editInput.trim();
+    if (!msg || editLoading) return;
+    setEditInput("");
     setEditLoading(true);
+
+    const newChat = [...editChat, { role: "user", content: msg }];
+    setEditChat(newChat);
+
     try {
       const res = await fetch("/api/claude", {
         method: "POST",
@@ -495,14 +505,44 @@ function ChapterPreview({ chapter, chapterMessages, chapterPhotos, onContinue, o
         body: JSON.stringify({
           model: "claude-sonnet-4-20250514",
           max_tokens: 3000,
-          system: `You are a memoir editor. The user has a completed memoir section and wants to make a change to it. Apply their requested change warmly and naturally — keep their voice, keep the warmth, just incorporate the edit. Return ONLY the full revised prose. No preamble, no explanation.`,
-          messages: [{ role: "user", content: `Here is the current memoir section:\n\n${displayNarrative}\n\nThe change I'd like: ${editInput}` }],
+          system: `You are Grace, a warm memoir editor helping someone refine their legacy book section. You have two jobs:
+
+1. CONVERSATION — respond warmly and naturally to what they say. Ask clarifying questions if needed. Be encouraging.
+2. REVISION — when you have enough to make a change, rewrite the full section incorporating their feedback.
+
+The current memoir section is:
+---
+${displayNarrative}
+---
+
+When you revise the section, you MUST wrap the entire revised prose in <REVISED_SECTION> tags like this:
+<REVISED_SECTION>
+[full revised memoir prose here]
+</REVISED_SECTION>
+
+Then add a warm 1-2 sentence response after the tags explaining what you changed.
+
+If you're asking a clarifying question and not yet ready to revise, just respond conversationally WITHOUT the tags.
+
+Keep their voice. Keep the warmth. Make it sound like them, not like a textbook.`,
+          messages: newChat.map(m => ({ role: m.role, content: m.content })),
         }),
       });
       const data = await res.json();
-      const revised = data.content?.[0]?.text;
-      if (revised) { setEditedNarrative(revised); setEditMode(false); setEditInput(""); }
-    } catch {}
+      const responseText = data.content?.[0]?.text || "I'm here — tell me more about what you'd like to change.";
+
+      // Check if Grace revised the section
+      const revisedMatch = responseText.match(/<REVISED_SECTION>([\s\S]*?)<\/REVISED_SECTION>/);
+      const displayResponse = responseText.replace(/<REVISED_SECTION>[\s\S]*?<\/REVISED_SECTION>/g, "").trim();
+
+      if (revisedMatch) {
+        setEditedNarrative(revisedMatch[1].trim());
+      }
+
+      setEditChat([...newChat, { role: "assistant", content: displayResponse || "I've updated your section — take a look above!" }]);
+    } catch {
+      setEditChat([...newChat, { role: "assistant", content: "I'm here. Tell me what you'd like to change." }]);
+    }
     setEditLoading(false);
   };
 
@@ -621,52 +661,95 @@ function ChapterPreview({ chapter, chapterMessages, chapterPhotos, onContinue, o
 
       {/* Print upgrade card — only show when narrative is ready */}
       {!generatingNarrative && (
-        <PrintUpgradeCard isLast={isLast} promoCode={promoCode} promoInfo={promoInfo} fs={fs} tc={tc} highContrast={highContrast} userEmail={user?.email} userName={`${user?.firstName} ${user?.lastName}`} />
+        <PrintUpgradeCard isLast={isLast} promoCode={promoCode} promoInfo={promoInfo} fs={fs} tc={tc} highContrast={highContrast} userEmail={userEmail} userName={userName} />
       )}
 
-      {/* Do you like this? — AI editor */}
+      {/* Talk to Grace about this section */}
       {!generatingNarrative && narrative && (
-        <div style={{ background: "white", borderRadius: 16, padding: "24px 28px", marginBottom: 20, border: "1px solid rgba(180,140,80,0.15)", boxShadow: "0 4px 20px rgba(93,61,26,0.06)" }}>
-          {!editMode ? (
+        <div style={{ background: "white", borderRadius: 16, marginBottom: 20, border: "1px solid rgba(180,140,80,0.15)", boxShadow: "0 4px 20px rgba(93,61,26,0.06)", overflow: "hidden" }}>
+
+          {/* Header */}
+          <div style={{ padding: "20px 24px", borderBottom: showEditChat ? "1px solid rgba(180,140,80,0.12)" : "none" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
-              <div>
-                <div style={{ fontSize: fs(16), fontWeight: 600, color: tc("#3d2b1a","#1a0e00"), fontFamily: "'Cormorant Garamond',serif", marginBottom: 4 }}>
-                  Do you like how this reads?
-                </div>
-                <div style={{ fontSize: fs(13), color: tc("#6b5540","#3a2510"), fontFamily: "'Lato',sans-serif" }}>
-                  Ask for any change — fix a name, add a detail, make it shorter or longer
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ width: 36, height: 36, borderRadius: "50%", background: personaAvatarBg || "linear-gradient(135deg,#6b4c8a,#9b7bc0)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>{personaAvatar || "🕊️"}</div>
+                <div>
+                  <div style={{ fontSize: fs(15), fontWeight: 600, color: tc("#3d2b1a","#1a0e00"), fontFamily: "'Cormorant Garamond',serif" }}>
+                    Talk to Grace about this section
+                  </div>
+                  <div style={{ fontSize: fs(12), color: tc("#8b7355","#5c3d1e"), fontFamily: "'Lato',sans-serif" }}>
+                    She can rewrite, simplify, add detail, fix names — anything you need
+                  </div>
                 </div>
               </div>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                <button onClick={() => setEditMode(true)}
-                  style={{ background: "rgba(184,134,11,0.08)", border: "1.5px solid rgba(184,134,11,0.3)", color: tc("#7a5030","#3d2b1a"), fontFamily: "'Lato',sans-serif", fontSize: fs(13), fontWeight: 600, padding: "10px 20px", borderRadius: 100, cursor: "pointer", minHeight: 44 }}>
-                  ✦ Make a change
-                </button>
+                {!showEditChat && (
+                  <button onClick={() => { setShowEditChat(true); if (editChat.length === 0) setEditChat([{ role: "assistant", content: `I've read your ${chapter.title} section. What would you like to change? You can ask me to make it shorter, use simpler words, add more detail about a specific memory, fix a name — or just tell me what doesn't feel right and we'll work on it together.` }]); }}
+                    style={{ background: "rgba(184,134,11,0.08)", border: "1.5px solid rgba(184,134,11,0.3)", color: tc("#7a5030","#3d2b1a"), fontFamily: "'Lato',sans-serif", fontSize: fs(13), fontWeight: 600, padding: "10px 20px", borderRadius: 100, cursor: "pointer", minHeight: 44 }}>
+                    ✦ Talk to Grace
+                  </button>
+                )}
                 {editedNarrative && (
-                  <button onClick={() => setEditedNarrative(null)}
+                  <button onClick={() => { setEditedNarrative(null); setEditChat([]); setShowEditChat(false); }}
                     style={{ background: "transparent", border: "1.5px solid rgba(180,140,80,0.2)", color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", fontSize: fs(12), padding: "10px 16px", borderRadius: 100, cursor: "pointer", minHeight: 44 }}>
-                    Undo changes
+                    Undo all changes
                   </button>
                 )}
               </div>
             </div>
-          ) : (
+          </div>
+
+          {/* Chat area */}
+          {showEditChat && (
             <div>
-              <div style={{ fontSize: fs(15), color: tc("#3d2b1a","#1a0e00"), fontFamily: "'Cormorant Garamond',serif", fontStyle: "italic", marginBottom: 14 }}>
-                What would you like to change?
+              {/* Quick suggestion chips */}
+              {editChat.length <= 1 && (
+                <div style={{ padding: "14px 24px 0", display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {["Make it shorter", "Use simpler words", "Add more detail", "Fix a name or date", "Make it sound more like me"].map(suggestion => (
+                    <button key={suggestion} onClick={() => sendEditMessage(suggestion)}
+                      style={{ background: "rgba(184,134,11,0.06)", border: "1px solid rgba(184,134,11,0.2)", color: tc("#6b5030","#3d2b1a"), fontFamily: "'Lato',sans-serif", fontSize: fs(12), padding: "7px 14px", borderRadius: 100, cursor: "pointer", minHeight: 36 }}>
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Messages */}
+              <div style={{ padding: "16px 24px", maxHeight: 320, overflowY: "auto", display: "flex", flexDirection: "column", gap: 14 }}>
+                {editChat.map((msg, i) => (
+                  <div key={i} style={{ display: "flex", gap: 10, flexDirection: msg.role === "user" ? "row-reverse" : "row" }}>
+                    <div style={{ width: 30, height: 30, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: msg.role === "user" ? 10 : 13, background: msg.role === "user" ? "linear-gradient(135deg,#b8860b,#d4a843)" : (personaAvatarBg || "linear-gradient(135deg,#6b4c8a,#9b7bc0)"), color: "#fdf6ec", fontFamily: "'Lato',sans-serif", fontWeight: 700 }}>
+                      {msg.role === "user" ? "You" : (personaAvatar || "🕊️")}
+                    </div>
+                    <div style={{ maxWidth: "80%", padding: "12px 16px", borderRadius: msg.role === "user" ? "14px 4px 14px 14px" : "4px 14px 14px 14px", background: msg.role === "user" ? "linear-gradient(135deg,#5c3d1e,#7a5030)" : "#fdf6ec", color: msg.role === "user" ? "#fdf6ec" : tc("#3d2b1a","#1a0e00"), fontSize: fs(15), fontFamily: "'Cormorant Garamond',Georgia,serif", lineHeight: 1.8, border: msg.role === "assistant" ? "1px solid rgba(180,140,80,0.15)" : "none" }}>
+                      {msg.content}
+                      {msg.role === "assistant" && i === editChat.length - 1 && editedNarrative && (
+                        <div style={{ marginTop: 8, fontSize: fs(12), color: "#b8860b", fontFamily: "'Lato',sans-serif", fontStyle: "normal" }}>✦ Section updated — scroll up to see the changes</div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {editLoading && (
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <div style={{ width: 30, height: 30, borderRadius: "50%", background: personaAvatarBg || "linear-gradient(135deg,#6b4c8a,#9b7bc0)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13 }}>{personaAvatar || "🕊️"}</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "12px 16px", background: "#fdf6ec", borderRadius: "4px 14px 14px 14px", border: "1px solid rgba(180,140,80,0.15)" }}>
+                      {[0, 0.2, 0.4].map((d, i) => <div key={i} style={{ width: 6, height: 6, background: "#c9a87a", borderRadius: "50%", animation: `bounce 1.2s ${d}s infinite` }} />)}
+                    </div>
+                  </div>
+                )}
+                <div ref={editEndRef} />
               </div>
-              <textarea value={editInput} onChange={e => setEditInput(e.target.value)}
-                placeholder="e.g. My dad's name was Robert, not Bob. Make the second paragraph shorter. Add that we had a dog named Buster."
-                rows={3}
-                style={{ width: "100%", border: "1.5px solid rgba(180,140,80,0.3)", borderRadius: 10, padding: "12px 14px", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(15), color: tc("#3d2b1a","#1a0e00"), background: "#fffdf5", outline: "none", resize: "none", lineHeight: 1.7, boxSizing: "border-box", marginBottom: 12 }} />
-              <div style={{ display: "flex", gap: 10 }}>
-                <button onClick={handleEdit} disabled={!editInput.trim() || editLoading}
-                  style={{ flex: 1, background: editInput.trim() && !editLoading ? "linear-gradient(135deg,#5c3d1e,#8b5e34)" : "rgba(139,94,52,0.2)", color: "#fdf6ec", border: "none", padding: "13px", borderRadius: 100, fontFamily: "'Lato',sans-serif", fontSize: fs(14), fontWeight: 600, cursor: editInput.trim() && !editLoading ? "pointer" : "not-allowed", minHeight: 48, transition: "all 0.2s" }}>
-                  {editLoading ? "Updating your section…" : "Update My Section ✦"}
-                </button>
-                <button onClick={() => { setEditMode(false); setEditInput(""); }}
-                  style={{ background: "transparent", border: "1.5px solid rgba(180,140,80,0.3)", color: tc("#6b5540","#3a2510"), fontFamily: "'Lato',sans-serif", fontSize: fs(13), padding: "13px 20px", borderRadius: 100, cursor: "pointer", minHeight: 48 }}>
-                  Cancel
+
+              {/* Input */}
+              <div style={{ padding: "12px 24px 16px", borderTop: "1px solid rgba(180,140,80,0.1)", display: "flex", gap: 10, alignItems: "flex-end" }}>
+                <textarea value={editInput} onChange={e => setEditInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendEditMessage(); } }}
+                  placeholder="Tell Grace what you'd like to change..."
+                  rows={1}
+                  style={{ flex: 1, border: "1.5px solid rgba(180,140,80,0.25)", borderRadius: 10, padding: "10px 14px", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(15), color: tc("#3d2b1a","#1a0e00"), background: "#fffdf5", outline: "none", resize: "none", lineHeight: 1.6, minHeight: 42, maxHeight: 100, overflowY: "auto" }} />
+                <button onClick={() => sendEditMessage()} disabled={!editInput.trim() || editLoading}
+                  style={{ width: 42, height: 42, borderRadius: "50%", background: editInput.trim() && !editLoading ? (personaAvatarBg || "linear-gradient(135deg,#6b4c8a,#9b7bc0)") : "rgba(139,94,52,0.2)", border: "none", cursor: editInput.trim() && !editLoading ? "pointer" : "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all 0.2s" }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M22 2L11 13" stroke="#fdf6ec" strokeWidth="2" strokeLinecap="round"/><path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="#fdf6ec" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                 </button>
               </div>
             </div>
@@ -2000,7 +2083,9 @@ export default function MyStoryFamily() {
           fs={fs} tc={tc} highContrast={highContrast}
           promoCode={promoCode} promoInfo={promoInfo}
           narrative={chapterNarratives[previewChapter.chapter.id || previewChapter.chapter.title]}
-          generatingNarrative={generatingNarrative} />
+          generatingNarrative={generatingNarrative}
+          personaAvatarBg={personaAvatarBg} personaAvatar={personaAvatar}
+          userEmail={user?.email} userName={`${user?.firstName || ""} ${user?.lastName || ""}`.trim()} />
       )}
 
       {/* ── PAYWALL ── */}
@@ -2179,7 +2264,7 @@ export default function MyStoryFamily() {
               <p style={{ fontSize: fs(15), color: tc("#6b5540","#3a2510"), fontFamily: "'Lato',sans-serif", lineHeight: 1.7, marginBottom: 20 }}>
                 Hold your story in your hands. A professionally bound hardcover book, delivered to your door — starting at $79.
               </p>
-              <PrintUpgradeCard isLast={true} promoCode={promoCode} promoInfo={promoInfo} fs={fs} tc={tc} highContrast={highContrast} userEmail={user?.email} userName={`${user?.firstName} ${user?.lastName}`} />
+              <PrintUpgradeCard isLast={true} promoCode={promoCode} promoInfo={promoInfo} fs={fs} tc={tc} highContrast={highContrast} userEmail={user?.email} userName={`${user?.firstName || ""} ${user?.lastName || ""}`.trim()} />
             </div>
 
             {/* Share */}
