@@ -522,7 +522,7 @@ When you revise the section, you MUST wrap the entire revised prose in <REVISED_
 
 Then add a warm 1-2 sentence response after the tags explaining what you changed.
 
-If you're asking a clarifying question and not yet ready to revise, just respond conversationally WITHOUT the tags.
+If you're asking a clarifying question and not yet ready to revise, just respond conversationally WITHOUT the tags. Always end your clarifying question with something like "Would you like me to go ahead and update your section with this change?" so the user knows to say yes.
 
 Keep their voice. Keep the warmth. Make it sound like them, not like a textbook.`,
           messages: newChat.map(m => ({ role: m.role, content: m.content })),
@@ -684,7 +684,7 @@ Keep their voice. Keep the warmth. Make it sound like them, not like a textbook.
               </div>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                 {!showEditChat && (
-                  <button onClick={() => { setShowEditChat(true); if (editChat.length === 0) setEditChat([{ role: "assistant", content: `I've read your ${chapter.title} section. What would you like to change? You can ask me to make it shorter, use simpler words, add more detail about a specific memory, fix a name — or just tell me what doesn't feel right and we'll work on it together.` }]); }}
+                  <button onClick={() => { setShowEditChat(true); if (editChat.length === 0) setEditChat([{ role: "assistant", content: `I've read your ${chapter.title} section. What would you like to change?\n\nTell me what feels off — or pick one of the suggestions below. When you're happy with my idea, just say "Yes, go ahead" and I'll update your section right away.` }]); }}
                     style={{ background: "rgba(184,134,11,0.08)", border: "1.5px solid rgba(184,134,11,0.3)", color: tc("#7a5030","#3d2b1a"), fontFamily: "'Lato',sans-serif", fontSize: fs(13), fontWeight: 600, padding: "10px 20px", borderRadius: 100, cursor: "pointer", minHeight: 44 }}>
                     ✦ Talk to Grace
                   </button>
@@ -702,6 +702,17 @@ Keep their voice. Keep the warmth. Make it sound like them, not like a textbook.
           {/* Chat area */}
           {showEditChat && (
             <div>
+              {/* How it works */}
+              {editChat.length <= 1 && (
+                <div style={{ padding: "14px 24px 0" }}>
+                  <div style={{ background: "rgba(184,134,11,0.06)", border: "1px solid rgba(184,134,11,0.15)", borderRadius: 10, padding: "12px 16px", marginBottom: 10 }}>
+                    <p style={{ fontSize: fs(13), color: tc("#6b5030","#3d2b1a"), fontFamily: "'Lato',sans-serif", lineHeight: 1.7, margin: 0 }}>
+                      💡 <strong>How this works:</strong> Tell Grace what you'd like to change. She may ask a quick question — then say <strong>"Yes, go ahead"</strong> and she'll update your section automatically.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Quick suggestion chips */}
               {editChat.length <= 1 && (
                 <div style={{ padding: "14px 24px 0", display: "flex", flexWrap: "wrap", gap: 8 }}>
