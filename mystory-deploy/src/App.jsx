@@ -1357,12 +1357,13 @@ export default function MyStoryFamily() {
     setBookComplete(s.bookComplete || false);
 
     if (fromPayment && s.previewChapter) {
-      // Coming back from Stripe — drop them right back on chapter preview, paid
       setPreviewChapter(s.previewChapter);
       setScreen("chat");
       setShowPaywall(false);
+    } else if (s.bookComplete) {
+      setScreen("chat");
+      setBookComplete(true);
     } else {
-      // Normal restore — land on chat if mid-book, otherwise onboarding
       const landOn = s.chapters?.length > 0 ? "chat" : "onboarding";
       setScreen(landOn);
     }
@@ -1796,9 +1797,10 @@ export default function MyStoryFamily() {
     const nextC = previewChapter.chapterIndex + 1;
     const paidKey = user?.email ? localStorage.getItem("mystory_paid_" + user.email.toLowerCase()) === "true" : false;
     const isPaid = hasPaid || paidKey;
+    const isLastChapter = previewChapter.chapterIndex >= chapters.length - 1;
 
-    // If we came back from book complete to edit a section, return to book complete
-    if (nextC >= chapters.length) {
+    // If this was the last chapter or we came back from book complete to edit
+    if (isLastChapter || nextC >= chapters.length) {
       setPreviewChapter(null);
       setBookComplete(true);
       return;
@@ -2813,14 +2815,14 @@ export default function MyStoryFamily() {
             <div style={{ fontSize: fs(11), letterSpacing: "2px", textTransform: "uppercase", color: tc("#8b7355", "#4a3020"), fontFamily: "'Lato',sans-serif", marginBottom: 14 }}>Your Sections</div>
             {chapters.map((ch, idx) => {
               const chPhotos = (photos[ch.id || ch.title] || []).length;
-              const isDone = idx < activeChapter;
-              const isCurrent = idx === activeChapter;
-              const isLocked = idx > activeChapter;
+              const isDone = idx < activeChapter || bookComplete;
+              const isCurrent = idx === activeChapter && !bookComplete;
+              const isLocked = idx > activeChapter && !bookComplete;
               return (
                 <div key={ch.id || ch.title} aria-current={isCurrent ? "step" : undefined}
                   onClick={() => {
                     if (isDone) {
-                      // Go back to a completed section
+                      setBookComplete(false);
                       setActiveChapter(idx);
                       setMessages(chapterHistory[ch.id || ch.title] || []);
                       setPreviewChapter(null);
@@ -2834,14 +2836,13 @@ export default function MyStoryFamily() {
                   <span style={{ fontSize: fs(13), color: tc(isDone ? "#8b7355" : "#3d2b1a", isDone ? "#5c3d1e" : "#1a0e00"), fontFamily: "'Lato',sans-serif", fontWeight: isCurrent ? 600 : 400, flex: 1, textDecoration: isDone ? "line-through" : "none", textDecorationColor: "rgba(139,94,52,0.4)" }}>{ch.title}</span>
                   {chPhotos > 0 && <span style={{ fontSize: fs(10), color: "#b8860b" }}>📷{chPhotos}</span>}
                   {ch.isCustom && <span style={{ fontSize: fs(9), color: "#b8860b", background: "rgba(184,134,11,0.1)", padding: "2px 5px", borderRadius: 3 }}>Custom</span>}
-                  {isDone && <span style={{ fontSize: fs(9), color: "#b8860b", fontFamily: "'Lato',sans-serif" }}>← back</span>}
                 </div>
               );
             })}
-            {/* Your Book — final item, lights up when complete */}
-            <div onClick={() => bookComplete && setBookComplete(true)}
-              style={{ display: "flex", alignItems: "center", gap: 9, padding: "10px 12px", borderRadius: 8, marginBottom: 4, marginTop: 4, border: `1px solid ${bookComplete ? "#b8860b" : "transparent"}`, background: bookComplete ? "rgba(184,134,11,0.08)" : "transparent", opacity: bookComplete ? 1 : 0.25, cursor: bookComplete ? "pointer" : "default", minHeight: 40, transition: "all 0.3s" }}>
-              <span style={{ fontSize: 15, width: 22, textAlign: "center" }} aria-hidden="true">📖</span>
+            {/* Your Book — final numbered section */}
+            <div onClick={() => { if (bookComplete) setBookComplete(true); }}
+              style={{ display: "flex", alignItems: "center", gap: 9, padding: "10px 12px", borderRadius: 8, marginBottom: 4, marginTop: 4, border: `1px solid ${bookComplete ? "#b8860b" : "transparent"}`, background: bookComplete ? "rgba(184,134,11,0.1)" : "transparent", opacity: bookComplete ? 1 : 0.25, cursor: bookComplete ? "pointer" : "default", minHeight: 40, transition: "all 0.3s" }}>
+              <span style={{ fontSize: 15, width: 22, textAlign: "center" }} aria-hidden="true">{bookComplete ? "📖" : "📖"}</span>
               <span style={{ fontSize: fs(13), color: bookComplete ? "#b8860b" : tc("#3d2b1a","#1a0e00"), fontFamily: "'Lato',sans-serif", fontWeight: bookComplete ? 600 : 400, flex: 1 }}>Your Book</span>
               {bookComplete && <span style={{ fontSize: fs(10), color: "#b8860b" }}>✦</span>}
             </div>
@@ -2861,7 +2862,7 @@ export default function MyStoryFamily() {
           {/* Chat area */}
           <main id="main-content" style={{ flex: 1, display: "flex", flexDirection: "column" }}>
             <div style={{ marginBottom: 18 }}>
-              <p style={{ fontSize: fs(12), letterSpacing: "2px", textTransform: "uppercase", color: "#b8860b", fontFamily: "'Lato',sans-serif" }}>Section {activeChapter + 1} of {chapters.length}</p>
+              <p style={{ fontSize: fs(12), letterSpacing: "2px", textTransform: "uppercase", color: "#b8860b", fontFamily: "'Lato',sans-serif" }}>Section {activeChapter + 1} of {chapters.length + 1}</p>
               <h2 style={{ fontSize: fs(28), fontWeight: 600, color: tc("#3d2b1a", "#1a0e00"), marginTop: 4 }}>{chapter.icon} {chapter.title}</h2>
               {userMessageCount > 0 && (
                 <p style={{ fontSize: fs(12), color: tc("#a89070", "#6b5030"), fontFamily: "'Lato',sans-serif", marginTop: 6 }}>
