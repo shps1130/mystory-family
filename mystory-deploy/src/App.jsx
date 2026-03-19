@@ -784,6 +784,190 @@ Keep their voice. Keep the warmth. Make it sound like them, not like a textbook.
   );
 }
 
+// ─── FULL BOOK EDITOR ────────────────────────────────────────────────────────
+function FullBookEditor({ chapters, chapterNarratives, setChapterNarratives, persona, personaAvatarBg, personaAvatar, fs, tc }) {
+  const [chat, setChat] = useState([]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [showChat, setShowChat] = useState(false);
+  const [editsUsed, setEditsUsed] = useState(0);
+  const EDIT_LIMIT = 3;
+  const endRef = useRef(null);
+
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chat]);
+
+  const fullBookText = chapters.map(ch => {
+    const narrative = chapterNarratives[ch.id || ch.title] || "";
+    return narrative ? `=== ${ch.title} ===\n${narrative}` : null;
+  }).filter(Boolean).join("\n\n");
+
+  const sendMessage = async (text) => {
+    const msg = text || input.trim();
+    if (!msg || loading) return;
+    setInput("");
+    setLoading(true);
+    const newChat = [...chat, { role: "user", content: msg }];
+    setChat(newChat);
+
+    try {
+      const res = await fetch("/api/claude", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 4000,
+          system: `You are Grace, a warm memoir editor. You have access to this person's complete legacy book. Your job is to make any additions or changes they request — adding a person, a memory, a detail — into the right section naturally.
+
+THE COMPLETE BOOK:
+${fullBookText}
+
+HOW TO RESPOND:
+1. Warmly acknowledge what they want to add
+2. Make the change — weave it naturally into the right section
+3. Return ONLY the updated section(s) wrapped in tags like this:
+<UPDATED_SECTION id="early-life">
+[full updated prose for this section]
+</UPDATED_SECTION>
+
+You can update multiple sections if needed. After the tags, add a warm 1-2 sentence note about what you changed.
+
+If you need clarification before making a change, ask ONE question first without tags.`,
+          messages: newChat.map(m => ({ role: m.role, content: m.content })),
+        }),
+      });
+      const data = await res.json();
+      const responseText = data.content?.[0]?.text || "I'm here — what would you like to add?";
+
+      // Extract any updated sections
+      const sectionMatches = [...responseText.matchAll(/<UPDATED_SECTION id="([^"]+)">([\s\S]*?)<\/UPDATED_SECTION>/g)];
+      if (sectionMatches.length > 0) {
+        setChapterNarratives(prev => {
+          const updated = { ...prev };
+          sectionMatches.forEach(([, id, prose]) => {
+            updated[id] = prose.trim();
+          });
+          return updated;
+        });
+        setEditsUsed(prev => prev + 1);
+      }
+
+      const displayText = responseText.replace(/<UPDATED_SECTION[\s\S]*?<\/UPDATED_SECTION>/g, "").trim();
+      setChat([...newChat, {
+        role: "assistant",
+        content: displayText || (sectionMatches.length > 0 ? "I've updated your book — you can download the new version above." : "I'm here — tell me what you'd like to add."),
+        hasUpdates: sectionMatches.length > 0,
+        updatedSections: sectionMatches.map(([, id]) => id),
+      }]);
+    } catch {
+      setChat([...newChat, { role: "assistant", content: "I'm here. Tell me what you'd like to add or change." }]);
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div style={{ background: "white", borderRadius: 20, overflow: "hidden", boxShadow: "0 8px 32px rgba(93,61,26,0.08)", border: "1px solid rgba(180,140,80,0.15)", marginBottom: 24 }}>
+      {/* Header */}
+      <div style={{ padding: "24px 28px", borderBottom: showChat ? "1px solid rgba(180,140,80,0.12)" : "none" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ width: 40, height: 40, borderRadius: "50%", background: personaAvatarBg || "linear-gradient(135deg,#6b4c8a,#9b7bc0)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>{personaAvatar || "🕊️"}</div>
+            <div>
+              <div style={{ fontSize: fs(16), fontWeight: 600, color: tc("#3d2b1a","#1a0e00"), fontFamily: "'Cormorant Garamond',serif" }}>Ask Grace to update your book</div>
+              <div style={{ fontSize: fs(12), color: tc("#8b7355","#5c3d1e"), fontFamily: "'Lato',sans-serif" }}>She can see your whole book and add anything across any section</div>
+            </div>
+          </div>
+          {!showChat && (
+            <button onClick={() => {
+              setShowChat(true);
+              if (chat.length === 0) setChat([{ role: "assistant", content: `I've read your entire book, ${"\u2014"} all five sections. It's beautiful. Is there anything you'd like to add? A person you forgot to mention, a memory that came back to you, a detail you want woven in somewhere? Just tell me and I'll find the right place for it.` }]);
+            }}
+              style={{ background: "rgba(184,134,11,0.08)", border: "1.5px solid rgba(184,134,11,0.3)", color: tc("#7a5030","#3d2b1a"), fontFamily: "'Lato',sans-serif", fontSize: fs(13), fontWeight: 600, padding: "10px 20px", borderRadius: 100, cursor: "pointer", minHeight: 44 }}>
+              ✦ Talk to Grace
+            </button>
+          )}
+        </div>
+      </div>
+
+      {showChat && (
+        <div>
+          {/* Quick suggestions */}
+          {chat.length <= 1 && (
+            <div style={{ padding: "14px 28px 0", display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {["Add a family member I forgot", "Add a memory from my childhood", "Add a detail about my faith", "My book is perfect as is"].map(s => (
+                <button key={s} onClick={() => sendMessage(s)}
+                  style={{ background: "rgba(184,134,11,0.06)", border: "1px solid rgba(184,134,11,0.2)", color: tc("#6b5030","#3d2b1a"), fontFamily: "'Lato',sans-serif", fontSize: fs(12), padding: "7px 14px", borderRadius: 100, cursor: "pointer", minHeight: 36 }}>
+                  {s}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Messages */}
+          <div style={{ padding: "16px 28px", maxHeight: 400, overflowY: "auto", display: "flex", flexDirection: "column", gap: 14 }}>
+            {chat.map((msg, i) => (
+              <div key={i} style={{ display: "flex", gap: 10, flexDirection: msg.role === "user" ? "row-reverse" : "row" }}>
+                <div style={{ width: 32, height: 32, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: msg.role === "user" ? 10 : 14, background: msg.role === "user" ? "linear-gradient(135deg,#b8860b,#d4a843)" : (personaAvatarBg || "linear-gradient(135deg,#6b4c8a,#9b7bc0)"), color: "#fdf6ec", fontFamily: "'Lato',sans-serif", fontWeight: 700 }}>
+                  {msg.role === "user" ? "You" : (personaAvatar || "🕊️")}
+                </div>
+                <div style={{ maxWidth: "80%", padding: "12px 16px", borderRadius: msg.role === "user" ? "14px 4px 14px 14px" : "4px 14px 14px 14px", background: msg.role === "user" ? "linear-gradient(135deg,#5c3d1e,#7a5030)" : "#fdf6ec", color: msg.role === "user" ? "#fdf6ec" : tc("#3d2b1a","#1a0e00"), fontSize: fs(15), fontFamily: "'Cormorant Garamond',Georgia,serif", lineHeight: 1.8, border: msg.role === "assistant" ? "1px solid rgba(180,140,80,0.15)" : "none" }}>
+                  {msg.content}
+                  {msg.hasUpdates && (
+                    <div style={{ marginTop: 10, padding: "8px 12px", background: "rgba(184,134,11,0.1)", borderRadius: 8, fontSize: fs(12), color: "#b8860b", fontFamily: "'Lato',sans-serif", fontStyle: "normal" }}>
+                      ✦ Book updated — sections changed: {msg.updatedSections?.join(", ")}. Download a fresh PDF above.
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+            {loading && (
+              <div style={{ display: "flex", gap: 10 }}>
+                <div style={{ width: 32, height: 32, borderRadius: "50%", background: personaAvatarBg || "linear-gradient(135deg,#6b4c8a,#9b7bc0)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>{personaAvatar || "🕊️"}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "12px 16px", background: "#fdf6ec", borderRadius: "4px 14px 14px 14px", border: "1px solid rgba(180,140,80,0.15)" }}>
+                  {[0, 0.2, 0.4].map((d, i) => <div key={i} style={{ width: 6, height: 6, background: "#c9a87a", borderRadius: "50%", animation: `bounce 1.2s ${d}s infinite` }} />)}
+                </div>
+              </div>
+            )}
+            <div ref={endRef} />
+          </div>
+
+          {/* Input */}
+          <div style={{ padding: "12px 28px 20px", borderTop: "1px solid rgba(180,140,80,0.1)" }}>
+            {editsUsed >= EDIT_LIMIT ? (
+              <div style={{ background: "rgba(184,134,11,0.06)", border: "1px solid rgba(184,134,11,0.2)", borderRadius: 12, padding: "16px 20px", textAlign: "center" }}>
+                <p style={{ fontSize: fs(15), color: tc("#5c4a35","#2a1a0a"), fontFamily: "'Cormorant Garamond',serif", fontStyle: "italic", lineHeight: 1.8, margin: "0 0 6px" }}>
+                  You've used your 3 included revisions. Your book is beautiful as it is. 🕊️
+                </p>
+                <p style={{ fontSize: fs(12), color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", margin: 0 }}>
+                  Download your final PDF above and share it with the people you love.
+                </p>
+              </div>
+            ) : (
+              <div>
+                <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+                  <span style={{ fontSize: fs(11), color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif" }}>
+                    {EDIT_LIMIT - editsUsed} of {EDIT_LIMIT} revisions remaining
+                  </span>
+                </div>
+                <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
+                  <textarea value={input} onChange={e => setInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+                    placeholder="Tell Grace what you'd like to add or change..."
+                    rows={1}
+                    style={{ flex: 1, border: "1.5px solid rgba(180,140,80,0.25)", borderRadius: 10, padding: "10px 14px", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(15), color: tc("#3d2b1a","#1a0e00"), background: "#fffdf5", outline: "none", resize: "none", lineHeight: 1.6, minHeight: 42, maxHeight: 100, overflowY: "auto" }} />
+                  <button onClick={() => sendMessage()} disabled={!input.trim() || loading}
+                    style={{ width: 42, height: 42, borderRadius: "50%", background: input.trim() && !loading ? (personaAvatarBg || "linear-gradient(135deg,#6b4c8a,#9b7bc0)") : "rgba(139,94,52,0.2)", border: "none", cursor: input.trim() && !loading ? "pointer" : "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all 0.2s" }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M22 2L11 13" stroke="#fdf6ec" strokeWidth="2" strokeLinecap="round"/><path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="#fdf6ec" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function MyStoryFamily() {
   const [screen, setScreen] = useState("welcome"); // welcome | signup | signin | onboarding | reveal | booksize | setup | chat
@@ -955,7 +1139,7 @@ export default function MyStoryFamily() {
         onboardAnswers, persona, systemPrompt,
         chapters, activeChapter, chapterHistory,
         messages, hasPaid, enabledChapters, chapterNarratives,
-        previewChapter,
+        previewChapter, bookComplete,
         ...overrides,
       };
       // Always save to localStorage for instant restore
@@ -991,6 +1175,7 @@ export default function MyStoryFamily() {
     setHasPaid(s.hasPaid === true);
     setEnabledChapters(s.enabledChapters || BASE_CHAPTERS.map(c => c.id));
     setChapterNarratives(s.chapterNarratives || {});
+    setBookComplete(s.bookComplete || false);
 
     if (fromPayment && s.previewChapter) {
       // Coming back from Stripe — drop them right back on chapter preview, paid
@@ -1393,9 +1578,16 @@ export default function MyStoryFamily() {
 
   const continueFromPreview = () => {
     const nextC = previewChapter.chapterIndex + 1;
-    // Check paid status from state AND localStorage key as fallback
     const paidKey = user?.email ? localStorage.getItem("mystory_paid_" + user.email.toLowerCase()) === "true" : false;
     const isPaid = hasPaid || paidKey;
+
+    // If we came back from book complete to edit a section, return to book complete
+    if (nextC >= chapters.length) {
+      setPreviewChapter(null);
+      setBookComplete(true);
+      return;
+    }
+
     if (previewChapter.chapterIndex === 0 && !isPaid && !promoInfo?.schoolShare) {
       setShowPaywall(true);
       return;
@@ -2318,8 +2510,26 @@ export default function MyStoryFamily() {
               <PrintUpgradeCard isLast={true} promoCode={promoCode} promoInfo={promoInfo} fs={fs} tc={tc} highContrast={highContrast} userEmail={user?.email} userName={`${user?.firstName || ""} ${user?.lastName || ""}`.trim()} />
             </div>
 
+            {/* Encouraging copy */}
+            <div style={{ background: "rgba(184,134,11,0.06)", border: "1px solid rgba(184,134,11,0.15)", borderRadius: 16, padding: "24px 28px", marginBottom: 24, textAlign: "left" }}>
+              <p style={{ fontSize: fs(17), color: tc("#5c4a35","#2a1a0a"), fontFamily: "'Cormorant Garamond',serif", fontStyle: "italic", lineHeight: 1.85, margin: 0 }}>
+                You did the work. You showed up, you remembered, you shared things you've never put into words before. Small details can always be added — but don't let perfectionism keep this gift from the people who love you. Your family doesn't need a perfect book. They need <em>your</em> book. 🕊️
+              </p>
+            </div>
+
+            {/* Grace full-book editor */}
+            <FullBookEditor
+              chapters={chapters}
+              chapterNarratives={chapterNarratives}
+              setChapterNarratives={setChapterNarratives}
+              persona={persona}
+              personaAvatarBg={personaAvatarBg}
+              personaAvatar={personaAvatar}
+              fs={fs} tc={tc}
+            />
+
             {/* Share */}
-            <p style={{ fontSize: fs(15), color: tc("#8b7355","#5c3d1e"), fontFamily: "'Lato',sans-serif", lineHeight: 1.7, fontStyle: "italic" }}>
+            <p style={{ fontSize: fs(15), color: tc("#8b7355","#5c3d1e"), fontFamily: "'Lato',sans-serif", lineHeight: 1.7, fontStyle: "italic", marginTop: 24 }}>
               Thank you for trusting us with your legacy, {user?.firstName}. 🕊️
             </p>
           </div>
@@ -2345,6 +2555,14 @@ export default function MyStoryFamily() {
                 </div>
               );
             })}
+            {/* Your Book — final item, lights up when complete */}
+            <div onClick={() => bookComplete && setBookComplete(true)}
+              style={{ display: "flex", alignItems: "center", gap: 9, padding: "10px 12px", borderRadius: 8, marginBottom: 4, marginTop: 4, border: `1px solid ${bookComplete ? "#b8860b" : "transparent"}`, background: bookComplete ? "rgba(184,134,11,0.08)" : "transparent", opacity: bookComplete ? 1 : 0.25, cursor: bookComplete ? "pointer" : "default", minHeight: 40, transition: "all 0.3s" }}>
+              <span style={{ fontSize: 15, width: 22, textAlign: "center" }} aria-hidden="true">📖</span>
+              <span style={{ fontSize: fs(13), color: bookComplete ? "#b8860b" : tc("#3d2b1a","#1a0e00"), fontFamily: "'Lato',sans-serif", fontWeight: bookComplete ? 600 : 400, flex: 1 }}>Your Book</span>
+              {bookComplete && <span style={{ fontSize: fs(10), color: "#b8860b" }}>✦</span>}
+            </div>
+
             {/* Guide card */}
             {persona && (
               <div style={{ marginTop: 20, padding: "12px 14px", background: "white", borderRadius: 10, border: "1px solid rgba(180,140,80,0.2)" }}>
