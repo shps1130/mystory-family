@@ -2708,7 +2708,7 @@ export default function MyStoryFamily() {
         </main>
       )}
 
-      {screen === "chat" && !previewChapter && !showPaywall && chapter && (
+      {screen === "chat" && !previewChapter && !showPaywall && !bookComplete && chapter && (
         <div style={{ display: "flex", flex: 1, maxWidth: 1080, margin: "0 auto", width: "100%", padding: "32px 24px", gap: 32 }}>
           {/* Sidebar */}
           <nav aria-label="Section navigation" style={{ width: 210, flexShrink: 0 }}>
