@@ -9,7 +9,7 @@ import { useState, useRef, useEffect } from "react";
 // 4. Copy your Payment Link URL and paste it below
 // 5. Replace the TEST link with your LIVE link when ready to go live
 
-const STRIPE_PAYMENT_LINK = "https://buy.stripe.com/test_cNidRbgDj4Xng7R0cMds401";
+const STRIPE_PAYMENT_LINK = "https://buy.stripe.com/test_4gM28s8HW4EC3UAchh3ks00";
 const APP_URL = "https://mystory.family"; // update if hosting elsewhere
 // ─────────────────────────────────────────────────────────────────────────────
 
