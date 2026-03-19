@@ -58,6 +58,14 @@ const ONBOARDING_STEPS = [
     type: "multi_chips",
     chips: ["The storyteller", "The quiet one", "The funny one", "The strong one", "The faithful one", "The caretaker", "The adventurer", "The peacemaker", "The steady one", "The dreamer"],
   },
+  {
+    id: "faith",
+    question: "Does faith or spirituality play a role in your life story?",
+    subtext: "This helps us know whether to include a Faith Journey section in your book.",
+    type: "chips_text",
+    chips: ["Yes, it's an important part of my story", "It plays a small role", "Not really"],
+    placeholder: "",
+  },
 ];
 
 // ─── PERSONAS ─────────────────────────────────────────────────────────────────
@@ -1152,7 +1160,9 @@ export default function MyStoryFamily() {
   const [signinFields, setSigninFields] = useState({ email: "", password: "" });
   const [signinError, setSigninError] = useState("");
   const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotStep, setForgotStep] = useState("email"); // email → code → password
   const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotCode, setForgotCode] = useState("");
   const [forgotNewPassword, setForgotNewPassword] = useState("");
   const [forgotConfirm, setForgotConfirm] = useState("");
   const [forgotError, setForgotError] = useState("");
@@ -1452,22 +1462,53 @@ export default function MyStoryFamily() {
 
   const handleForgotPassword = async () => {
     setForgotError("");
-    if (!forgotEmail.includes("@")) { setForgotError("Please enter your email address."); return; }
-    if (forgotNewPassword.length < 6) { setForgotError("New password must be at least 6 characters."); return; }
-    if (forgotNewPassword !== forgotConfirm) { setForgotError("Passwords don't match."); return; }
-    setForgotError("Updating password…");
-    try {
-      const res = await fetch("/api/auth-forgot", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: forgotEmail, newPassword: forgotNewPassword }),
-      });
-      const data = await res.json();
-      if (!res.ok) { setForgotError(data.error || "Could not update password."); return; }
-      setForgotSuccess(true);
+
+    // Step 1: Send verification code
+    if (forgotStep === "email") {
+      if (!forgotEmail.includes("@")) { setForgotError("Please enter your email address."); return; }
+      setForgotError("Sending verification code…");
+      try {
+        const res = await fetch("/api/email-verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: forgotEmail }),
+        });
+        const data = await res.json();
+        if (!res.ok) { setForgotError(data.error || "Could not send code."); return; }
+        setForgotStep("code");
+        setForgotError("");
+      } catch {
+        setForgotError("Connection error. Please try again.");
+      }
+      return;
+    }
+
+    // Step 2: Verify code
+    if (forgotStep === "code") {
+      if (forgotCode.length !== 6) { setForgotError("Please enter the 6-digit code from your email."); return; }
+      setForgotStep("password");
       setForgotError("");
-    } catch {
-      setForgotError("Connection error. Please try again.");
+      return;
+    }
+
+    // Step 3: Set new password
+    if (forgotStep === "password") {
+      if (forgotNewPassword.length < 6) { setForgotError("New password must be at least 6 characters."); return; }
+      if (forgotNewPassword !== forgotConfirm) { setForgotError("Passwords don't match."); return; }
+      setForgotError("Updating password…");
+      try {
+        const res = await fetch("/api/auth-forgot", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: forgotEmail, code: forgotCode, newPassword: forgotNewPassword }),
+        });
+        const data = await res.json();
+        if (!res.ok) { setForgotError(data.error || "Could not update password."); return; }
+        setForgotSuccess(true);
+        setForgotError("");
+      } catch {
+        setForgotError("Connection error. Please try again.");
+      }
     }
   };
 
@@ -1534,12 +1575,18 @@ export default function MyStoryFamily() {
       setOnboardStep(s => s + 1);
     } else {
       // All done — assign persona and build system prompt
-      const faithLevel = newAnswers.faith || 1;
+      // Auto-skip faith if user said "Not really"
+      const faithAnswer = newAnswers.faith || "";
+      let updatedEnabledChapters = [...enabledChapters];
+      if (faithAnswer === "Not really") {
+        updatedEnabledChapters = updatedEnabledChapters.filter(id => id !== "faith");
+        setEnabledChapters(updatedEnabledChapters);
+      }
       const chosenPersona = PERSONAS.grace;
-      const firstQ = getQuestion(BASE_CHAPTERS.find(c => enabledChapters.includes(c.id))?.prompts[0] || BASE_CHAPTERS[0].prompts[0]);
+      const firstQ = getQuestion(BASE_CHAPTERS.find(c => updatedEnabledChapters.includes(c.id))?.prompts[0] || BASE_CHAPTERS[0].prompts[0]);
       const profile = {
         audience: newAnswers.audience,
-        faithScale: faithLevel,
+        faithScale: faithAnswer === "Yes, it's an important part of my story" ? 3 : faithAnswer === "It plays a small role" ? 2 : 1,
         personality: newAnswers.personality || [],
         mustInclude: newAnswers.mustInclude,
         keepPrivate: newAnswers.keepPrivate,
@@ -2215,32 +2262,83 @@ export default function MyStoryFamily() {
                     <div style={{ textAlign: "center" }}>
                       <div style={{ fontSize: 28, marginBottom: 10 }}>✦</div>
                       <p style={{ fontSize: fs(15), color: tc("#3d2b1a","#1a0e00"), fontFamily: "'Cormorant Garamond',serif", fontStyle: "italic", marginBottom: 12 }}>Password updated. You can sign in now.</p>
-                      <button onClick={() => { setShowForgotPassword(false); setForgotSuccess(false); }}
+                      <button onClick={() => { setShowForgotPassword(false); setForgotSuccess(false); setForgotStep("email"); }}
                         style={{ background: "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", padding: "10px 24px", borderRadius: 100, fontFamily: "'Lato',sans-serif", fontSize: fs(13), cursor: "pointer", minHeight: 40 }}>
                         Sign In →
                       </button>
                     </div>
+                  ) : forgotStep === "email" ? (
+                    <>
+                      <p style={{ fontSize: fs(13), color: tc("#6b5540","#3a2510"), fontFamily: "'Lato',sans-serif", marginBottom: 14, lineHeight: 1.6 }}>
+                        Enter your email and we'll send you a verification code.
+                      </p>
+                      <div style={{ marginBottom: 10 }}>
+                        <label style={{ display: "block", fontSize: fs(11), color: tc("#7a5c3a","#4a3020"), fontFamily: "'Lato',sans-serif", marginBottom: 4, fontWeight: 600, letterSpacing: "0.5px" }}>Email Address</label>
+                        <input type="email" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)}
+                          onKeyDown={e => e.key === "Enter" && handleForgotPassword()}
+                          style={{ width: "100%", border: "1.5px solid rgba(180,140,80,0.3)", borderRadius: 8, padding: "10px 12px", fontFamily: "'Lato',sans-serif", fontSize: fs(14), color: tc("#3d2b1a","#1a0e00"), background: "#fffdf5", outline: "none", boxSizing: "border-box", minHeight: 44 }} />
+                      </div>
+                      {forgotError && <p style={{ fontSize: fs(13), color: forgotError.includes("Sending") ? "#b8860b" : "#c0392b", fontFamily: "'Lato',sans-serif", marginBottom: 10 }}>{forgotError}</p>}
+                      <div style={{ display: "flex", gap: 10 }}>
+                        <button onClick={handleForgotPassword}
+                          style={{ flex: 1, background: "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", padding: "11px", borderRadius: 100, fontFamily: "'Lato',sans-serif", fontSize: fs(13), cursor: "pointer", minHeight: 44 }}>
+                          Send Code
+                        </button>
+                        <button onClick={() => { setShowForgotPassword(false); setForgotStep("email"); }}
+                          style={{ background: "none", border: "1.5px solid rgba(180,140,80,0.3)", color: tc("#6b5540","#3a2510"), fontFamily: "'Lato',sans-serif", fontSize: fs(13), cursor: "pointer", padding: "11px 18px", borderRadius: 100, minHeight: 44 }}>
+                          Cancel
+                        </button>
+                      </div>
+                    </>
+                  ) : forgotStep === "code" ? (
+                    <>
+                      <p style={{ fontSize: fs(13), color: tc("#6b5540","#3a2510"), fontFamily: "'Lato',sans-serif", marginBottom: 14, lineHeight: 1.6 }}>
+                        We sent a 6-digit code to <strong>{forgotEmail}</strong>. Enter it below.
+                      </p>
+                      <div style={{ marginBottom: 10 }}>
+                        <label style={{ display: "block", fontSize: fs(11), color: tc("#7a5c3a","#4a3020"), fontFamily: "'Lato',sans-serif", marginBottom: 4, fontWeight: 600, letterSpacing: "0.5px" }}>Verification Code</label>
+                        <input type="text" value={forgotCode} onChange={e => setForgotCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                          onKeyDown={e => e.key === "Enter" && handleForgotPassword()}
+                          placeholder="123456"
+                          style={{ width: "100%", border: "1.5px solid rgba(180,140,80,0.3)", borderRadius: 8, padding: "10px 12px", fontFamily: "'Lato',sans-serif", fontSize: fs(20), color: tc("#3d2b1a","#1a0e00"), background: "#fffdf5", outline: "none", boxSizing: "border-box", minHeight: 44, letterSpacing: 6, textAlign: "center" }} />
+                      </div>
+                      {forgotError && <p style={{ fontSize: fs(13), color: "#c0392b", fontFamily: "'Lato',sans-serif", marginBottom: 10 }}>{forgotError}</p>}
+                      <div style={{ display: "flex", gap: 10 }}>
+                        <button onClick={handleForgotPassword}
+                          style={{ flex: 1, background: "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", padding: "11px", borderRadius: 100, fontFamily: "'Lato',sans-serif", fontSize: fs(13), cursor: "pointer", minHeight: 44 }}>
+                          Verify Code
+                        </button>
+                        <button onClick={() => setForgotStep("email")}
+                          style={{ background: "none", border: "1.5px solid rgba(180,140,80,0.3)", color: tc("#6b5540","#3a2510"), fontFamily: "'Lato',sans-serif", fontSize: fs(13), cursor: "pointer", padding: "11px 18px", borderRadius: 100, minHeight: 44 }}>
+                          Back
+                        </button>
+                      </div>
+                      <button onClick={() => { setForgotStep("email"); setForgotError(""); handleForgotPassword(); }}
+                        style={{ display: "block", width: "100%", background: "none", border: "none", color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", fontSize: fs(12), cursor: "pointer", textDecoration: "underline", marginTop: 10, minHeight: 32 }}>
+                        Resend code
+                      </button>
+                    </>
                   ) : (
                     <>
                       <p style={{ fontSize: fs(13), color: tc("#6b5540","#3a2510"), fontFamily: "'Lato',sans-serif", marginBottom: 14, lineHeight: 1.6 }}>
-                        Enter your email and choose a new password.
+                        Code verified ✓ Now choose a new password.
                       </p>
-                      {[["Email Address", forgotEmail, setForgotEmail, "email"], ["New Password", forgotNewPassword, setForgotNewPassword, "password"], ["Confirm Password", forgotConfirm, setForgotConfirm, "password"]].map(([label, val, setter, type]) => (
+                      {[["New Password", forgotNewPassword, setForgotNewPassword], ["Confirm Password", forgotConfirm, setForgotConfirm]].map(([label, val, setter]) => (
                         <div key={label} style={{ marginBottom: 10 }}>
                           <label style={{ display: "block", fontSize: fs(11), color: tc("#7a5c3a","#4a3020"), fontFamily: "'Lato',sans-serif", marginBottom: 4, fontWeight: 600, letterSpacing: "0.5px" }}>{label}</label>
-                          <input type={type} value={val} onChange={e => setter(e.target.value)}
+                          <input type="password" value={val} onChange={e => setter(e.target.value)}
                             style={{ width: "100%", border: "1.5px solid rgba(180,140,80,0.3)", borderRadius: 8, padding: "10px 12px", fontFamily: "'Lato',sans-serif", fontSize: fs(14), color: tc("#3d2b1a","#1a0e00"), background: "#fffdf5", outline: "none", boxSizing: "border-box", minHeight: 44 }} />
                         </div>
                       ))}
-                      {forgotError && <p style={{ fontSize: fs(13), color: "#c0392b", fontFamily: "'Lato',sans-serif", marginBottom: 10 }}>{forgotError}</p>}
+                      {forgotError && <p style={{ fontSize: fs(13), color: forgotError.includes("Updating") ? "#b8860b" : "#c0392b", fontFamily: "'Lato',sans-serif", marginBottom: 10 }}>{forgotError}</p>}
                       <div style={{ display: "flex", gap: 10 }}>
                         <button onClick={handleForgotPassword}
                           style={{ flex: 1, background: "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", padding: "11px", borderRadius: 100, fontFamily: "'Lato',sans-serif", fontSize: fs(13), cursor: "pointer", minHeight: 44 }}>
                           Update Password
                         </button>
-                        <button onClick={() => setShowForgotPassword(false)}
+                        <button onClick={() => setForgotStep("code")}
                           style={{ background: "none", border: "1.5px solid rgba(180,140,80,0.3)", color: tc("#6b5540","#3a2510"), fontFamily: "'Lato',sans-serif", fontSize: fs(13), cursor: "pointer", padding: "11px 18px", borderRadius: 100, minHeight: 44 }}>
-                          Cancel
+                          Back
                         </button>
                       </div>
                     </>
@@ -2717,13 +2815,26 @@ export default function MyStoryFamily() {
               const chPhotos = (photos[ch.id || ch.title] || []).length;
               const isDone = idx < activeChapter;
               const isCurrent = idx === activeChapter;
+              const isLocked = idx > activeChapter;
               return (
                 <div key={ch.id || ch.title} aria-current={isCurrent ? "step" : undefined}
-                  style={{ display: "flex", alignItems: "center", gap: 9, padding: "10px 12px", borderRadius: 8, marginBottom: 4, border: `1px solid ${isCurrent ? "rgba(139,94,52,0.2)" : "transparent"}`, background: isCurrent ? "rgba(139,94,52,0.1)" : "transparent", opacity: idx > activeChapter ? 0.35 : isDone ? 0.65 : 1, minHeight: 40 }}>
+                  onClick={() => {
+                    if (isDone) {
+                      // Go back to a completed section
+                      setActiveChapter(idx);
+                      setMessages(chapterHistory[ch.id || ch.title] || []);
+                      setPreviewChapter(null);
+                      setChapterContext(buildChapterContext(ch));
+                    }
+                  }}
+                  style={{ display: "flex", alignItems: "center", gap: 9, padding: "10px 12px", borderRadius: 8, marginBottom: 4, border: `1px solid ${isCurrent ? "rgba(139,94,52,0.2)" : "transparent"}`, background: isCurrent ? "rgba(139,94,52,0.1)" : "transparent", opacity: isLocked ? 0.35 : 1, cursor: isDone ? "pointer" : "default", minHeight: 40, transition: "all 0.15s" }}
+                  onMouseEnter={e => { if (isDone) e.currentTarget.style.background = "rgba(139,94,52,0.06)"; }}
+                  onMouseLeave={e => { if (isDone && !isCurrent) e.currentTarget.style.background = "transparent"; }}>
                   <span style={{ fontSize: 15, width: 22, textAlign: "center" }} aria-hidden="true">{isDone ? "✓" : ch.icon}</span>
                   <span style={{ fontSize: fs(13), color: tc(isDone ? "#8b7355" : "#3d2b1a", isDone ? "#5c3d1e" : "#1a0e00"), fontFamily: "'Lato',sans-serif", fontWeight: isCurrent ? 600 : 400, flex: 1, textDecoration: isDone ? "line-through" : "none", textDecorationColor: "rgba(139,94,52,0.4)" }}>{ch.title}</span>
                   {chPhotos > 0 && <span style={{ fontSize: fs(10), color: "#b8860b" }}>📷{chPhotos}</span>}
                   {ch.isCustom && <span style={{ fontSize: fs(9), color: "#b8860b", background: "rgba(184,134,11,0.1)", padding: "2px 5px", borderRadius: 3 }}>Custom</span>}
+                  {isDone && <span style={{ fontSize: fs(9), color: "#b8860b", fontFamily: "'Lato',sans-serif" }}>← back</span>}
                 </div>
               );
             })}
@@ -2945,6 +3056,18 @@ export default function MyStoryFamily() {
                   style={{ background: "transparent", border: `${highContrast ? 2 : 1.5}px solid rgba(180,140,80,0.4)`, color: tc("#7a5030", "#3d2b1a"), fontFamily: "'Lato',sans-serif", fontSize: fs(12), letterSpacing: "1px", textTransform: "uppercase", padding: "10px 22px", borderRadius: 100, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.4 : 1, minHeight: 44, transition: "all 0.2s" }}>
                   Take me somewhere new in this section →
                 </button>
+                {chapters.length > 1 && activeChapter < chapters.length - 1 && (
+                  <button onClick={() => {
+                    if (window.confirm(`Skip ${chapter.title}? This section won't appear in your book, but you can always come back and add it later.`)) {
+                      const skipped = chapters.filter((_, i) => i !== activeChapter);
+                      setChapters(skipped);
+                      showToast(`${chapter.title} skipped — you can add it later from your book.`);
+                    }
+                  }}
+                    style={{ background: "none", border: "none", color: tc("#c4a882","#6b5030"), fontFamily: "'Lato',sans-serif", fontSize: fs(12), cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3, padding: "4px 8px", minHeight: 32 }}>
+                    Skip this section
+                  </button>
+                )}
               </div>
             )}
           </main>
