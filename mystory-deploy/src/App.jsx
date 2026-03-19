@@ -1146,14 +1146,7 @@ If you need clarification before making a change, ask ONE question first without
 
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function MyStoryFamily() {
-  const [screen, setScreen] = useState("welcome"); // welcome | signup | signin | giftcode | onboarding | reveal | booksize | setup | chat
-
-  // ── GIFT CODE STATE ───────────────────────────────────────────────────────
-  const [giftCode, setGiftCode] = useState("");
-  const [giftEmail, setGiftEmail] = useState("");
-  const [giftName, setGiftName] = useState("");
-  const [giftError, setGiftError] = useState("");
-  const [giftLoading, setGiftLoading] = useState(false);
+  const [screen, setScreen] = useState("welcome"); // welcome | signup | signin | onboarding | reveal | booksize | setup | chat
   const [bookSize, setBookSize] = useState(null);
   const [promoCode, setPromoCode] = useState("");
   const [promoInput, setPromoInput] = useState("");
@@ -1553,46 +1546,6 @@ export default function MyStoryFamily() {
     setPromoInfo(found);
     setPromoError("");
     announce(found.school ? `Code applied. ${found.school} will receive $${found.schoolShare} from your purchase.` : "Discount code applied.");
-  };
-
-  const redeemGiftCode = async () => {
-    setGiftLoading(true);
-    setGiftError("");
-    try {
-      // First create the account
-      const signupRes = await fetch("/api/auth-signup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ firstName: giftName, lastName: "", email: giftEmail, password: Math.random().toString(36).slice(2) + "Aa1!" }),
-      });
-      // Account may already exist — that's fine, continue to redeem
-      const signupData = await signupRes.json();
-
-      // Redeem the gift code
-      const redeemRes = await fetch("/api/gift-redeem", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: giftCode.trim().toUpperCase(), email: giftEmail.toLowerCase(), firstName: giftName }),
-      });
-      const redeemData = await redeemRes.json();
-
-      if (!redeemRes.ok) {
-        setGiftError(redeemData.error || "Could not redeem code. Please try again.");
-        setGiftLoading(false);
-        return;
-      }
-
-      // Success — set user and mark as paid
-      const userData = signupData.user || { firstName: giftName, lastName: "", email: giftEmail };
-      setUser(userData);
-      setHasPaid(true);
-      localStorage.setItem("msfPaid_" + giftEmail.toLowerCase(), "true");
-      showToast("Gift code redeemed! Welcome to MyStory.Family 🕊️");
-      setScreen("onboarding");
-    } catch (e) {
-      setGiftError("Something went wrong. Please try again.");
-    }
-    setGiftLoading(false);
   };
 
   const addPhoto = (id, photo) => setPhotos(prev => ({ ...prev, [id]: [...(prev[id] || []), photo] }));
@@ -2216,65 +2169,6 @@ export default function MyStoryFamily() {
             First section free · no card required<br />
             <span style={{ fontSize: fs(13), opacity: 0.8 }}>Unlock your full book + PDF download for $99 when you're ready</span>
           </p>
-
-          {/* Gift code link */}
-          <button onClick={() => setScreen("giftcode")}
-            style={{ marginTop: 16, background: "none", border: "none", color: tc("#b8860b","#7a5c00"), fontFamily: "'Lato',sans-serif", fontSize: fs(13), cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3, minHeight: 44, padding: "8px 16px" }}>
-            🎁 I have a gift code
-          </button>
-        </main>
-      )}
-
-      {/* ── GIFT CODE REDEMPTION ── */}
-      {screen === "giftcode" && (
-        <main id="main-content" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "78vh", padding: "40px 24px", animation: "fadeUp 0.4s ease forwards" }}>
-          <div style={{ maxWidth: 460, width: "100%" }}>
-            <div style={{ textAlign: "center", marginBottom: 36 }}>
-              <div style={{ fontSize: 40, marginBottom: 12 }} aria-hidden="true">🎁</div>
-              <h2 style={{ fontSize: fs(30), fontWeight: 300, color: tc("#3d2b1a","#1a0e00"), fontStyle: "italic", marginBottom: 8 }}>You've Received a Gift</h2>
-              <p style={{ fontSize: fs(15), color: tc("#6b5540","#3a2510"), fontFamily: "'Lato',sans-serif", lineHeight: 1.7 }}>
-                Someone who loves you has given you the gift of story. Enter your code below to unlock your full legacy book.
-              </p>
-            </div>
-
-            <div style={{ background: "white", borderRadius: 16, padding: "28px 28px", border: "1.5px solid rgba(180,140,80,0.2)", boxShadow: "0 4px 24px rgba(93,61,26,0.07)" }}>
-              {/* Name field */}
-              <div style={{ marginBottom: 16 }}>
-                <label htmlFor="gift-name" style={{ display: "block", fontSize: fs(13), color: tc("#6b5540","#3a2510"), fontFamily: "'Lato',sans-serif", marginBottom: 6, fontWeight: 600 }}>Your first name</label>
-                <input id="gift-name"
-                  value={giftName} onChange={e => { setGiftName(e.target.value); setGiftError(""); }}
-                  placeholder="First name"
-                  style={{ width: "100%", border: `1.5px solid ${highContrast ? "#7a5c3a" : "rgba(180,140,80,0.3)"}`, borderRadius: 8, padding: "11px 14px", fontFamily: "'Lato',sans-serif", fontSize: fs(14), color: tc("#3d2b1a","#1a0e00"), background: "#fffdf5", outline: "none", minHeight: 46, boxSizing: "border-box" }} />
-              </div>
-              {/* Email field */}
-              <div style={{ marginBottom: 16 }}>
-                <label htmlFor="gift-email" style={{ display: "block", fontSize: fs(13), color: tc("#6b5540","#3a2510"), fontFamily: "'Lato',sans-serif", marginBottom: 6, fontWeight: 600 }}>Your email</label>
-                <input id="gift-email" type="email"
-                  value={giftEmail} onChange={e => { setGiftEmail(e.target.value); setGiftError(""); }}
-                  placeholder="your@email.com"
-                  style={{ width: "100%", border: `1.5px solid ${highContrast ? "#7a5c3a" : "rgba(180,140,80,0.3)"}`, borderRadius: 8, padding: "11px 14px", fontFamily: "'Lato',sans-serif", fontSize: fs(14), color: tc("#3d2b1a","#1a0e00"), background: "#fffdf5", outline: "none", minHeight: 46, boxSizing: "border-box" }} />
-              </div>
-              {/* Code field */}
-              <div style={{ marginBottom: 20 }}>
-                <label htmlFor="gift-code" style={{ display: "block", fontSize: fs(13), color: tc("#6b5540","#3a2510"), fontFamily: "'Lato',sans-serif", marginBottom: 6, fontWeight: 600 }}>Gift code</label>
-                <input id="gift-code"
-                  value={giftCode} onChange={e => { setGiftCode(e.target.value.toUpperCase()); setGiftError(""); }}
-                  placeholder="XXXX-XXXX-XXXX"
-                  style={{ width: "100%", border: `1.5px solid ${giftError ? "#c0392b" : highContrast ? "#7a5c3a" : "rgba(180,140,80,0.3)"}`, borderRadius: 8, padding: "11px 14px", fontFamily: "'Lato',sans-serif", fontSize: fs(16), fontWeight: 700, letterSpacing: 3, color: tc("#3d2b1a","#1a0e00"), background: "#fffdf5", outline: "none", minHeight: 46, boxSizing: "border-box", textTransform: "uppercase" }} />
-                {giftError && <p role="alert" style={{ fontSize: fs(12), color: "#c0392b", fontFamily: "'Lato',sans-serif", marginTop: 6 }}>{giftError}</p>}
-              </div>
-
-              <button onClick={redeemGiftCode} disabled={giftLoading || !giftCode.trim() || !giftEmail.trim() || !giftName.trim()}
-                style={{ width: "100%", background: (giftLoading || !giftCode.trim() || !giftEmail.trim() || !giftName.trim()) ? "rgba(139,94,52,0.3)" : "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", padding: "15px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(18), letterSpacing: 0.5, cursor: (giftLoading || !giftCode.trim() || !giftEmail.trim() || !giftName.trim()) ? "not-allowed" : "pointer", minHeight: 52, transition: "all 0.2s" }}>
-                {giftLoading ? "Unlocking your story..." : "Unlock My Legacy Book ✦"}
-              </button>
-            </div>
-
-            <button onClick={() => setScreen("welcome")}
-              style={{ display: "block", margin: "16px auto 0", background: "none", border: "none", color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", fontSize: fs(13), cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3, minHeight: 44, padding: "8px 16px" }}>
-              ← Back
-            </button>
-          </div>
         </main>
       )}
 
