@@ -1378,7 +1378,9 @@ export default function MyStoryFamily() {
     if (!firstName.trim()) { setSignupError("Please enter your first name."); return; }
     if (!lastName.trim()) { setSignupError("Please enter your last name."); return; }
     if (!email.includes("@")) { setSignupError("Please enter a valid email address."); return; }
-    if (password.length < 6) { setSignupError("Password must be at least 6 characters."); return; }
+    if (password.length < 8) { setSignupError("Password must be at least 8 characters."); return; }
+    if (!/[A-Z]/.test(password)) { setSignupError("Password must contain at least one capital letter."); return; }
+    if (!/[0-9]/.test(password)) { setSignupError("Password must contain at least one number."); return; }
     setSignupError("Creating your account…");
     try {
       const res = await fetch("/api/auth-signup", {
@@ -1494,7 +1496,9 @@ export default function MyStoryFamily() {
 
     // Step 3: Set new password
     if (forgotStep === "password") {
-      if (forgotNewPassword.length < 6) { setForgotError("New password must be at least 6 characters."); return; }
+      if (forgotNewPassword.length < 8) { setForgotError("Password must be at least 8 characters."); return; }
+      if (!/[A-Z]/.test(forgotNewPassword)) { setForgotError("Password must contain at least one capital letter."); return; }
+      if (!/[0-9]/.test(forgotNewPassword)) { setForgotError("Password must contain at least one number."); return; }
       if (forgotNewPassword !== forgotConfirm) { setForgotError("Passwords don't match."); return; }
       setForgotError("Updating password…");
       try {
@@ -2198,7 +2202,7 @@ export default function MyStoryFamily() {
                   <input id={`signup-${key}`} type={type} value={signupFields[key]}
                     onChange={e => { setSignupFields(p => ({ ...p, [key]: e.target.value })); setSignupError(""); }}
                     onKeyDown={e => e.key === "Enter" && handleSignup()}
-                    placeholder={key === "password" ? "At least 6 characters" : ""}
+                    placeholder={key === "password" ? "8+ chars, 1 capital, 1 number" : ""}
                     style={{ width: "100%", border: `1.5px solid rgba(180,140,80,0.3)`, borderRadius: 8, padding: "12px 14px", fontFamily: "'Lato',sans-serif", fontSize: fs(15), color: tc("#3d2b1a","#1a0e00"), background: "#fffdf5", outline: "none", boxSizing: "border-box", minHeight: 48 }} />
                 </div>
               ))}
