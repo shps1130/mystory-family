@@ -2370,7 +2370,7 @@ export default function MyStoryFamily() {
             </div>
 
             {/* Section intro video — shown at start of each section, dismissible */}
-            {(() => {
+            {!bookComplete && (() => {
               const chapterVideos = {
                 "early-life": "4184003e4d2943b0b7c7489136f42e31",
                 "becoming-you": "e6499e21f45f4dd09adedb0b58e4b595",
