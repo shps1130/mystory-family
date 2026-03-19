@@ -784,6 +784,174 @@ Keep their voice. Keep the warmth. Make it sound like them, not like a textbook.
   );
 }
 
+// ─── BOOK SHARE CARD ─────────────────────────────────────────────────────────
+function BookShareCard({ user, chapters, chapterNarratives, fs, tc, shareUrl, setShareUrl }) {
+  const [generating, setGenerating] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [error, setError] = useState("");
+
+  const generateLink = async () => {
+    setGenerating(true);
+    setError("");
+    try {
+      const res = await fetch("/api/book-save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userEmail: user?.email,
+          userName: `${user?.firstName || ""} ${user?.lastName || ""}`.trim(),
+          chapters,
+          chapterNarratives,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setShareUrl(data.url);
+    } catch {
+      setError("Something went wrong. Please try again.");
+    }
+    setGenerating(false);
+  };
+
+  const copyLink = () => {
+    navigator.clipboard.writeText(shareUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div style={{ background: "white", borderRadius: 20, padding: "36px", boxShadow: "0 12px 48px rgba(93,61,26,0.14)", border: "1px solid rgba(180,140,80,0.2)", marginBottom: 24 }}>
+      <div style={{ fontSize: 36, marginBottom: 16, textAlign: "center" }} aria-hidden="true">📖</div>
+      <h2 style={{ fontSize: fs(24), fontWeight: 400, color: tc("#3d2b1a","#1a0e00"), marginBottom: 10, textAlign: "center" }}>Your Legacy Book</h2>
+      <p style={{ fontSize: fs(15), color: tc("#6b5540","#3a2510"), fontFamily: "'Lato',sans-serif", lineHeight: 1.7, marginBottom: 24, textAlign: "center" }}>
+        Generate a beautiful link to your complete book — share it with family, save it to your phone, or send it by email.
+      </p>
+
+      {!shareUrl ? (
+        <>
+          <button onClick={generateLink} disabled={generating}
+            style={{ width: "100%", background: generating ? "rgba(184,134,11,0.3)" : "linear-gradient(135deg,#b8860b,#d4a843)", color: "#fdf6ec", border: "none", padding: "20px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(20), letterSpacing: 0.5, cursor: generating ? "not-allowed" : "pointer", boxShadow: generating ? "none" : "0 6px 28px rgba(184,134,11,0.35)", marginBottom: 12, minHeight: 62, transition: "all 0.2s" }}>
+            {generating ? "Creating your book link…" : "✦ Create My Book Link"}
+          </button>
+          {error && <p style={{ fontSize: fs(13), color: "#c0392b", fontFamily: "'Lato',sans-serif", textAlign: "center" }}>{error}</p>}
+          <p style={{ fontSize: fs(12), color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", lineHeight: 1.6, textAlign: "center" }}>
+            Your book will be available at a private link only you can share
+          </p>
+        </>
+      ) : (
+        <div>
+          <div style={{ background: "#fdf6ec", border: "1.5px solid rgba(184,134,11,0.3)", borderRadius: 12, padding: "14px 18px", marginBottom: 14, display: "flex", alignItems: "center", gap: 12 }}>
+            <a href={shareUrl} target="_blank" rel="noreferrer"
+              style={{ flex: 1, fontSize: fs(14), color: "#b8860b", fontFamily: "'Lato',sans-serif", wordBreak: "break-all", textDecoration: "none" }}>
+              {shareUrl}
+            </a>
+            <button onClick={copyLink}
+              style={{ background: copied ? "rgba(184,134,11,0.15)" : "rgba(184,134,11,0.08)", border: "1px solid rgba(184,134,11,0.3)", color: "#7a5030", fontFamily: "'Lato',sans-serif", fontSize: fs(12), fontWeight: 600, padding: "8px 14px", borderRadius: 8, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0, minHeight: 36 }}>
+              {copied ? "Copied ✓" : "Copy"}
+            </button>
+          </div>
+          <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
+            <a href={shareUrl} target="_blank" rel="noreferrer"
+              style={{ flex: 1, display: "block", background: "linear-gradient(135deg,#b8860b,#d4a843)", color: "#fdf6ec", padding: "14px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(17), textAlign: "center", textDecoration: "none", minHeight: 50, lineHeight: "22px" }}>
+              ✦ View My Book
+            </a>
+            <button onClick={generateLink} disabled={generating}
+              style={{ background: "none", border: "1.5px solid rgba(180,140,80,0.3)", color: tc("#6b5540","#3a2510"), fontFamily: "'Lato',sans-serif", fontSize: fs(12), padding: "14px 16px", borderRadius: 100, cursor: "pointer", whiteSpace: "nowrap" }}>
+              Refresh link
+            </button>
+          </div>
+          <p style={{ fontSize: fs(12), color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", lineHeight: 1.6, textAlign: "center" }}>
+            Share this link with anyone — family can read your book on any device
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── BOOK EMAIL CARD ──────────────────────────────────────────────────────────
+function BookEmailCard({ user, chapters, chapterNarratives, fs, tc, shareUrl }) {
+  const [recipientEmail, setRecipientEmail] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState("");
+  const [showForm, setShowForm] = useState(false);
+
+  const sendBook = async () => {
+    setSending(true);
+    setError("");
+    try {
+      const res = await fetch("/api/email-book", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userEmail: user?.email,
+          userName: `${user?.firstName || ""} ${user?.lastName || ""}`.trim(),
+          recipientEmail: recipientEmail.trim() || user?.email,
+          shareUrl,
+          chapters,
+          chapterNarratives,
+        }),
+      });
+      if (!res.ok) throw new Error("Send failed");
+      setSent(true);
+    } catch {
+      setError("Something went wrong. Please try again.");
+    }
+    setSending(false);
+  };
+
+  return (
+    <div style={{ background: "white", borderRadius: 20, padding: "32px", boxShadow: "0 8px 32px rgba(93,61,26,0.08)", border: "1px solid rgba(180,140,80,0.15)", marginBottom: 24 }}>
+      <div style={{ fontSize: 32, marginBottom: 14, textAlign: "center" }} aria-hidden="true">💌</div>
+      <h2 style={{ fontSize: fs(22), fontWeight: 400, color: tc("#3d2b1a","#1a0e00"), marginBottom: 8, textAlign: "center" }}>Share Your Book by Email</h2>
+      <p style={{ fontSize: fs(14), color: tc("#6b5540","#3a2510"), fontFamily: "'Lato',sans-serif", lineHeight: 1.7, marginBottom: 20, textAlign: "center" }}>
+        Grace will write a personal letter introducing your book — then send the full story to you and your family in one beautiful email they can read and forward.
+      </p>
+
+      {sent ? (
+        <div style={{ textAlign: "center", padding: "16px 0" }}>
+          <div style={{ fontSize: 36, marginBottom: 12 }}>🕊️</div>
+          <p style={{ fontSize: fs(17), color: tc("#3d2b1a","#1a0e00"), fontFamily: "'Cormorant Garamond',serif", fontStyle: "italic", margin: "0 0 6px" }}>
+            Your book is on its way.
+          </p>
+          <p style={{ fontSize: fs(13), color: tc("#8b7355","#5c3d1e"), fontFamily: "'Lato',sans-serif" }}>
+            Check your inbox — and forward it to everyone who should have this.
+          </p>
+        </div>
+      ) : !showForm ? (
+        <button onClick={() => setShowForm(true)}
+          style={{ width: "100%", background: "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", padding: "18px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(18), cursor: "pointer", minHeight: 56 }}>
+          ✦ Send My Book by Email
+        </button>
+      ) : (
+        <div>
+          <p style={{ fontSize: fs(13), color: tc("#6b5540","#3a2510"), fontFamily: "'Lato',sans-serif", marginBottom: 12 }}>
+            We'll send it to <strong>{user?.email}</strong> automatically. Want to also send it to someone else?
+          </p>
+          <input type="email" value={recipientEmail} onChange={e => setRecipientEmail(e.target.value)}
+            placeholder="Family member's email (optional)"
+            style={{ width: "100%", border: "1.5px solid rgba(180,140,80,0.3)", borderRadius: 10, padding: "12px 14px", fontFamily: "'Lato',sans-serif", fontSize: fs(14), color: tc("#3d2b1a","#1a0e00"), background: "#fffdf5", outline: "none", boxSizing: "border-box", marginBottom: 12, minHeight: 46 }} />
+          {error && <p style={{ fontSize: fs(13), color: "#c0392b", fontFamily: "'Lato',sans-serif", marginBottom: 10 }}>{error}</p>}
+          <div style={{ display: "flex", gap: 10 }}>
+            <button onClick={sendBook} disabled={sending}
+              style={{ flex: 1, background: "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", padding: "14px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(17), cursor: sending ? "not-allowed" : "pointer", minHeight: 50, opacity: sending ? 0.7 : 1 }}>
+              {sending ? "Grace is writing your letter…" : "Send My Book ✦"}
+            </button>
+            <button onClick={() => setShowForm(false)}
+              style={{ background: "none", border: "1.5px solid rgba(180,140,80,0.3)", color: tc("#6b5540","#3a2510"), fontFamily: "'Lato',sans-serif", fontSize: fs(13), padding: "14px 18px", borderRadius: 100, cursor: "pointer", minHeight: 50 }}>
+              Cancel
+            </button>
+          </div>
+          <p style={{ fontSize: fs(11), color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", textAlign: "center", marginTop: 10, lineHeight: 1.6 }}>
+            Grace will write a personal introduction — then send the full book as a beautiful email
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── FULL BOOK EDITOR ────────────────────────────────────────────────────────
 function FullBookEditor({ chapters, chapterNarratives, setChapterNarratives, persona, personaAvatarBg, personaAvatar, fs, tc }) {
   const [chat, setChat] = useState([]);
@@ -1014,6 +1182,7 @@ export default function MyStoryFamily() {
   const [chapterNarratives, setChapterNarratives] = useState({}); // { chapterId: "prose..." }
   const [generatingNarrative, setGeneratingNarrative] = useState(false);
   const [bookComplete, setBookComplete] = useState(false);
+  const [shareUrl, setShareUrl] = useState(null);
   const [dismissedVideos, setDismissedVideos] = useState({});
   const [revisingIdx, setRevisingIdx] = useState(null);
   const [revisionInput, setRevisionInput] = useState("");
@@ -2484,21 +2653,24 @@ export default function MyStoryFamily() {
               Every story you've shared, every memory you've preserved — it's all here. Your family will treasure this for generations.
             </p>
 
-            {/* Download PDF */}
-            <div style={{ background: "white", borderRadius: 20, padding: "36px", boxShadow: "0 12px 48px rgba(93,61,26,0.14)", border: "1px solid rgba(180,140,80,0.2)", marginBottom: 24 }}>
-              <div style={{ fontSize: 36, marginBottom: 16 }} aria-hidden="true">📖</div>
-              <h2 style={{ fontSize: fs(24), fontWeight: 400, color: tc("#3d2b1a","#1a0e00"), marginBottom: 10 }}>Download Your Legacy Book</h2>
-              <p style={{ fontSize: fs(15), color: tc("#6b5540","#3a2510"), fontFamily: "'Lato',sans-serif", lineHeight: 1.7, marginBottom: 24 }}>
-                Your complete book — beautifully formatted with all your stories and photos — is ready to save as a PDF and share with your family.
-              </p>
-              <button onClick={generatePDF}
-                style={{ width: "100%", background: "linear-gradient(135deg,#b8860b,#d4a843)", color: "#fdf6ec", border: "none", padding: "20px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(20), letterSpacing: 0.5, cursor: "pointer", boxShadow: "0 6px 28px rgba(184,134,11,0.35)", marginBottom: 12, minHeight: 62, transition: "all 0.2s" }}>
-                ✦ Download My Book as PDF
-              </button>
-              <p style={{ fontSize: fs(12), color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", lineHeight: 1.6 }}>
-                A print preview will open — choose "Save as PDF" to keep your book forever
-              </p>
-            </div>
+            {/* Share Link */}
+            <BookShareCard
+              user={user}
+              chapters={chapters}
+              chapterNarratives={chapterNarratives}
+              fs={fs} tc={tc}
+              shareUrl={shareUrl}
+              setShareUrl={setShareUrl}
+            />
+
+            {/* Email book to family */}
+            <BookEmailCard
+              user={user}
+              chapters={chapters}
+              chapterNarratives={chapterNarratives}
+              fs={fs} tc={tc}
+              shareUrl={shareUrl}
+            />
 
             {/* Print upgrade */}
             <div style={{ background: "white", borderRadius: 20, padding: "36px", boxShadow: "0 8px 32px rgba(93,61,26,0.08)", border: "1px solid rgba(180,140,80,0.15)", marginBottom: 24 }}>
