@@ -2316,12 +2316,18 @@ export default function MyStoryFamily() {
             <div style={{ maxWidth: 660, margin: "0 auto" }}>
               <div style={{ fontSize: 36, marginBottom: 20 }} aria-hidden="true">✝️</div>
               <p style={{ fontSize: fs(11), letterSpacing: "3px", textTransform: "uppercase", color: "rgba(253,246,236,0.55)", fontFamily: "'Lato',sans-serif", marginBottom: 16 }}>Built for people of faith</p>
-              <h2 style={{ fontSize: fs(34), fontWeight: 300, color: "#fdf6ec", fontStyle: "italic", lineHeight: 1.3, marginBottom: 20 }}>
-                Your faith is part of your story. Grace knows that.
+              <h2 style={{ fontSize: fs(34), fontWeight: 300, color: "#fdf6ec", fontStyle: "italic", lineHeight: 1.3, marginBottom: 24 }}>
+                Your story builds faith in others.
               </h2>
-              <p style={{ fontSize: fs(17), color: "rgba(253,246,236,0.8)", lineHeight: 1.9, fontStyle: "italic", marginBottom: 20 }}>
-                "I will pour out my Spirit on all people. Your sons and daughters will prophesy, your old men will dream dreams, your young men will see visions." — Joel 2:28
-              </p>
+              <div style={{ background: "rgba(253,246,236,0.08)", border: "1px solid rgba(253,246,236,0.15)", borderRadius: 14, padding: "24px 28px", marginBottom: 24, textAlign: "left" }}>
+                <p style={{ fontSize: fs(11), letterSpacing: "2px", textTransform: "uppercase", color: "#d4a843", fontFamily: "'Lato',sans-serif", marginBottom: 14 }}>2 Timothy 1:5 · King James Version</p>
+                <p style={{ fontSize: fs(18), color: "rgba(253,246,236,0.92)", lineHeight: 1.9, fontStyle: "italic", marginBottom: 16 }}>
+                  "When I call to remembrance the unfeigned faith that is in thee, which dwelt first in thy grandmother Lois, and thy mother Eunice; and I am persuaded that in thee also."
+                </p>
+                <p style={{ fontSize: fs(14), color: "#d4a843", fontFamily: "'Lato',sans-serif", lineHeight: 1.7, margin: 0 }}>
+                  Legacy isn't abstract. It has names, faces, and stories that shape generations. <strong style={{ color: "#fdf6ec" }}>Yours is one of them.</strong>
+                </p>
+              </div>
               <p style={{ fontSize: fs(15), color: "rgba(253,246,236,0.7)", fontFamily: "'Lato',sans-serif", lineHeight: 1.8, marginBottom: 32 }}>
                 Grace naturally weaves faith, scripture, and spiritual meaning into your story. She'll ask about the moments when you felt God closest, the verses that carried you through hard seasons, and the prayers you want to leave for the generations that follow.
               </p>
