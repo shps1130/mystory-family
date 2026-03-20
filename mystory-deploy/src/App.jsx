@@ -305,6 +305,86 @@ function PhotoUpload({ chapterId, photos, onAdd, onRemove, fs }) {
 }
 
 // ─── PRINT UPGRADE CARD ──────────────────────────────────────────────────────
+// ─── PRINT ORDER AFTER PAY MODAL ─────────────────────────────────────────────
+function PrintOrderAfterPayModal({ bookChoice, userEmail, userName, fs, tc, onClose }) {
+  const [shipTo, setShipTo] = useState("me");
+  const [fields, setFields] = useState({ name: userName || "", address: "", city: "", state: "", zip: "", country: "USA" });
+  const [recipFields, setRecipFields] = useState({ name: "", address: "", city: "", state: "", zip: "", country: "USA" });
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState("");
+
+  const activeFields = shipTo === "me" ? fields : recipFields;
+  const setActiveFields = shipTo === "me" ? setFields : setRecipFields;
+  const copies = bookChoice === "print2" ? 2 : 1;
+
+  const submit = async () => {
+    const { name, address, city, state, zip } = activeFields;
+    if (!name || !address || !city || !state || !zip) { setError("Please fill in all shipping fields."); return; }
+    setLoading(true); setError("");
+    try {
+      await fetch("/api/email-print-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userEmail, userName,
+          option: `${copies} Printed ${copies === 1 ? "Copy" : "Copies"}`,
+          price: copies === 1 ? 79 : 129,
+          shipping: { ...activeFields, shipTo },
+        }),
+      });
+      setSuccess(true);
+    } catch { setError("Something went wrong. Please try again."); }
+    setLoading(false);
+  };
+
+  if (success) return (
+    <div style={{ textAlign: "center", padding: "8px 0" }}>
+      <div style={{ fontSize: 36, marginBottom: 12 }}>✦</div>
+      <p style={{ fontSize: fs(18), color: "#3d2b1a", fontFamily: "'Cormorant Garamond',serif", fontStyle: "italic", marginBottom: 8 }}>Order received!</p>
+      <p style={{ fontSize: fs(13), color: "#7a6040", fontFamily: "'Lato',sans-serif", marginBottom: 20, lineHeight: 1.7 }}>We'll be in touch to confirm your shipping details once your book is complete.</p>
+      <button onClick={onClose} style={{ background: "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", padding: "14px 36px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(17), cursor: "pointer", minHeight: 50 }}>
+        Continue My Story ✦
+      </button>
+    </div>
+  );
+
+  return (
+    <div>
+      {/* Ship to selector */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
+        {[["me","Ship to me"],["recipient","Ship to recipient"]].map(([id, label]) => (
+          <button key={id} onClick={() => setShipTo(id)}
+            style={{ flex: 1, padding: "11px", borderRadius: 10, border: `2px solid ${shipTo === id ? "#b8860b" : "rgba(180,140,80,0.25)"}`, background: shipTo === id ? "#fffdf5" : "white", fontFamily: "'Lato',sans-serif", fontSize: fs(13), fontWeight: 600, color: shipTo === id ? "#5c3d1e" : "#7a6040", cursor: "pointer", minHeight: 44 }}>
+            {label}
+          </button>
+        ))}
+      </div>
+      {[["name","Full Name","text"],["address","Street Address","text"],["city","City","text"],["state","State","text"],["zip","ZIP Code","text"],["country","Country","text"]].map(([key, label, type]) => (
+        <div key={key} style={{ marginBottom: 10 }}>
+          <label style={{ display: "block", fontSize: fs(11), color: "#7a5c3a", fontFamily: "'Lato',sans-serif", fontWeight: 600, marginBottom: 4, letterSpacing: "0.5px" }}>{label}</label>
+          <input type={type} value={activeFields[key] || ""} onChange={e => setActiveFields(p => ({ ...p, [key]: e.target.value }))}
+            style={{ width: "100%", border: "1.5px solid rgba(180,140,80,0.3)", borderRadius: 8, padding: "10px 12px", fontFamily: "'Lato',sans-serif", fontSize: fs(14), color: "#3d2b1a", background: "#fffdf5", outline: "none", boxSizing: "border-box", minHeight: 44 }} />
+        </div>
+      ))}
+      {error && <p style={{ fontSize: fs(13), color: "#c0392b", fontFamily: "'Lato',sans-serif", marginBottom: 10 }}>{error}</p>}
+      <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+        <button onClick={submit} disabled={loading}
+          style={{ flex: 1, background: "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", padding: "14px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(17), cursor: loading ? "not-allowed" : "pointer", minHeight: 50, opacity: loading ? 0.7 : 1 }}>
+          {loading ? "Placing order…" : `Confirm My Order ✦`}
+        </button>
+        <button onClick={onClose}
+          style={{ background: "none", border: "1.5px solid rgba(180,140,80,0.3)", color: "#7a6040", fontFamily: "'Lato',sans-serif", fontSize: fs(13), padding: "14px 16px", borderRadius: 100, cursor: "pointer", minHeight: 50 }}>
+          Skip for now
+        </button>
+      </div>
+      <p style={{ fontSize: fs(11), color: "#a89070", fontFamily: "'Lato',sans-serif", textAlign: "center", marginTop: 10, lineHeight: 1.6 }}>
+        You can also order a print copy any time from your completed book page
+      </p>
+    </div>
+  );
+}
+
 function PrintUpgradeCard({ isLast, promoCode, promoInfo, fs, tc, highContrast, userEmail, userName }) {
   const [selected, setSelected] = useState(null);
   const [expanded, setExpanded] = useState(isLast);
@@ -485,7 +565,7 @@ function PrintUpgradeCard({ isLast, promoCode, promoInfo, fs, tc, highContrast, 
 }
 
 // ─── CHAPTER PREVIEW ─────────────────────────────────────────────────────────
-function ChapterPreview({ chapter, chapterMessages, chapterPhotos, onContinue, onAddMore, nextChapterTitle, isLast, fs, tc, highContrast, promoCode, promoInfo, narrative, generatingNarrative, personaAvatarBg, personaAvatar, userEmail, userName }) {
+function ChapterPreview({ chapter, chapterIndex, chapterMessages, chapterPhotos, onContinue, onAddMore, nextChapterTitle, isLast, fs, tc, highContrast, promoCode, promoInfo, narrative, generatingNarrative, personaAvatarBg, personaAvatar, userEmail, userName }) {
   const chPhotos = chapterPhotos || [];
   const [editedNarrative, setEditedNarrative] = useState(null);
   const [editChat, setEditChat] = useState([]);
@@ -530,7 +610,7 @@ When you revise the section, you MUST wrap the entire revised prose in <REVISED_
 
 Then add a warm 1-2 sentence response after the tags explaining what you changed.
 
-If you're asking a clarifying question and not yet ready to revise, just respond conversationally WITHOUT the tags. Always end your clarifying question with something like "Would you like me to go ahead and update your section with this change?" so the user knows to say yes.
+If you're asking a clarifying question and not yet ready to revise, just respond conversationally WITHOUT the tags. Always end your clarifying question with: "When you're happy, just say **'Yes, go ahead'** and I'll update your section right away." so the user knows exactly what to do next.
 
 Keep their voice. Keep the warmth. Make it sound like them, not like a textbook.`,
           messages: newChat.map(m => ({ role: m.role, content: m.content })),
@@ -567,7 +647,7 @@ Keep their voice. Keep the warmth. Make it sound like them, not like a textbook.
         <div style={{ fontSize: 36, marginBottom: 10 }} aria-hidden="true">✨</div>
         <h2 style={{ fontSize: fs(28), fontWeight: 600, color: tc("#3d2b1a","#1a0e00"), marginBottom: 6 }}>{chapter.title} — Complete</h2>
         <p style={{ fontSize: fs(16), color: "#6b5540", fontStyle: "italic", fontFamily: "'Cormorant Garamond',Georgia,serif" }}>
-          {generatingNarrative ? "Writing your section…" : "Here's a glimpse of how this section will look in your book"}
+          {generatingNarrative ? "Writing this section…" : "Here's a glimpse of how this section will look in your book"}
         </p>
       </div>
 
@@ -591,10 +671,10 @@ Keep their voice. Keep the warmth. Make it sound like them, not like a textbook.
             <div style={{ textAlign: "center", padding: "48px 0" }}>
               <div style={{ fontSize: 32, marginBottom: 20, animation: "pulse 1.5s ease-in-out infinite" }} aria-hidden="true">✦</div>
               <p style={{ fontSize: fs(18), color: "#6b5540", fontStyle: "italic", fontFamily: "'Cormorant Garamond',Georgia,serif", marginBottom: 10 }}>
-                Writing your section…
+                Writing this section…
               </p>
               <p style={{ fontSize: fs(13), color: "#a89070", fontFamily: "'Lato',sans-serif" }}>
-                Shaping your stories into beautiful prose
+                Almost done — we'll continue to the next section when it's ready
               </p>
               {/* Shimmer placeholder lines */}
               <div style={{ marginTop: 32, textAlign: "left" }}>
@@ -661,14 +741,14 @@ Keep their voice. Keep the warmth. Make it sound like them, not like a textbook.
 
         <div style={{ padding: "12px 32px", borderTop: "1px solid rgba(180,140,80,0.1)", display: "flex", justifyContent: "space-between", background: "rgba(253,246,236,0.5)" }}>
           <div style={{ fontSize: fs(11), color: "#c4a882", fontFamily: "'Lato',sans-serif", fontStyle: "italic" }}>
-            {generatingNarrative ? "Writing…" : "Preview — final layout professionally formatted"}
+            {generatingNarrative ? "Writing this section…" : "Preview — final layout professionally formatted"}
           </div>
           <div style={{ fontSize: fs(11), color: "#c4a882", fontFamily: "'Lato',sans-serif" }}>1</div>
         </div>
       </div>
 
       {/* Print upgrade card — only show when narrative is ready */}
-      {!generatingNarrative && (
+      {!generatingNarrative && chapterIndex > 0 && (
         <PrintUpgradeCard isLast={isLast} promoCode={promoCode} promoInfo={promoInfo} fs={fs} tc={tc} highContrast={highContrast} userEmail={userEmail} userName={userName} />
       )}
 
@@ -736,16 +816,28 @@ Keep their voice. Keep the warmth. Make it sound like them, not like a textbook.
               {/* Messages */}
               <div style={{ padding: "16px 24px", maxHeight: 320, overflowY: "auto", display: "flex", flexDirection: "column", gap: 14 }}>
                 {editChat.map((msg, i) => (
-                  <div key={i} style={{ display: "flex", gap: 10, flexDirection: msg.role === "user" ? "row-reverse" : "row" }}>
-                    <div style={{ width: 30, height: 30, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: msg.role === "user" ? 10 : 13, background: msg.role === "user" ? "linear-gradient(135deg,#b8860b,#d4a843)" : (personaAvatarBg || "linear-gradient(135deg,#6b4c8a,#9b7bc0)"), color: "#fdf6ec", fontFamily: "'Lato',sans-serif", fontWeight: 700 }}>
-                      {msg.role === "user" ? "You" : (personaAvatar || "🕊️")}
+                  <div key={i}>
+                    <div style={{ display: "flex", gap: 10, flexDirection: msg.role === "user" ? "row-reverse" : "row" }}>
+                      <div style={{ width: 30, height: 30, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: msg.role === "user" ? 10 : 13, background: msg.role === "user" ? "linear-gradient(135deg,#b8860b,#d4a843)" : (personaAvatarBg || "linear-gradient(135deg,#6b4c8a,#9b7bc0)"), color: "#fdf6ec", fontFamily: "'Lato',sans-serif", fontWeight: 700 }}>
+                        {msg.role === "user" ? "You" : (personaAvatar || "🕊️")}
+                      </div>
+                      <div style={{ maxWidth: "80%", padding: "12px 16px", borderRadius: msg.role === "user" ? "14px 4px 14px 14px" : "4px 14px 14px 14px", background: msg.role === "user" ? "linear-gradient(135deg,#5c3d1e,#7a5030)" : "#fdf6ec", color: msg.role === "user" ? "#fdf6ec" : tc("#3d2b1a","#1a0e00"), fontSize: fs(15), fontFamily: "'Cormorant Garamond',Georgia,serif", lineHeight: 1.8, border: msg.role === "assistant" ? "1px solid rgba(180,140,80,0.15)" : "none" }}>
+                        {msg.content}
+                        {msg.role === "assistant" && i === editChat.length - 1 && editedNarrative && (
+                          <div style={{ marginTop: 8, fontSize: fs(12), color: "#b8860b", fontFamily: "'Lato',sans-serif", fontStyle: "normal" }}>✦ Section updated — scroll up to see the changes</div>
+                        )}
+                      </div>
                     </div>
-                    <div style={{ maxWidth: "80%", padding: "12px 16px", borderRadius: msg.role === "user" ? "14px 4px 14px 14px" : "4px 14px 14px 14px", background: msg.role === "user" ? "linear-gradient(135deg,#5c3d1e,#7a5030)" : "#fdf6ec", color: msg.role === "user" ? "#fdf6ec" : tc("#3d2b1a","#1a0e00"), fontSize: fs(15), fontFamily: "'Cormorant Garamond',Georgia,serif", lineHeight: 1.8, border: msg.role === "assistant" ? "1px solid rgba(180,140,80,0.15)" : "none" }}>
-                      {msg.content}
-                      {msg.role === "assistant" && i === editChat.length - 1 && editedNarrative && (
-                        <div style={{ marginTop: 8, fontSize: fs(12), color: "#b8860b", fontFamily: "'Lato',sans-serif", fontStyle: "normal" }}>✦ Section updated — scroll up to see the changes</div>
-                      )}
-                    </div>
+                    {/* Yes go ahead button — show after Grace's non-final responses when no update yet */}
+                    {msg.role === "assistant" && i === editChat.length - 1 && !editedNarrative && !editLoading && i > 0 && (
+                      <div style={{ display: "flex", justifyContent: "flex-start", marginTop: 10, paddingLeft: 40 }}>
+                        <button onClick={() => sendEditMessage("Yes, go ahead")}
+                          style={{ background: "linear-gradient(135deg,#b8860b,#d4a843)", color: "#fdf6ec", border: "none", borderRadius: 100, padding: "10px 22px", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(15), cursor: "pointer", letterSpacing: 0.3, minHeight: 40, boxShadow: "0 3px 12px rgba(184,134,11,0.3)" }}>
+                          ✦ Yes, go ahead
+                        </button>
+                        <span style={{ fontSize: fs(12), color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", alignSelf: "center", marginLeft: 12, fontStyle: "italic" }}>— tap when you're ready</span>
+                      </div>
+                    )}
                   </div>
                 ))}
                 {editLoading && (
@@ -780,7 +872,7 @@ Keep their voice. Keep the warmth. Make it sound like them, not like a textbook.
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
         <button onClick={onContinue} disabled={generatingNarrative}
           style={{ background: generatingNarrative ? "rgba(139,94,52,0.3)" : "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", padding: "18px 52px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(18), letterSpacing: 1, cursor: generatingNarrative ? "not-allowed" : "pointer", boxShadow: generatingNarrative ? "none" : "0 4px 20px rgba(93,61,26,0.2)", minHeight: 56, transition: "all 0.3s" }}>
-          {generatingNarrative ? "Writing your section…" : isLast ? "Complete My Legacy Story ✦" : `Continue to ${nextChapterTitle} →`}
+          {generatingNarrative ? "Writing this section…" : isLast ? "Complete My Legacy Story ✦" : `Continue to ${nextChapterTitle} →`}
         </button>
         {!generatingNarrative && (
           <button onClick={onAddMore} style={{ background: "transparent", border: "2px solid rgba(180,140,80,0.4)", color: "#6b4c2a", fontFamily: "'Lato',sans-serif", fontSize: fs(13), letterSpacing: "1px", textTransform: "uppercase", padding: "13px 28px", borderRadius: 100, cursor: "pointer", minHeight: 48 }}>
@@ -1171,6 +1263,7 @@ export default function MyStoryFamily() {
   const [giftBuyerEmail, setGiftBuyerEmail] = useState("");
   const [giftRecipientName, setGiftRecipientName] = useState("");
   const [giftRecipientEmail, setGiftRecipientEmail] = useState("");
+  const [giftBookChoice, setGiftBookChoice] = useState("pdf"); // pdf | print1
   const [giftPurchaseError, setGiftPurchaseError] = useState("");
 
   const [signinFields, setSigninFields] = useState({ email: "", password: "" });
@@ -1205,6 +1298,13 @@ export default function MyStoryFamily() {
   const [previewChapter, setPreviewChapter] = useState(null);
   const [hasPaid, setHasPaid] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
+  const [paywallBookChoice, setPaywallBookChoice] = useState("pdf");
+  const [showPrintOrderAfterPay, setShowPrintOrderAfterPay] = useState(false);
+  const [printShipChoice, setPrintShipChoice] = useState("me"); // me | recipient
+  const [printShipFields, setPrintShipFields] = useState({ name: "", address: "", city: "", state: "", zip: "", country: "USA" });
+  const [printShipLoading, setPrintShipLoading] = useState(false);
+  const [printShipDone, setPrintShipDone] = useState(false);
+  const [showPrintOrderAfterPay, setShowPrintOrderAfterPay] = useState(false);
   const [chapterNarratives, setChapterNarratives] = useState({}); // { chapterId: "prose..." }
   const [generatingNarrative, setGeneratingNarrative] = useState(false);
   const [bookComplete, setBookComplete] = useState(false);
@@ -1301,7 +1401,15 @@ export default function MyStoryFamily() {
             localStorage.setItem("mystory_session", JSON.stringify(s));
             localStorage.removeItem("mystory_pending_email");
             restoreSession(s, true);
-            setTimeout(() => announce("Payment confirmed — let's continue your story. ✦"), 600);
+            setTimeout(() => {
+              announce("Payment confirmed — let's continue your story. ✦");
+              const bookChoice = localStorage.getItem("mystory_book_choice");
+              if (bookChoice && bookChoice !== "pdf") {
+                setPaywallBookChoice(bookChoice);
+                setShowPrintOrderAfterPay(true);
+              }
+              localStorage.removeItem("mystory_book_choice");
+            }, 600);
             return;
           } catch {}
         }
@@ -1315,7 +1423,15 @@ export default function MyStoryFamily() {
                 const s = { ...data.session, hasPaid: true };
                 localStorage.setItem("mystory_session", JSON.stringify(s));
                 restoreSession(s, true);
-                setTimeout(() => announce("Payment confirmed — let's continue your story. ✦"), 600);
+                setTimeout(() => {
+                  announce("Payment confirmed — let's continue your story. ✦");
+                  const bookChoice = localStorage.getItem("mystory_book_choice");
+                  if (bookChoice && bookChoice !== "pdf") {
+                    setPaywallBookChoice(bookChoice);
+                    setShowPrintOrderAfterPay(true);
+                  }
+                  localStorage.removeItem("mystory_book_choice");
+                }, 600);
               }
             })
             .catch(() => {});
@@ -1612,6 +1728,7 @@ export default function MyStoryFamily() {
       buyerEmail: giftBuyerEmail.trim().toLowerCase(),
       recipientName: giftRecipientName.trim(),
       recipientEmail: giftRecipientEmail.trim().toLowerCase() || null,
+      bookChoice: giftBookChoice,
     }));
     const params = new URLSearchParams();
     params.set("prefilled_email", giftBuyerEmail.trim());
@@ -2043,6 +2160,9 @@ export default function MyStoryFamily() {
     if (user?.email) {
       localStorage.setItem("mystory_pending_email", user.email);
     }
+
+    // Save book preference so we can action it after payment returns
+    localStorage.setItem("mystory_book_choice", paywallBookChoice);
 
     const params = new URLSearchParams();
     if (user?.email) params.set("prefilled_email", user.email);
@@ -2477,10 +2597,42 @@ export default function MyStoryFamily() {
                   If provided, we'll send them a beautiful email letting them know a gift is waiting. Leave blank if you'd prefer to share the code yourself.
                 </p>
               </div>
+
+              {/* Book format choice */}
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: fs(13), fontWeight: 600, color: tc("#7a5c3a","#4a3020"), fontFamily: "'Lato',sans-serif", marginBottom: 10, letterSpacing: "0.5px", textTransform: "uppercase" }}>Gift format</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }} role="group" aria-label="Gift format options">
+                  {[
+                    { id: "pdf", icon: "📄", label: "PDF Book Gift", sub: "They download and share instantly", price: 99 },
+                    { id: "print1", icon: "📖", label: "PDF + Printed Copy", sub: "A physical book delivered to their door", price: 178 },
+                  ].map(opt => (
+                    <button key={opt.id} onClick={() => setGiftBookChoice(opt.id)}
+                      aria-pressed={giftBookChoice === opt.id}
+                      style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 16px", borderRadius: 10, border: `2px solid ${giftBookChoice === opt.id ? "#b8860b" : "rgba(180,140,80,0.22)"}`, background: giftBookChoice === opt.id ? "#fffdf5" : "white", cursor: "pointer", textAlign: "left", minHeight: 58 }}>
+                      <div style={{ width: 30, height: 30, borderRadius: "50%", border: `2px solid ${giftBookChoice === opt.id ? "#b8860b" : "rgba(180,140,80,0.35)"}`, background: giftBookChoice === opt.id ? "#b8860b" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                        {giftBookChoice === opt.id
+                          ? <svg width="11" height="11" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="#fdf6ec" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                          : <span style={{ fontSize: 14 }}>{opt.icon}</span>}
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: fs(14), fontWeight: 600, color: tc("#3d2b1a","#1a0e00") }}>{opt.label}</div>
+                        <div style={{ fontSize: fs(12), color: tc("#7a6040","#4a3020"), fontFamily: "'Lato',sans-serif", marginTop: 1 }}>{opt.sub}</div>
+                      </div>
+                      <div style={{ fontSize: fs(18), fontWeight: 600, color: giftBookChoice === opt.id ? "#b8860b" : tc("#3d2b1a","#1a0e00"), flexShrink: 0 }}>${opt.price}</div>
+                    </button>
+                  ))}
+                </div>
+                {giftBookChoice === "print1" && (
+                  <p style={{ fontSize: fs(12), color: tc("#8b7355","#5c3d1e"), fontFamily: "'Lato',sans-serif", marginTop: 8, fontStyle: "italic" }}>
+                    We'll collect the shipping address after payment
+                  </p>
+                )}
+              </div>
+
               {giftPurchaseError && <p role="alert" style={{ fontSize: fs(13), color: "#c0392b", fontFamily: "'Lato',sans-serif", marginBottom: 14 }}>{giftPurchaseError}</p>}
               <button onClick={handleGiftPurchase}
                 style={{ width: "100%", background: "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", padding: "18px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(19), letterSpacing: 0.5, cursor: "pointer", boxShadow: "0 4px 20px rgba(93,61,26,0.25)", minHeight: 58, marginBottom: 12 }}>
-                Continue to Payment — $99 ✦
+                Continue to Payment — ${giftBookChoice === "pdf" ? 99 : 178} ✦
               </button>
               <p style={{ fontSize: fs(12), color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", textAlign: "center", lineHeight: 1.6 }}>
                 🔒 Secure checkout via Stripe · After payment, your gift code arrives instantly by email
@@ -3018,6 +3170,7 @@ export default function MyStoryFamily() {
       {/* ── CHAPTER PREVIEW ── */}
       {screen === "chat" && previewChapter && !showPaywall && !showBetweenSections && !bookComplete && (
         <ChapterPreview
+          chapterIndex={previewChapter.chapterIndex}
           chapter={previewChapter.chapter}
           chapterMessages={chapterHistory[previewChapter.chapter.id || previewChapter.chapter.title] || messages}
           chapterPhotos={photos[previewChapter.chapter.id || previewChapter.chapter.title] || []}
@@ -3134,10 +3287,36 @@ export default function MyStoryFamily() {
               )}
             </div>
 
-            {/* Pricing */}
+            {/* Book preference selector */}
             <div style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: fs(42), fontWeight: 600, color: tc("#3d2b1a","#1a0e00"), lineHeight: 1 }}>$99</div>
-              <div style={{ fontSize: fs(14), color: tc("#8b7355","#5c3d1e"), fontFamily: "'Lato',sans-serif", marginTop: 4 }}>one-time · digital book included · print upgrades optional</div>
+              <div style={{ fontSize: fs(13), fontWeight: 600, color: tc("#7a5c3a","#4a3020"), fontFamily: "'Lato',sans-serif", letterSpacing: "0.5px", textTransform: "uppercase", marginBottom: 14, textAlign: "center" }}>Choose your format</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }} role="group" aria-label="Book format options">
+                {[
+                  { id: "pdf", icon: "📄", label: "PDF Book Only", sub: "Download instantly, share with your whole family", price: 99 },
+                  { id: "print1", icon: "📖", label: "PDF + 1 Printed Copy", sub: "Professionally bound hardcover, delivered to your door", price: 178 },
+                  { id: "print2", icon: "📚", label: "PDF + 2 Printed Copies", sub: "One to keep, one to give", price: 228 },
+                ].map(opt => (
+                  <button key={opt.id} onClick={() => setPaywallBookChoice(opt.id)}
+                    aria-pressed={paywallBookChoice === opt.id}
+                    style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 18px", borderRadius: 10, border: `2px solid ${paywallBookChoice === opt.id ? "#b8860b" : "rgba(180,140,80,0.22)"}`, background: paywallBookChoice === opt.id ? "#fffdf5" : "white", cursor: "pointer", textAlign: "left", minHeight: 62 }}>
+                    <div style={{ width: 34, height: 34, borderRadius: "50%", border: `2px solid ${paywallBookChoice === opt.id ? "#b8860b" : "rgba(180,140,80,0.35)"}`, background: paywallBookChoice === opt.id ? "#b8860b" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      {paywallBookChoice === opt.id
+                        ? <svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="#fdf6ec" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                        : <span style={{ fontSize: 16 }}>{opt.icon}</span>}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: fs(15), fontWeight: 600, color: tc("#3d2b1a","#1a0e00") }}>{opt.label}</div>
+                      <div style={{ fontSize: fs(12), color: tc("#7a6040","#4a3020"), fontFamily: "'Lato',sans-serif", marginTop: 2 }}>{opt.sub}</div>
+                    </div>
+                    <div style={{ fontSize: fs(20), fontWeight: 600, color: paywallBookChoice === opt.id ? "#b8860b" : tc("#3d2b1a","#1a0e00"), flexShrink: 0 }}>${opt.price}</div>
+                  </button>
+                ))}
+              </div>
+              {paywallBookChoice !== "pdf" && (
+                <p style={{ fontSize: fs(12), color: tc("#8b7355","#5c3d1e"), fontFamily: "'Lato',sans-serif", textAlign: "center", marginTop: 10, fontStyle: "italic" }}>
+                  We'll collect your shipping address after payment
+                </p>
+              )}
             </div>
 
             {/* CTA */}
@@ -3145,7 +3324,7 @@ export default function MyStoryFamily() {
               style={{ width: "100%", background: "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", padding: "20px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(20), letterSpacing: 1, cursor: "pointer", boxShadow: "0 6px 28px rgba(93,61,26,0.3)", marginBottom: 14, minHeight: 62, transition: "all 0.2s" }}
               onMouseEnter={e => { e.target.style.transform = "translateY(-2px)"; e.target.style.boxShadow = "0 10px 36px rgba(93,61,26,0.38)"; }}
               onMouseLeave={e => { e.target.style.transform = ""; e.target.style.boxShadow = "0 6px 28px rgba(93,61,26,0.3)"; }}>
-              Continue My Story — $99 ✦
+              Continue My Story — ${paywallBookChoice === "pdf" ? 99 : paywallBookChoice === "print1" ? 178 : 228} ✦
             </button>
 
             {/* Trust signals */}
@@ -3168,6 +3347,121 @@ export default function MyStoryFamily() {
             </button>
           </div>
         </main>
+      )}
+
+      {/* ── PRINT ORDER AFTER PAYMENT ── */}
+      {showPrintOrderAfterPay && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(61,43,26,0.7)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div style={{ background: "white", borderRadius: 20, padding: "36px 32px", maxWidth: 480, width: "100%", boxShadow: "0 20px 60px rgba(0,0,0,0.3)", animation: "fadeUp 0.3s ease forwards" }}>
+            <div style={{ textAlign: "center", marginBottom: 24 }}>
+              <div style={{ fontSize: 40, marginBottom: 12 }}>📖</div>
+              <h2 style={{ fontSize: fs(26), fontWeight: 300, color: "#3d2b1a", fontStyle: "italic", marginBottom: 8 }}>Where should we send your book?</h2>
+              <p style={{ fontSize: fs(14), color: "#7a6040", fontFamily: "'Lato',sans-serif", lineHeight: 1.7 }}>
+                {paywallBookChoice === "print2" ? "2 printed copies" : "1 printed copy"} — we'll ship once your book is complete
+              </p>
+            </div>
+
+            {/* Ship to choice */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }} role="group" aria-label="Shipping destination">
+              {[
+                { id: "me", label: "Ship to me", sub: "I'll deliver it personally" },
+                { id: "recipient", label: "Ship to the recipient", sub: "Enter their address below" },
+              ].map(opt => {
+                const [shipTo, setShipTo] = [null, null]; // handled inline
+                return null; // placeholder — rendered below
+              })}
+            </div>
+
+            <PrintOrderAfterPayModal
+              bookChoice={paywallBookChoice}
+              userEmail={user?.email}
+              userName={`${user?.firstName || ""} ${user?.lastName || ""}`.trim()}
+              fs={fs} tc={tc}
+              onClose={() => setShowPrintOrderAfterPay(false)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* ── POST-PAYMENT PRINT ORDER ── */}
+      {showPrintOrderAfterPay && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(61,43,26,0.7)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div style={{ background: "white", borderRadius: 20, padding: "36px 32px", maxWidth: 500, width: "100%", boxShadow: "0 20px 60px rgba(0,0,0,0.3)", animation: "fadeUp 0.3s ease forwards" }}>
+            {printShipDone ? (
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 48, marginBottom: 16 }}>📖</div>
+                <h2 style={{ fontSize: fs(26), fontWeight: 300, color: tc("#3d2b1a","#1a0e00"), fontStyle: "italic", marginBottom: 12 }}>Print order received!</h2>
+                <p style={{ fontSize: fs(15), color: tc("#6b5540","#3a2510"), fontFamily: "'Lato',sans-serif", lineHeight: 1.7, marginBottom: 24 }}>
+                  We'll be in touch to confirm your shipping details. Now let's continue your story. 🕊️
+                </p>
+                <button onClick={() => { setShowPrintOrderAfterPay(false); }}
+                  style={{ background: "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", padding: "14px 36px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(18), cursor: "pointer", minHeight: 50 }}>
+                  Continue My Story ✦
+                </button>
+              </div>
+            ) : (
+              <>
+                <div style={{ textAlign: "center", marginBottom: 24 }}>
+                  <div style={{ fontSize: 36, marginBottom: 10 }}>📖</div>
+                  <h2 style={{ fontSize: fs(24), fontWeight: 300, color: tc("#3d2b1a","#1a0e00"), fontStyle: "italic", marginBottom: 6 }}>
+                    {paywallBookChoice === "print2" ? "2 printed copies — where should we send them?" : "Where should we send your printed book?"}
+                  </h2>
+                  <p style={{ fontSize: fs(13), color: tc("#8b7355","#5c3d1e"), fontFamily: "'Lato',sans-serif" }}>
+                    {paywallBookChoice === "print1" ? "1 printed copy included" : "2 printed copies included"}
+                  </p>
+                </div>
+
+                {/* Ship to choice */}
+                <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
+                  {[["me","Ship to me — I'll deliver it"],["recipient","Ship directly to recipient"]].map(([val, label]) => (
+                    <button key={val} onClick={() => setPrintShipChoice(val)}
+                      style={{ flex: 1, padding: "12px 10px", borderRadius: 10, border: `2px solid ${printShipChoice === val ? "#b8860b" : "rgba(180,140,80,0.3)"}`, background: printShipChoice === val ? "#fffdf5" : "white", cursor: "pointer", fontSize: fs(13), color: tc("#3d2b1a","#1a0e00"), fontFamily: "'Lato',sans-serif", fontWeight: printShipChoice === val ? 600 : 400, lineHeight: 1.4 }}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Address fields */}
+                {[["name","Full Name"],["address","Street Address"],["city","City"],["state","State"],["zip","ZIP Code"]].map(([key, label]) => (
+                  <div key={key} style={{ marginBottom: 10 }}>
+                    <label style={{ display: "block", fontSize: fs(11), color: tc("#7a5c3a","#4a3020"), fontFamily: "'Lato',sans-serif", fontWeight: 600, marginBottom: 4 }}>{label}</label>
+                    <input type="text" value={printShipFields[key]} onChange={e => setPrintShipFields(p => ({ ...p, [key]: e.target.value }))}
+                      style={{ width: "100%", border: "1.5px solid rgba(180,140,80,0.3)", borderRadius: 8, padding: "10px 12px", fontFamily: "'Lato',sans-serif", fontSize: fs(14), color: tc("#3d2b1a","#1a0e00"), background: "#fffdf5", outline: "none", boxSizing: "border-box", minHeight: 44 }} />
+                  </div>
+                ))}
+
+                <button onClick={async () => {
+                  const { name, address, city, state, zip } = printShipFields;
+                  if (!name || !address || !city || !state || !zip) return;
+                  setPrintShipLoading(true);
+                  try {
+                    await fetch("/api/email-print-order", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        userEmail: user?.email,
+                        userName: name,
+                        option: paywallBookChoice === "print1" ? "1 Printed Copy" : "2 Printed Copies",
+                        price: paywallBookChoice === "print1" ? 178 : 228,
+                        shipTo: printShipChoice,
+                        shipping: printShipFields,
+                      }),
+                    });
+                    setPrintShipDone(true);
+                  } catch {}
+                  setPrintShipLoading(false);
+                }} disabled={printShipLoading}
+                  style={{ width: "100%", background: "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", padding: "15px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(17), cursor: "pointer", minHeight: 52, marginTop: 8 }}>
+                  {printShipLoading ? "Submitting…" : "Submit Shipping Details ✦"}
+                </button>
+                <button onClick={() => setShowPrintOrderAfterPay(false)}
+                  style={{ display: "block", width: "100%", marginTop: 10, background: "none", border: "none", color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", fontSize: fs(13), cursor: "pointer", textDecoration: "underline", minHeight: 36 }}>
+                  Skip for now — I'll do this later
+                </button>
+              </>
+            )}
+          </div>
+        </div>
       )}
 
       {/* ── CHAT ── */}
@@ -3451,7 +3745,8 @@ export default function MyStoryFamily() {
                     Or just start typing and {persona?.name || "I"}'ll help you shape it into your story
                   </span>
                   <span style={{ fontSize: fs(12), color: tc("#c4a882", "#8b7355"), fontFamily: "'Lato',sans-serif" }}>
-                    🎤 Tap the microphone to speak — or use your keyboard mic on mobile
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} aria-hidden="true"><rect x="9" y="2" width="6" height="11" rx="3" fill="#b8860b"/><path d="M5 10a7 7 0 0014 0" stroke="#b8860b" strokeWidth="2" strokeLinecap="round" fill="none"/><line x1="12" y1="19" x2="12" y2="22" stroke="#b8860b" strokeWidth="2" strokeLinecap="round"/><line x1="9" y1="22" x2="15" y2="22" stroke="#b8860b" strokeWidth="2" strokeLinecap="round"/></svg>
+                    Tap the microphone to speak — or use your keyboard mic on mobile
                   </span>
                 </div>
                 <button className="help-btn" onClick={helpMeWrite} disabled={!input.trim() || writingHelp} aria-label="Help me write this"
