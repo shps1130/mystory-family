@@ -1170,6 +1170,7 @@ export default function MyStoryFamily() {
   const [giftBuyerName, setGiftBuyerName] = useState("");
   const [giftBuyerEmail, setGiftBuyerEmail] = useState("");
   const [giftRecipientName, setGiftRecipientName] = useState("");
+  const [giftRecipientEmail, setGiftRecipientEmail] = useState("");
   const [giftPurchaseError, setGiftPurchaseError] = useState("");
 
   const [signinFields, setSigninFields] = useState({ email: "", password: "" });
@@ -1610,6 +1611,7 @@ export default function MyStoryFamily() {
       buyerName: giftBuyerName.trim(),
       buyerEmail: giftBuyerEmail.trim().toLowerCase(),
       recipientName: giftRecipientName.trim(),
+      recipientEmail: giftRecipientEmail.trim().toLowerCase() || null,
     }));
     const params = new URLSearchParams();
     params.set("prefilled_email", giftBuyerEmail.trim());
@@ -2310,6 +2312,17 @@ export default function MyStoryFamily() {
                 <input id="giftRecipientName" type="text" value={giftRecipientName} onChange={e => { setGiftRecipientName(e.target.value); setGiftPurchaseError(""); }}
                   placeholder="e.g. Mom, Dad, Grandma..."
                   style={{ width: "100%", border: "1.5px solid rgba(180,140,80,0.3)", borderRadius: 8, padding: "11px 14px", fontFamily: "'Lato',sans-serif", fontSize: fs(15), color: tc("#3d2b1a","#1a0e00"), background: "#fffdf5", outline: "none", boxSizing: "border-box", minHeight: 48 }} />
+              </div>
+              <div style={{ marginBottom: 20 }}>
+                <label htmlFor="giftRecipientEmail" style={{ display: "block", fontSize: fs(12), color: tc("#7a5c3a","#4a3020"), fontFamily: "'Lato',sans-serif", marginBottom: 6, fontWeight: 600 }}>
+                  Their email address <span style={{ color: tc("#a89070","#6b5030"), fontWeight: 400 }}>(optional — we'll send them a gift notification)</span>
+                </label>
+                <input id="giftRecipientEmail" type="email" value={giftRecipientEmail} onChange={e => { setGiftRecipientEmail(e.target.value); setGiftPurchaseError(""); }}
+                  placeholder="mom@email.com"
+                  style={{ width: "100%", border: "1.5px solid rgba(180,140,80,0.3)", borderRadius: 8, padding: "11px 14px", fontFamily: "'Lato',sans-serif", fontSize: fs(15), color: tc("#3d2b1a","#1a0e00"), background: "#fffdf5", outline: "none", boxSizing: "border-box", minHeight: 48 }} />
+                <p style={{ fontSize: fs(12), color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", marginTop: 6, fontStyle: "italic" }}>
+                  If provided, we'll send them a beautiful email letting them know a gift is waiting. Leave blank if you'd prefer to share the code yourself.
+                </p>
               </div>
               {giftPurchaseError && <p role="alert" style={{ fontSize: fs(13), color: "#c0392b", fontFamily: "'Lato',sans-serif", marginBottom: 14 }}>{giftPurchaseError}</p>}
               <button onClick={handleGiftPurchase}
