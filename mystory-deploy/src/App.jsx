@@ -3100,69 +3100,112 @@ export default function MyStoryFamily() {
       {/* ── BOOK SIZE ── */}
       {/* ── CHAPTER SETUP ── */}
       {screen === "setup" && (
-        <main id="main-content" style={{ maxWidth: 720, margin: "0 auto", padding: "44px 24px", width: "100%" }}>
-          <p style={{ fontSize: fs(12), letterSpacing: "2.5px", textTransform: "uppercase", color: "#b8860b", fontFamily: "'Lato',sans-serif", marginBottom: 8 }}>Step 1 of 2</p>
-          <h1 style={{ fontSize: fs(34), fontWeight: 600, color: tc("#3d2b1a", "#1a0e00"), marginBottom: 8 }}>Shape Your Book</h1>
-          <p style={{ fontSize: fs(17), color: tc("#6b5540", "#3d2b1a"), fontStyle: "italic", marginBottom: 28, lineHeight: 1.7 }}>Every life is different. Choose which sections belong in yours — and add your own if something important is missing.</p>
-          <div style={{ textAlign: "center", marginBottom: 28 }}>
-            <button className="start-btn" onClick={startChat} disabled={enabledChapters.length === 0}
-              style={{ background: persona ? personaAvatarBg : "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", padding: "16px 48px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(18), letterSpacing: 1, cursor: "pointer", boxShadow: "0 4px 20px rgba(93,61,26,0.2)", minHeight: 56 }}>
-              Begin My Interview with {persona?.name || "My Guide"} ✦
+        <main id="main-content" style={{ maxWidth: 680, margin: "0 auto", padding: "44px 24px", width: "100%" }}>
+
+          {/* Header */}
+          <div style={{ textAlign: "center", marginBottom: 36 }}>
+            <div style={{ width: 56, height: 56, borderRadius: "50%", background: persona ? personaAvatarBg : "linear-gradient(135deg,#5c3d1e,#8b5e34)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, margin: "0 auto 16px" }} aria-hidden="true">
+              {personaAvatar}
+            </div>
+            <p style={{ fontSize: fs(12), letterSpacing: "2.5px", textTransform: "uppercase", color: "#b8860b", fontFamily: "'Lato',sans-serif", marginBottom: 10 }}>Your book is ready to begin</p>
+            <h1 style={{ fontSize: fs(32), fontWeight: 300, color: tc("#3d2b1a","#1a0e00"), fontStyle: "italic", marginBottom: 10, lineHeight: 1.3 }}>
+              Here's what {persona?.name || "Grace"} will cover with you
+            </h1>
+            <p style={{ fontSize: fs(16), color: tc("#6b5540","#3a2510"), fontFamily: "'Lato',sans-serif", lineHeight: 1.7, maxWidth: 480, margin: "0 auto" }}>
+              {persona?.name || "Grace"} will guide you through each section at your own pace. You can skip any section during the conversation if you'd like.
+            </p>
+          </div>
+
+          {/* Begin button — top */}
+          <div style={{ textAlign: "center", marginBottom: 32 }}>
+            <button className="start-btn" onClick={startChat}
+              style={{ background: persona ? personaAvatarBg : "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", padding: "18px 52px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(20), letterSpacing: 1, cursor: "pointer", boxShadow: "0 6px 24px rgba(93,61,26,0.25)", minHeight: 60, transition: "all 0.2s" }}>
+              Begin My Interview with {persona?.name || "Grace"} ✦
             </button>
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 36 }} role="group" aria-label="Section selection">
-            {BASE_CHAPTERS.map(ch => {
-              const on = enabledChapters.includes(ch.id);
+
+          {/* Section preview list — display only, not interactive */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 28 }} aria-label="Your book sections">
+            {BASE_CHAPTERS.map((ch, idx) => {
+              // Auto-hide faith if user said "Not really" in onboarding
+              const faithAnswer = onboardAnswers.faith || "";
+              if (ch.id === "faith" && faithAnswer === "Not really") return null;
               return (
-                <div key={ch.id} className="ch-card" role="checkbox" aria-checked={on} tabIndex={0}
-                  onClick={() => toggleChapter(ch.id)} onKeyDown={e => (e.key === "Enter" || e.key === " ") && toggleChapter(ch.id)}
-                  aria-label={`${ch.title}: ${ch.description}. ${on ? "Selected" : "Not selected"}.`}
-                  style={{ display: "flex", alignItems: "center", gap: 14, padding: "16px 18px", background: on ? "#fffdf5" : "#f9f5f0", borderRadius: 10, border: `${highContrast ? 3 : 1.5}px solid ${on ? "#b8860b" : highContrast ? "#9a7a50" : "rgba(180,140,80,0.2)"}`, cursor: "pointer", opacity: on ? 1 : 0.55, minHeight: 64 }}>
-                  <div style={{ width: 26, height: 26, borderRadius: "50%", border: `2px solid ${on ? "#b8860b" : "rgba(180,140,80,0.4)"}`, background: on ? "#b8860b" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }} aria-hidden="true">
-                    {on && <svg width="11" height="11" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="#fdf6ec" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                <div key={ch.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "16px 20px", background: "white", borderRadius: 12, border: "1px solid rgba(180,140,80,0.18)", boxShadow: "0 2px 8px rgba(93,61,26,0.05)" }}>
+                  <div style={{ width: 34, height: 34, borderRadius: "50%", background: "linear-gradient(135deg,rgba(184,134,11,0.15),rgba(184,134,11,0.08))", border: "1.5px solid rgba(184,134,11,0.25)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: fs(11), fontWeight: 700, color: "#b8860b", fontFamily: "'Lato',sans-serif", flexShrink: 0 }}>
+                    {idx + 1}
                   </div>
-                  <div style={{ fontSize: 22, width: 30, textAlign: "center" }} aria-hidden="true">{ch.icon}</div>
+                  <div style={{ fontSize: 22, width: 28, textAlign: "center", flexShrink: 0 }} aria-hidden="true">{ch.icon}</div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: fs(16), fontWeight: 600, color: tc("#3d2b1a", "#1a0e00") }}>{ch.title}</div>
-                    <div style={{ fontSize: fs(14), color: tc("#7a6040", "#4a3020"), fontFamily: "'Lato',sans-serif", marginTop: 2 }}>{ch.description}</div>
+                    <div style={{ fontSize: fs(15), fontWeight: 600, color: tc("#3d2b1a","#1a0e00") }}>{ch.title}</div>
+                    <div style={{ fontSize: fs(13), color: tc("#7a6040","#4a3020"), fontFamily: "'Lato',sans-serif", marginTop: 2 }}>{ch.description}</div>
                   </div>
+                  <div style={{ fontSize: fs(11), color: "#b8860b", fontFamily: "'Lato',sans-serif", flexShrink: 0 }}>✦</div>
                 </div>
               );
             })}
+
+            {/* Custom chapter if added */}
+            {customChapter && (
+              <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "16px 20px", background: "#fffdf5", borderRadius: 12, border: "2px solid rgba(184,134,11,0.35)" }}>
+                <div style={{ width: 34, height: 34, borderRadius: "50%", background: "linear-gradient(135deg,#b8860b,#d4a843)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>✨</div>
+                <div style={{ fontSize: 22, width: 28, textAlign: "center", flexShrink: 0 }}>{customChapter.icon}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: fs(15), fontWeight: 600, color: tc("#3d2b1a","#1a0e00") }}>{customChapter.title}</div>
+                  <div style={{ fontSize: fs(13), color: "#b8860b", fontFamily: "'Lato',sans-serif", marginTop: 2 }}>Your custom section · {customChapter.prompts.length} prompts</div>
+                </div>
+                <button onClick={() => { setCustomChapter(null); setCustomInput(""); }} aria-label="Remove custom section"
+                  style={{ background: "none", border: "1.5px solid rgba(180,140,80,0.3)", color: "#7a5c3a", cursor: "pointer", fontSize: 16, minWidth: 32, minHeight: 32, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+              </div>
+            )}
           </div>
-          <div style={{ background: "white", borderRadius: 12, border: `${highContrast ? "2px" : "1.5px"} dashed ${highContrast ? "#7a5c3a" : "rgba(180,140,80,0.4)"}`, padding: "22px 24px", marginBottom: 32 }}>
-            <h2 style={{ fontSize: fs(16), fontWeight: 600, color: tc("#5c3d1e", "#2a1000"), marginBottom: 6 }}>✦ Add Your Own Chapter</h2>
-            <p style={{ fontSize: fs(14), color: tc("#7a6040", "#4a3020"), fontFamily: "'Lato',sans-serif", marginBottom: 16, lineHeight: 1.65 }}>Have a section that's uniquely yours? Name it and {persona?.name || "our AI"} will craft the perfect prompts instantly.</p>
+
+          {/* Add your own section */}
+          <div style={{ background: "white", borderRadius: 12, border: `1.5px dashed rgba(180,140,80,0.4)`, padding: "20px 22px", marginBottom: 32 }}>
+            <h2 style={{ fontSize: fs(15), fontWeight: 600, color: tc("#5c3d1e","#2a1000"), marginBottom: 6 }}>✦ Add Your Own Section</h2>
+            <p style={{ fontSize: fs(13), color: tc("#7a6040","#4a3020"), fontFamily: "'Lato',sans-serif", marginBottom: 14, lineHeight: 1.65 }}>
+              Have a story that deserves its own section? Name it and {persona?.name || "Grace"} will craft the perfect questions instantly.
+            </p>
             {!customChapter ? (
               <>
                 <div style={{ display: "flex", gap: 10 }}>
                   <label htmlFor="custom-section-input" style={{ position: "absolute", left: -9999, width: 1 }}>Custom section name</label>
-                  <input id="custom-section-input" value={customInput} onChange={e => setCustomInput(e.target.value)} onKeyDown={e => e.key === "Enter" && generateCustomPrompts(customInput)}
+                  <input id="custom-section-input" value={customInput} onChange={e => setCustomInput(e.target.value)}
+                    onKeyDown={e => e.key === "Enter" && generateCustomPrompts(customInput)}
                     placeholder="e.g. My Military Service, Our Immigration Story..."
-                    style={{ flex: 1, border: `${highContrast ? 2 : 1.5}px solid ${highContrast ? "#7a5c3a" : "rgba(180,140,80,0.3)"}`, borderRadius: 8, padding: "12px 14px", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(17), color: tc("#3d2b1a", "#1a0e00"), background: "#fffdf5", outline: "none", minHeight: 48 }} />
+                    style={{ flex: 1, border: `1.5px solid rgba(180,140,80,0.3)`, borderRadius: 8, padding: "11px 14px", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(16), color: tc("#3d2b1a","#1a0e00"), background: "#fffdf5", outline: "none", minHeight: 46 }} />
                   <button className="gen-btn" onClick={() => generateCustomPrompts(customInput)} disabled={!customInput.trim() || generatingPrompts}
-                    style={{ background: "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", padding: "12px 22px", borderRadius: 8, fontFamily: "'Lato',sans-serif", fontSize: fs(14), fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", opacity: (!customInput.trim() || generatingPrompts) ? 0.45 : 1, minHeight: 48 }}>
-                    {generatingPrompts ? "Crafting..." : "Generate ✦"}
+                    style={{ background: "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", padding: "11px 20px", borderRadius: 8, fontFamily: "'Lato',sans-serif", fontSize: fs(13), fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", opacity: (!customInput.trim() || generatingPrompts) ? 0.45 : 1, minHeight: 46 }}>
+                    {generatingPrompts ? "Crafting…" : "Generate ✦"}
                   </button>
                 </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 14 }}>
-                  {SUGGESTION_CHAPTERS.map(s => <button key={s.title} className="chip" onClick={() => { setCustomInput(s.title); generateCustomPrompts(s.title); }} style={{ padding: "10px 16px", borderRadius: 100, background: "#f5ede0", border: `1px solid ${highContrast ? "#9a7a50" : "rgba(180,140,80,0.25)"}`, fontSize: fs(14), color: tc("#5c3d1e", "#2a1000"), fontFamily: "'Lato',sans-serif", cursor: "pointer", minHeight: 44 }}>{s.icon} {s.title}</button>)}
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12 }}>
+                  {SUGGESTION_CHAPTERS.map(s => (
+                    <button key={s.title} className="chip" onClick={() => { setCustomInput(s.title); generateCustomPrompts(s.title); }}
+                      style={{ padding: "8px 14px", borderRadius: 100, background: "#f5ede0", border: "1px solid rgba(180,140,80,0.25)", fontSize: fs(13), color: tc("#5c3d1e","#2a1000"), fontFamily: "'Lato',sans-serif", cursor: "pointer", minHeight: 40 }}>
+                      {s.icon} {s.title}
+                    </button>
+                  ))}
                 </div>
               </>
             ) : (
-              <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", background: "#fffdf5", border: "2px solid #b8860b", borderRadius: 8 }}>
-                <span style={{ fontSize: 22 }} aria-hidden="true">{customChapter.icon}</span>
-                <div style={{ flex: 1 }}><span style={{ fontSize: fs(16), fontWeight: 600, color: tc("#3d2b1a", "#1a0e00") }}>{customChapter.title}</span><span style={{ fontSize: fs(13), color: "#b8860b", fontFamily: "'Lato',sans-serif", marginLeft: 8 }}>· {customChapter.prompts.length} prompts</span></div>
-                <button onClick={() => { setCustomChapter(null); setCustomInput(""); }} aria-label="Remove custom chapter" style={{ background: "none", border: "2px solid rgba(180,140,80,0.3)", color: "#7a5c3a", cursor: "pointer", fontSize: 18, minWidth: 36, minHeight: 36, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
-              </div>
+              <p style={{ fontSize: fs(13), color: "#b8860b", fontFamily: "'Lato',sans-serif", fontStyle: "italic" }}>
+                ✦ {customChapter.title} added above — it will be included in your book
+              </p>
             )}
           </div>
+
+          {/* Begin button — bottom */}
           <div style={{ textAlign: "center" }}>
             <button className="start-btn" onClick={startChat}
-              style={{ background: persona ? personaAvatarBg : "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", padding: "18px 54px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(19), letterSpacing: 1, cursor: "pointer", boxShadow: "0 4px 20px rgba(93,61,26,0.2)", minHeight: 58 }}>
-              Begin My Interview with {persona?.name || "My Guide"} ✦
+              style={{ background: persona ? personaAvatarBg : "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", padding: "18px 52px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(20), letterSpacing: 1, cursor: "pointer", boxShadow: "0 6px 24px rgba(93,61,26,0.25)", minHeight: 60, transition: "all 0.2s" }}>
+              Begin My Interview with {persona?.name || "Grace"} ✦
             </button>
+            <p style={{ fontSize: fs(13), color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", marginTop: 12, fontStyle: "italic" }}>
+              You can skip any section during your conversation with {persona?.name || "Grace"}
+            </p>
           </div>
+
         </main>
       )}
 
