@@ -3112,7 +3112,7 @@ export default function MyStoryFamily() {
               Here's what {persona?.name || "Grace"} will cover with you
             </h1>
             <p style={{ fontSize: fs(16), color: tc("#6b5540","#3a2510"), fontFamily: "'Lato',sans-serif", lineHeight: 1.7, maxWidth: 480, margin: "0 auto" }}>
-              {persona?.name || "Grace"} will guide you through each section at your own pace. You can skip any section during the conversation if you'd like.
+              {persona?.name || "Grace"} will guide you through each section at your own pace — and you can always skip a section when you get there if it doesn't feel right for your story.
             </p>
           </div>
 
