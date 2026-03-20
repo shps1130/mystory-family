@@ -3354,6 +3354,8 @@ export default function MyStoryFamily() {
           <span style={{ margin: "0 10px", opacity: 0.5 }}>·</span>
           <a href="/terms" target="_blank" rel="noreferrer" style={{ color: tc("#a89070","#6b5030"), textDecoration: "underline", textUnderlineOffset: 3 }}>Terms of Service</a>
           <span style={{ margin: "0 10px", opacity: 0.5 }}>·</span>
+          <a href="/cookies" target="_blank" rel="noreferrer" style={{ color: tc("#a89070","#6b5030"), textDecoration: "underline", textUnderlineOffset: 3 }}>Cookie Policy</a>
+          <span style={{ margin: "0 10px", opacity: 0.5 }}>·</span>
           <a href="mailto:timothy@mystory.family" style={{ color: tc("#a89070","#6b5030"), textDecoration: "underline", textUnderlineOffset: 3 }}>Contact Us</a>
           <span style={{ margin: "0 10px", opacity: 0.5 }}>·</span>
           <span>© {new Date().getFullYear()} MyStory.Family</span>
