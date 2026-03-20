@@ -1146,20 +1146,7 @@ If you need clarification before making a change, ask ONE question first without
 
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function MyStoryFamily() {
-  const [screen, setScreen] = useState("welcome"); // welcome | signup | signin | giftcode | giftpurchase | onboarding | reveal | booksize | setup | chat
-
-  // ── GIFT CODE (REDEMPTION) STATE ──────────────────────────────────────────
-  const [giftCode, setGiftCode] = useState("");
-  const [giftEmail, setGiftEmail] = useState("");
-  const [giftName, setGiftName] = useState("");
-  const [giftError, setGiftError] = useState("");
-  const [giftLoading, setGiftLoading] = useState(false);
-
-  // ── GIFT PURCHASE STATE ───────────────────────────────────────────────────
-  const [giftBuyerName, setGiftBuyerName] = useState("");
-  const [giftBuyerEmail, setGiftBuyerEmail] = useState("");
-  const [giftRecipientName, setGiftRecipientName] = useState("");
-  const [giftPurchaseError, setGiftPurchaseError] = useState("");
+  const [screen, setScreen] = useState("welcome"); // welcome | signup | signin | onboarding | reveal | booksize | setup | chat
   const [bookSize, setBookSize] = useState(null);
   const [promoCode, setPromoCode] = useState("");
   const [promoInput, setPromoInput] = useState("");
@@ -1251,31 +1238,10 @@ export default function MyStoryFamily() {
       const params = new URLSearchParams(window.location.search);
       const paymentSuccess = params.get("payment_success") === "true";
       const paymentCancelled = params.get("payment_cancelled") === "true";
-      const giftSuccess = params.get("gift_success") === "true";
-      const giftCancelled = params.get("gift_cancelled") === "true";
       const paidEmail = params.get("paid_email") || localStorage.getItem("mystory_pending_email");
 
-      if (paymentSuccess || paymentCancelled || giftSuccess || giftCancelled) {
+      if (paymentSuccess || paymentCancelled) {
         window.history.replaceState({}, "", window.location.pathname);
-      }
-
-      // Handle gift purchase return
-      if (giftSuccess) {
-        const pendingGift = localStorage.getItem("mystory_gift_pending");
-        if (pendingGift) {
-          try {
-            const gift = JSON.parse(pendingGift);
-            localStorage.removeItem("mystory_gift_pending");
-            fetch("/api/gift-create", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(gift),
-            }).catch(() => {});
-          } catch {}
-        }
-        // Show a thank you screen — don't restore session
-        setScreen("giftsent");
-        return;
       }
 
       const raw = localStorage.getItem("mystory_session");
@@ -1580,54 +1546,6 @@ export default function MyStoryFamily() {
     setPromoInfo(found);
     setPromoError("");
     announce(found.school ? `Code applied. ${found.school} will receive $${found.schoolShare} from your purchase.` : "Discount code applied.");
-  };
-
-  // ── GIFT CODE REDEMPTION ──────────────────────────────────────────────────
-  const redeemGiftCode = async () => {
-    setGiftLoading(true);
-    setGiftError("");
-    try {
-      const signupRes = await fetch("/api/auth-signup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ firstName: giftName, lastName: "", email: giftEmail, password: Math.random().toString(36).slice(2) + "Aa1!" }),
-      });
-      const signupData = await signupRes.json();
-      const redeemRes = await fetch("/api/gift-redeem", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: giftCode.trim().toUpperCase(), email: giftEmail.toLowerCase(), firstName: giftName }),
-      });
-      const redeemData = await redeemRes.json();
-      if (!redeemRes.ok) { setGiftError(redeemData.error || "Could not redeem code. Please try again."); setGiftLoading(false); return; }
-      const userData = signupData.user || { firstName: giftName, lastName: "", email: giftEmail };
-      setUser(userData);
-      setHasPaid(true);
-      localStorage.setItem("mystory_paid_" + giftEmail.toLowerCase(), "true");
-      showToast("Gift code redeemed! Welcome to MyStory.Family 🕊️");
-      setScreen("onboarding");
-    } catch { setGiftError("Something went wrong. Please try again."); }
-    setGiftLoading(false);
-  };
-
-  // ── GIFT PURCHASE (BUY FOR SOMEONE ELSE) ─────────────────────────────────
-  const handleGiftPurchase = () => {
-    if (!giftBuyerName.trim()) { setGiftPurchaseError("Please enter your name."); return; }
-    if (!giftBuyerEmail.includes("@")) { setGiftPurchaseError("Please enter a valid email address."); return; }
-    if (!giftRecipientName.trim()) { setGiftPurchaseError("Please enter the recipient's name."); return; }
-    setGiftPurchaseError("");
-    // Save gift info before redirecting to Stripe
-    localStorage.setItem("mystory_gift_pending", JSON.stringify({
-      buyerName: giftBuyerName.trim(),
-      buyerEmail: giftBuyerEmail.trim().toLowerCase(),
-      recipientName: giftRecipientName.trim(),
-    }));
-    const params = new URLSearchParams();
-    params.set("prefilled_email", giftBuyerEmail.trim());
-    params.set("success_url", `${APP_URL}?gift_success=true`);
-    params.set("cancel_url", `${APP_URL}?gift_cancelled=true`);
-    // Use same Stripe link — gift purchases are the same $99
-    window.location.href = `${STRIPE_PAYMENT_LINK}?${params.toString()}`;
   };
 
   const addPhoto = (id, photo) => setPhotos(prev => ({ ...prev, [id]: [...(prev[id] || []), photo] }));
@@ -2251,158 +2169,6 @@ export default function MyStoryFamily() {
             First section free · no card required<br />
             <span style={{ fontSize: fs(13), opacity: 0.8 }}>Unlock your full book + PDF download for $99 when you're ready</span>
           </p>
-
-          {/* Gift divider */}
-          <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 28, marginBottom: 8, width: "100%", maxWidth: 380 }}>
-            <div style={{ flex: 1, height: 1, background: "rgba(180,140,80,0.25)" }} />
-            <span style={{ fontSize: fs(12), color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", letterSpacing: "1px", textTransform: "uppercase", whiteSpace: "nowrap" }}>or give a gift</span>
-            <div style={{ flex: 1, height: 1, background: "rgba(180,140,80,0.25)" }} />
-          </div>
-
-          {/* Give as a gift button */}
-          <button onClick={() => setScreen("giftpurchase")}
-            style={{ marginTop: 8, background: "rgba(184,134,11,0.08)", border: "2px solid rgba(184,134,11,0.35)", color: tc("#7a5c1e","#5c3d00"), fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(18), letterSpacing: 0.5, cursor: "pointer", padding: "14px 36px", borderRadius: 100, minHeight: 54, display: "flex", alignItems: "center", gap: 10, transition: "all 0.2s" }}
-            onMouseEnter={e => { e.currentTarget.style.background = "rgba(184,134,11,0.14)"; e.currentTarget.style.borderColor = "rgba(184,134,11,0.6)"; }}
-            onMouseLeave={e => { e.currentTarget.style.background = "rgba(184,134,11,0.08)"; e.currentTarget.style.borderColor = "rgba(184,134,11,0.35)"; }}>
-            🎁 Give This as a Gift — $99
-          </button>
-
-          {/* Redeem gift code */}
-          <button onClick={() => setScreen("giftcode")}
-            style={{ marginTop: 14, background: "none", border: "none", color: tc("#b8860b","#7a5c00"), fontFamily: "'Lato',sans-serif", fontSize: fs(15), cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 4, minHeight: 44, padding: "8px 16px", fontWeight: 600 }}>
-            Already have a gift code? Click here to redeem it
-          </button>
-        </main>
-      )}
-
-      {/* ── GIFT PURCHASE ── */}
-      {screen === "giftpurchase" && (
-        <main id="main-content" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "78vh", padding: "40px 24px", animation: "fadeUp 0.4s ease forwards" }}>
-          <div style={{ maxWidth: 480, width: "100%" }}>
-            <div style={{ textAlign: "center", marginBottom: 36 }}>
-              <div style={{ fontSize: 48, marginBottom: 12 }} aria-hidden="true">🎁</div>
-              <h2 style={{ fontSize: fs(34), fontWeight: 300, color: tc("#3d2b1a","#1a0e00"), fontStyle: "italic", marginBottom: 8 }}>Give the Gift of Story</h2>
-              <p style={{ fontSize: fs(16), color: tc("#6b5540","#3a2510"), fontFamily: "'Lato',sans-serif", lineHeight: 1.7 }}>
-                A beautifully guided legacy book — the most meaningful gift you can give someone you love.
-              </p>
-            </div>
-
-            <div style={{ background: "white", borderRadius: 16, padding: "32px", boxShadow: "0 8px 40px rgba(93,61,26,0.1)", border: "1px solid rgba(180,140,80,0.15)", marginBottom: 20 }}>
-              {/* What they get */}
-              <div style={{ background: "rgba(184,134,11,0.06)", borderRadius: 10, padding: "16px 18px", marginBottom: 24, border: "1px solid rgba(184,134,11,0.15)" }}>
-                <div style={{ fontSize: fs(12), letterSpacing: "1.5px", textTransform: "uppercase", color: "#b8860b", fontFamily: "'Lato',sans-serif", marginBottom: 10 }}>What they'll receive</div>
-                {[["🕊️","A personal AI guide walks with them through their whole life story"],["📄","A beautifully formatted PDF legacy book — theirs to keep and share"],["💛","Their stories preserved forever for the people they love most"]].map(([icon, text]) => (
-                  <div key={text} style={{ display: "flex", gap: 10, marginBottom: 8, alignItems: "flex-start" }}>
-                    <span style={{ fontSize: 16, flexShrink: 0 }}>{icon}</span>
-                    <span style={{ fontSize: fs(14), color: tc("#5c4a35","#2a1a0a"), fontFamily: "'Lato',sans-serif", lineHeight: 1.6 }}>{text}</span>
-                  </div>
-                ))}
-              </div>
-
-              {/* Your info */}
-              <div style={{ fontSize: fs(13), color: tc("#7a5c3a","#4a3020"), fontFamily: "'Lato',sans-serif", fontWeight: 600, marginBottom: 14, letterSpacing: "0.5px", textTransform: "uppercase" }}>Your information</div>
-              {[["giftBuyerName","Your name","text",giftBuyerName,setGiftBuyerName],["giftBuyerEmail","Your email (we'll send the gift code here)","email",giftBuyerEmail,setGiftBuyerEmail]].map(([id, label, type, val, setter]) => (
-                <div key={id} style={{ marginBottom: 14 }}>
-                  <label htmlFor={id} style={{ display: "block", fontSize: fs(12), color: tc("#7a5c3a","#4a3020"), fontFamily: "'Lato',sans-serif", marginBottom: 6, fontWeight: 600 }}>{label}</label>
-                  <input id={id} type={type} value={val} onChange={e => { setter(e.target.value); setGiftPurchaseError(""); }}
-                    style={{ width: "100%", border: "1.5px solid rgba(180,140,80,0.3)", borderRadius: 8, padding: "11px 14px", fontFamily: "'Lato',sans-serif", fontSize: fs(15), color: tc("#3d2b1a","#1a0e00"), background: "#fffdf5", outline: "none", boxSizing: "border-box", minHeight: 48 }} />
-                </div>
-              ))}
-
-              {/* Recipient info */}
-              <div style={{ fontSize: fs(13), color: tc("#7a5c3a","#4a3020"), fontFamily: "'Lato',sans-serif", fontWeight: 600, marginBottom: 14, marginTop: 20, letterSpacing: "0.5px", textTransform: "uppercase" }}>Who is this gift for?</div>
-              <div style={{ marginBottom: 20 }}>
-                <label htmlFor="giftRecipientName" style={{ display: "block", fontSize: fs(12), color: tc("#7a5c3a","#4a3020"), fontFamily: "'Lato',sans-serif", marginBottom: 6, fontWeight: 600 }}>Their first name</label>
-                <input id="giftRecipientName" type="text" value={giftRecipientName} onChange={e => { setGiftRecipientName(e.target.value); setGiftPurchaseError(""); }}
-                  placeholder="e.g. Mom, Dad, Grandma..."
-                  style={{ width: "100%", border: "1.5px solid rgba(180,140,80,0.3)", borderRadius: 8, padding: "11px 14px", fontFamily: "'Lato',sans-serif", fontSize: fs(15), color: tc("#3d2b1a","#1a0e00"), background: "#fffdf5", outline: "none", boxSizing: "border-box", minHeight: 48 }} />
-              </div>
-
-              {giftPurchaseError && <p role="alert" style={{ fontSize: fs(13), color: "#c0392b", fontFamily: "'Lato',sans-serif", marginBottom: 14 }}>{giftPurchaseError}</p>}
-
-              <button onClick={handleGiftPurchase}
-                style={{ width: "100%", background: "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", padding: "18px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(19), letterSpacing: 0.5, cursor: "pointer", boxShadow: "0 4px 20px rgba(93,61,26,0.25)", minHeight: 58, marginBottom: 12 }}>
-                Continue to Payment — $99 ✦
-              </button>
-              <p style={{ fontSize: fs(12), color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", textAlign: "center", lineHeight: 1.6 }}>
-                🔒 Secure checkout via Stripe · After payment, your gift code arrives instantly by email
-              </p>
-            </div>
-
-            <button onClick={() => setScreen("welcome")}
-              style={{ display: "block", margin: "0 auto", background: "none", border: "none", color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", fontSize: fs(13), cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3, minHeight: 44, padding: "8px 16px" }}>
-              ← Back
-            </button>
-          </div>
-        </main>
-      )}
-
-      {/* ── GIFT SENT CONFIRMATION ── */}
-      {screen === "giftsent" && (
-        <main id="main-content" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "78vh", padding: "40px 24px", animation: "fadeUp 0.5s ease forwards", textAlign: "center" }}>
-          <div style={{ maxWidth: 500, width: "100%" }}>
-            <div style={{ fontSize: 64, marginBottom: 24, animation: "pulse 2s ease-in-out infinite" }} aria-hidden="true">🎁</div>
-            <p style={{ fontSize: fs(12), letterSpacing: "3px", textTransform: "uppercase", color: "#b8860b", fontFamily: "'Lato',sans-serif", marginBottom: 16 }}>Your gift is on its way</p>
-            <h1 style={{ fontSize: fs(40), fontWeight: 300, color: tc("#3d2b1a","#1a0e00"), fontStyle: "italic", lineHeight: 1.2, marginBottom: 20 }}>
-              What a beautiful thing you just did.
-            </h1>
-            <div style={{ background: "white", borderRadius: 16, padding: "28px 32px", border: "1.5px solid rgba(180,140,80,0.2)", boxShadow: "0 4px 24px rgba(93,61,26,0.08)", marginBottom: 28, textAlign: "left" }}>
-              <p style={{ fontSize: fs(17), color: tc("#5c4a35","#2a1a0a"), fontFamily: "'Cormorant Garamond',serif", fontStyle: "italic", lineHeight: 1.9, marginBottom: 16 }}>
-                Your gift code is being sent to your email right now. Share it with your loved one — they'll use it to unlock their full legacy book at no charge.
-              </p>
-              <p style={{ fontSize: fs(15), color: tc("#7a6040","#4a3020"), fontFamily: "'Lato',sans-serif", lineHeight: 1.7, marginBottom: 0 }}>
-                When they redeem it, you'll receive an email letting you know their story has begun. 🕊️
-              </p>
-            </div>
-            <button onClick={() => setScreen("welcome")}
-              style={{ background: "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", padding: "16px 44px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(18), cursor: "pointer", boxShadow: "0 4px 20px rgba(93,61,26,0.2)", minHeight: 54 }}>
-              Back to Home ✦
-            </button>
-          </div>
-        </main>
-      )}
-
-      {/* ── GIFT CODE REDEMPTION ── */}
-      {screen === "giftcode" && (
-        <main id="main-content" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "78vh", padding: "40px 24px", animation: "fadeUp 0.4s ease forwards" }}>
-          <div style={{ maxWidth: 460, width: "100%" }}>
-            <div style={{ textAlign: "center", marginBottom: 36 }}>
-              <div style={{ fontSize: 48, marginBottom: 12 }} aria-hidden="true">🎁</div>
-              <h2 style={{ fontSize: fs(32), fontWeight: 300, color: tc("#3d2b1a","#1a0e00"), fontStyle: "italic", marginBottom: 8 }}>You've Received a Gift</h2>
-              <p style={{ fontSize: fs(16), color: tc("#6b5540","#3a2510"), fontFamily: "'Lato',sans-serif", lineHeight: 1.7 }}>
-                Someone who loves you has given you the gift of story. Enter your code below to unlock your full legacy book.
-              </p>
-            </div>
-            <div style={{ background: "white", borderRadius: 16, padding: "28px 28px", border: "1.5px solid rgba(180,140,80,0.2)", boxShadow: "0 4px 24px rgba(93,61,26,0.07)" }}>
-              <div style={{ marginBottom: 16 }}>
-                <label htmlFor="gift-name" style={{ display: "block", fontSize: fs(13), color: tc("#6b5540","#3a2510"), fontFamily: "'Lato',sans-serif", marginBottom: 6, fontWeight: 600 }}>Your first name</label>
-                <input id="gift-name" value={giftName} onChange={e => { setGiftName(e.target.value); setGiftError(""); }}
-                  placeholder="First name"
-                  style={{ width: "100%", border: "1.5px solid rgba(180,140,80,0.3)", borderRadius: 8, padding: "11px 14px", fontFamily: "'Lato',sans-serif", fontSize: fs(15), color: tc("#3d2b1a","#1a0e00"), background: "#fffdf5", outline: "none", minHeight: 48, boxSizing: "border-box" }} />
-              </div>
-              <div style={{ marginBottom: 16 }}>
-                <label htmlFor="gift-email" style={{ display: "block", fontSize: fs(13), color: tc("#6b5540","#3a2510"), fontFamily: "'Lato',sans-serif", marginBottom: 6, fontWeight: 600 }}>Your email</label>
-                <input id="gift-email" type="email" value={giftEmail} onChange={e => { setGiftEmail(e.target.value); setGiftError(""); }}
-                  placeholder="your@email.com"
-                  style={{ width: "100%", border: "1.5px solid rgba(180,140,80,0.3)", borderRadius: 8, padding: "11px 14px", fontFamily: "'Lato',sans-serif", fontSize: fs(15), color: tc("#3d2b1a","#1a0e00"), background: "#fffdf5", outline: "none", minHeight: 48, boxSizing: "border-box" }} />
-              </div>
-              <div style={{ marginBottom: 20 }}>
-                <label htmlFor="gift-code" style={{ display: "block", fontSize: fs(13), color: tc("#6b5540","#3a2510"), fontFamily: "'Lato',sans-serif", marginBottom: 6, fontWeight: 600 }}>Gift code</label>
-                <input id="gift-code" value={giftCode} onChange={e => { setGiftCode(e.target.value.toUpperCase()); setGiftError(""); }}
-                  placeholder="XXXX-XXXX-XXXX"
-                  style={{ width: "100%", border: `1.5px solid ${giftError ? "#c0392b" : "rgba(180,140,80,0.3)"}`, borderRadius: 8, padding: "11px 14px", fontFamily: "'Lato',sans-serif", fontSize: fs(18), fontWeight: 700, letterSpacing: 4, color: tc("#3d2b1a","#1a0e00"), background: "#fffdf5", outline: "none", minHeight: 52, boxSizing: "border-box", textTransform: "uppercase" }} />
-                {giftError && <p role="alert" style={{ fontSize: fs(13), color: "#c0392b", fontFamily: "'Lato',sans-serif", marginTop: 6 }}>{giftError}</p>}
-              </div>
-              <button onClick={redeemGiftCode} disabled={giftLoading || !giftCode.trim() || !giftEmail.trim() || !giftName.trim()}
-                style={{ width: "100%", background: (giftLoading || !giftCode.trim() || !giftEmail.trim() || !giftName.trim()) ? "rgba(139,94,52,0.3)" : "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", padding: "16px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(19), letterSpacing: 0.5, cursor: (giftLoading || !giftCode.trim() || !giftEmail.trim() || !giftName.trim()) ? "not-allowed" : "pointer", minHeight: 54, transition: "all 0.2s" }}>
-                {giftLoading ? "Unlocking your story..." : "Unlock My Legacy Book ✦"}
-              </button>
-            </div>
-            <button onClick={() => setScreen("welcome")}
-              style={{ display: "block", margin: "16px auto 0", background: "none", border: "none", color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", fontSize: fs(13), cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3, minHeight: 44, padding: "8px 16px" }}>
-              ← Back
-            </button>
-          </div>
         </main>
       )}
 
@@ -3318,6 +3084,18 @@ export default function MyStoryFamily() {
           {toast.msg}
         </div>
       )}
+
+      {/* ── FOOTER ── */}
+      <footer style={{ marginTop: "auto", borderTop: `1px solid ${highContrast ? "rgba(0,0,0,0.15)" : "rgba(180,140,80,0.15)"}`, padding: "16px 24px", textAlign: "center", background: highContrast ? "#fff" : "rgba(253,246,236,0.8)" }}>
+        <p style={{ fontSize: fs(12), color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", lineHeight: 1.7 }}>
+          <a href="/privacy" target="_blank" rel="noreferrer" style={{ color: tc("#a89070","#6b5030"), textDecoration: "underline", textUnderlineOffset: 3 }}>Privacy Policy</a>
+          <span style={{ margin: "0 10px", opacity: 0.5 }}>·</span>
+          <a href="mailto:timothy@mystory.family" style={{ color: tc("#a89070","#6b5030"), textDecoration: "underline", textUnderlineOffset: 3 }}>Contact Us</a>
+          <span style={{ margin: "0 10px", opacity: 0.5 }}>·</span>
+          <span>© {new Date().getFullYear()} MyStory.Family</span>
+        </p>
+      </footer>
+
     </div>
   );
 }
