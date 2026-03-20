@@ -1157,6 +1157,7 @@ export default function MyStoryFamily() {
   const [user, setUser] = useState(null); // { firstName, lastName, email, password }
   const [signupFields, setSignupFields] = useState({ firstName: "", lastName: "", email: "", password: "" });
   const [signupError, setSignupError] = useState("");
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [signinFields, setSigninFields] = useState({ email: "", password: "" });
   const [signinError, setSigninError] = useState("");
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -1381,6 +1382,7 @@ export default function MyStoryFamily() {
     if (password.length < 8) { setSignupError("Password must be at least 8 characters."); return; }
     if (!/[A-Z]/.test(password)) { setSignupError("Password must contain at least one capital letter."); return; }
     if (!/[0-9]/.test(password)) { setSignupError("Password must contain at least one number."); return; }
+    if (!privacyAccepted) { setSignupError("Please confirm you have read and agree to the Privacy Policy."); return; }
     setSignupError("Creating your account…");
     try {
       const res = await fetch("/api/auth-signup", {
@@ -2208,6 +2210,16 @@ export default function MyStoryFamily() {
               ))}
 
               {signupError && <p role="alert" style={{ fontSize: fs(13), color: "#c0392b", fontFamily: "'Lato',sans-serif", marginBottom: 14, lineHeight: 1.5 }}>{signupError}</p>}
+
+              {/* Privacy policy checkbox */}
+              <label style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 16, cursor: "pointer" }}>
+                <input type="checkbox" checked={privacyAccepted} onChange={e => { setPrivacyAccepted(e.target.checked); setSignupError(""); }}
+                  style={{ marginTop: 3, width: 18, height: 18, accentColor: "#b8860b", cursor: "pointer", flexShrink: 0 }} />
+                <span style={{ fontSize: fs(13), color: tc("#6b5540","#3a2510"), fontFamily: "'Lato',sans-serif", lineHeight: 1.6 }}>
+                  I have read and agree to the{" "}
+                  <a href="/privacy" target="_blank" rel="noreferrer" style={{ color: "#b8860b", textDecoration: "underline", textUnderlineOffset: 3 }}>Privacy Policy</a>
+                </span>
+              </label>
 
               <button onClick={handleSignup}
                 style={{ width: "100%", background: "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", padding: "17px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(18), letterSpacing: 0.5, cursor: "pointer", boxShadow: "0 4px 20px rgba(93,61,26,0.2)", minHeight: 56, marginBottom: 16 }}>
