@@ -1304,7 +1304,6 @@ export default function MyStoryFamily() {
   const [printShipFields, setPrintShipFields] = useState({ name: "", address: "", city: "", state: "", zip: "", country: "USA" });
   const [printShipLoading, setPrintShipLoading] = useState(false);
   const [printShipDone, setPrintShipDone] = useState(false);
-  const [showPrintOrderAfterPay, setShowPrintOrderAfterPay] = useState(false);
   const [chapterNarratives, setChapterNarratives] = useState({}); // { chapterId: "prose..." }
   const [generatingNarrative, setGeneratingNarrative] = useState(false);
   const [bookComplete, setBookComplete] = useState(false);
@@ -3347,40 +3346,6 @@ export default function MyStoryFamily() {
             </button>
           </div>
         </main>
-      )}
-
-      {/* ── PRINT ORDER AFTER PAYMENT ── */}
-      {showPrintOrderAfterPay && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(61,43,26,0.7)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-          <div style={{ background: "white", borderRadius: 20, padding: "36px 32px", maxWidth: 480, width: "100%", boxShadow: "0 20px 60px rgba(0,0,0,0.3)", animation: "fadeUp 0.3s ease forwards" }}>
-            <div style={{ textAlign: "center", marginBottom: 24 }}>
-              <div style={{ fontSize: 40, marginBottom: 12 }}>📖</div>
-              <h2 style={{ fontSize: fs(26), fontWeight: 300, color: "#3d2b1a", fontStyle: "italic", marginBottom: 8 }}>Where should we send your book?</h2>
-              <p style={{ fontSize: fs(14), color: "#7a6040", fontFamily: "'Lato',sans-serif", lineHeight: 1.7 }}>
-                {paywallBookChoice === "print2" ? "2 printed copies" : "1 printed copy"} — we'll ship once your book is complete
-              </p>
-            </div>
-
-            {/* Ship to choice */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }} role="group" aria-label="Shipping destination">
-              {[
-                { id: "me", label: "Ship to me", sub: "I'll deliver it personally" },
-                { id: "recipient", label: "Ship to the recipient", sub: "Enter their address below" },
-              ].map(opt => {
-                const [shipTo, setShipTo] = [null, null]; // handled inline
-                return null; // placeholder — rendered below
-              })}
-            </div>
-
-            <PrintOrderAfterPayModal
-              bookChoice={paywallBookChoice}
-              userEmail={user?.email}
-              userName={`${user?.firstName || ""} ${user?.lastName || ""}`.trim()}
-              fs={fs} tc={tc}
-              onClose={() => setShowPrintOrderAfterPay(false)}
-            />
-          </div>
-        </div>
       )}
 
       {/* ── POST-PAYMENT PRINT ORDER ── */}
