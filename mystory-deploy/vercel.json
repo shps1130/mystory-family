@@ -18,6 +18,7 @@
     { "source": "/book/:id", "destination": "/api/book-view?id=:id" },
     { "source": "/privacy", "destination": "/privacy.html" },
     { "source": "/terms", "destination": "/terms.html" },
+    { "source": "/cookies", "destination": "/cookies.html" },
     { "source": "/((?!api|book).*)", "destination": "/index.html" }
   ],
   "crons": [
