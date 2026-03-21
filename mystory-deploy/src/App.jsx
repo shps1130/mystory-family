@@ -1825,9 +1825,7 @@ export default function MyStoryFamily() {
   };
 
   const startChat = () => {
-    // ── ONE-BOOK LOCK: each account is for one person's story ──────────────
     if (bookComplete) { setScreen("booklocked"); return; }
-
     const selected = BASE_CHAPTERS.filter(c => enabledChapters.includes(c.id));
     const allChapters = customChapter ? [...selected, customChapter] : selected;
     setChapters(allChapters);
@@ -1843,7 +1841,9 @@ export default function MyStoryFamily() {
     };
     const introMsg = persona ? persona.intro(profile) : `Welcome. I'm so glad you're here.\n\nThere's no right or wrong way to begin. Start wherever feels natural.\n\n*${getQuestion(allChapters[0].prompts[0])}*`;
     setMessages([{ role: "assistant", content: introMsg }]);
-    setScreen("chat");
+    // Show section intro page first
+    setSectionIntroChapter({ chapter: allChapters[0], nextC: 0, isFirst: true });
+    setScreen("sectionintro");
   };
 
   const helpMeWrite = async () => {
@@ -1998,6 +1998,7 @@ export default function MyStoryFamily() {
 
   const [showBetweenSections, setShowBetweenSections] = useState(false);
   const [betweenSectionAnswers, setBetweenSectionAnswers] = useState({ mustInclude: "", keepPrivate: "" });
+  const [sectionIntroChapter, setSectionIntroChapter] = useState(null); // { chapter, nextC, isFirst }
 
   const continueFromPreview = () => {
     const nextC = previewChapter.chapterIndex + 1;
@@ -2005,10 +2006,10 @@ export default function MyStoryFamily() {
     const isPaid = hasPaid || paidKey;
     const isLastChapter = previewChapter.chapterIndex >= chapters.length - 1;
 
-    // If this was the last chapter or we came back from book complete to edit
     if (isLastChapter || nextC >= chapters.length) {
       setPreviewChapter(null);
       setBookComplete(true);
+      setScreen("chat");
       return;
     }
 
@@ -2016,10 +2017,7 @@ export default function MyStoryFamily() {
       setShowPaywall(true);
       return;
     }
-    if (previewChapter.chapterIndex === 0 && (isPaid || promoInfo?.schoolShare)) {
-      setShowBetweenSections(true);
-      return;
-    }
+
     advanceToChapter(nextC);
   };
 
@@ -2027,25 +2025,20 @@ export default function MyStoryFamily() {
     setPreviewChapter(null);
     setShowPaywall(false);
     setShowBetweenSections(false);
-    // Update system prompt with any mustInclude/keepPrivate answers
-    if (betweenSectionAnswers.mustInclude || betweenSectionAnswers.keepPrivate) {
-      const updatedProfile = {
-        ...onboardAnswers,
-        mustInclude: betweenSectionAnswers.mustInclude || onboardAnswers.mustInclude,
-        keepPrivate: betweenSectionAnswers.keepPrivate || onboardAnswers.keepPrivate,
-      };
-      setSystemPrompt(buildSystemPrompt(persona, updatedProfile));
-    }
     if (nextC < chapters.length) {
       setActiveChapter(nextC);
       setActivePrompt(0);
       setAnglesUsed(false);
       setChapterContext(buildChapterContext(chapters[nextC]));
-      setMessages([{ role: "assistant", content: `You've completed ${chapters[nextC - 1].title}. What you've shared is precious. 💛\n\nNow let's step into the next section of your life...\n\n*${getQuestion(chapters[nextC].prompts[0])}*` }]);
+      setMessages([{ role: "assistant", content: `You've completed ${chapters[nextC - 1]?.title || "that section"}. What you've shared is precious. 💛\n\nNow let's step into the next section of your life...\n\n*${getQuestion(chapters[nextC].prompts[0])}*` }]);
       announce(`Starting section: ${chapters[nextC].title}`);
+      // Show section intro page
+      setSectionIntroChapter({ chapter: chapters[nextC], nextC, isFirst: false });
+      setScreen("sectionintro");
     } else {
       setMessages([{ role: "assistant", content: `You've done something extraordinary. Your stories, your wisdom, everything you've shared — preserved forever for the people you love. ${persona?.avatar || "🕊️"}\n\nThank you for trusting me with your legacy.` }]);
       setBookComplete(true);
+      setScreen("chat");
       announce("Congratulations! Your legacy story is complete.");
     }
   };
@@ -3229,55 +3222,59 @@ export default function MyStoryFamily() {
 
       {/* ── PAYWALL ── */}
       {/* Between sections — coaching moment */}
-      {screen === "chat" && showBetweenSections && (
-        <main id="main-content" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "78vh", padding: "40px 24px", animation: "fadeUp 0.4s ease forwards" }}>
-          <div style={{ maxWidth: 680, width: "100%", textAlign: "center" }}>
-            <div style={{ fontSize: 44, marginBottom: 16 }} aria-hidden="true">{persona?.avatar || "🕊️"}</div>
-            <h2 style={{ fontSize: fs(36), fontWeight: 300, fontStyle: "italic", color: tc("#3d2b1a","#1a0e00"), marginBottom: 16, lineHeight: 1.2 }}>You just did something wonderful.</h2>
-            <p style={{ fontSize: fs(18), color: tc("#6b5540","#3a2510"), fontFamily: "'Cormorant Garamond',serif", fontStyle: "italic", lineHeight: 1.85, marginBottom: 36 }}>
-              That first section is always the hardest — and you did it beautifully. {persona?.name || "Grace"} now knows your voice, your pace, and a little piece of your story.
-            </p>
-            <p style={{ fontSize: fs(16), color: tc("#7a5c3a","#4a3020"), fontFamily: "'Lato',sans-serif", lineHeight: 1.7, marginBottom: 32 }}>
-              Before we move on, <strong>you're in the driver's seat.</strong> A couple of optional things you can tell {persona?.name || "Grace"} to make your book even more personal:
+      {/* ── SECTION INTRO ── */}
+      {screen === "sectionintro" && sectionIntroChapter && (() => {
+        const { chapter, nextC } = sectionIntroChapter;
+        const chapterVideos = {
+          "early-life": "4184003e4d2943b0b7c7489136f42e31",
+          "becoming-you": "e6499e21f45f4dd09adedb0b58e4b595",
+          "faith": "9d7bf4bb7654418593406ddb3bc42093",
+          "family-love": "44e503c5182b4cb39f7330b3e9be70a5",
+          "wisdom": "48986e0d7d68415faa4c19e9ac8220dd",
+        };
+        const videoId = chapterVideos[chapter?.id];
+        return (
+          <main id="main-content" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "92vh", padding: "48px 32px", background: "linear-gradient(160deg,#fdf6ec 0%,#f5ede0 60%,#ede4d5 100%)", textAlign: "center", animation: "fadeUp 0.4s ease forwards" }}>
+
+            {/* Section label */}
+            <p style={{ fontSize: fs(12), letterSpacing: "3px", textTransform: "uppercase", color: "#b8860b", fontFamily: "'Lato',sans-serif", marginBottom: 16 }}>
+              Section {nextC + 1} of {chapters.length}
             </p>
 
-            <div style={{ background: "white", borderRadius: 16, padding: "28px 32px", boxShadow: "0 8px 40px rgba(93,61,26,0.1)", border: "1px solid rgba(180,140,80,0.15)", textAlign: "left", marginBottom: 24 }}>
-              <div style={{ marginBottom: 20 }}>
-                <label style={{ display: "block", fontSize: fs(13), color: tc("#7a5c3a","#4a3020"), fontFamily: "'Lato',sans-serif", fontWeight: 600, marginBottom: 6, letterSpacing: "0.5px" }}>
-                  Is there a story you really want to make sure makes it into your book?
-                </label>
-                <p style={{ fontSize: fs(12), color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", marginBottom: 8, fontStyle: "italic" }}>Optional — {persona?.name || "Grace"} will find it naturally either way</p>
-                <textarea value={betweenSectionAnswers.mustInclude}
-                  onChange={e => setBetweenSectionAnswers(p => ({ ...p, mustInclude: e.target.value }))}
-                  placeholder="A person, a moment, something that must be told..."
-                  rows={2}
-                  style={{ width: "100%", border: "1.5px solid rgba(180,140,80,0.3)", borderRadius: 8, padding: "10px 14px", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(15), color: tc("#3d2b1a","#1a0e00"), background: "#fffdf5", outline: "none", resize: "none", lineHeight: 1.7, boxSizing: "border-box" }} />
+            {/* Icon + Title */}
+            <div style={{ fontSize: 52, marginBottom: 12 }} aria-hidden="true">{chapter.icon}</div>
+            <h1 style={{ fontSize: fs(48), fontWeight: 300, color: tc("#3d2b1a","#1a0e00"), fontStyle: "italic", marginBottom: 8, lineHeight: 1.2 }}>
+              {chapter.title}
+            </h1>
+            <p style={{ fontSize: fs(18), color: tc("#6b5540","#3a2510"), fontFamily: "'Lato',sans-serif", marginBottom: 36, lineHeight: 1.7 }}>
+              {chapter.description}
+            </p>
+
+            {/* Video */}
+            {videoId && (
+              <div style={{ width: "100%", maxWidth: 780, marginBottom: 40 }}>
+                <div style={{ position: "relative", paddingBottom: "56.25%", height: 0, borderRadius: 16, overflow: "hidden", boxShadow: "0 16px 56px rgba(93,61,26,0.18)", border: "1px solid rgba(180,140,80,0.2)" }}>
+                  <iframe
+                    src={`https://app.heygen.com/embeds/${videoId}`}
+                    title={`${chapter.title} introduction`}
+                    frameBorder="0"
+                    allow="encrypted-media; fullscreen; picture-in-picture"
+                    allowFullScreen
+                    style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }}
+                  />
+                </div>
               </div>
+            )}
 
-              <div>
-                <label style={{ display: "block", fontSize: fs(13), color: tc("#7a5c3a","#4a3020"), fontFamily: "'Lato',sans-serif", fontWeight: 600, marginBottom: 6, letterSpacing: "0.5px" }}>
-                  Is there anything you'd prefer we don't include?
-                </label>
-                <p style={{ fontSize: fs(12), color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", marginBottom: 8, fontStyle: "italic" }}>Optional — your story, your boundaries</p>
-                <textarea value={betweenSectionAnswers.keepPrivate}
-                  onChange={e => setBetweenSectionAnswers(p => ({ ...p, keepPrivate: e.target.value }))}
-                  placeholder="Anything you'd rather leave out..."
-                  rows={2}
-                  style={{ width: "100%", border: "1.5px solid rgba(180,140,80,0.3)", borderRadius: 8, padding: "10px 14px", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(15), color: tc("#3d2b1a","#1a0e00"), background: "#fffdf5", outline: "none", resize: "none", lineHeight: 1.7, boxSizing: "border-box" }} />
-              </div>
-            </div>
-
-            <p style={{ fontSize: fs(13), color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", marginBottom: 24, fontStyle: "italic" }}>
-              Both fields are completely optional. {persona?.name || "Grace"} is wonderful at finding the right stories on her own.
-            </p>
-
-            <button onClick={() => advanceToChapter(1)}
-              style={{ background: "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", padding: "20px 52px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(20), letterSpacing: 0.5, cursor: "pointer", boxShadow: "0 6px 28px rgba(93,61,26,0.25)", minHeight: 60, transition: "all 0.2s" }}>
-              Continue My Story →
+            {/* CTA */}
+            <button onClick={() => { setSectionIntroChapter(null); setScreen("chat"); }}
+              style={{ background: "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", padding: "22px 72px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(24), letterSpacing: 1, cursor: "pointer", boxShadow: "0 8px 32px rgba(93,61,26,0.28)", minHeight: 70, transition: "all 0.2s" }}>
+              I'm Ready — Let's Begin ✦
             </button>
-          </div>
-        </main>
-      )}
+
+          </main>
+        );
+      })()}
 
       {screen === "chat" && showPaywall && previewChapter && (
         <main id="main-content" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "78vh", padding: "40px 24px", animation: "fadeUp 0.5s ease forwards" }}>
@@ -3592,36 +3589,6 @@ export default function MyStoryFamily() {
               </div>
             )}
 
-            {/* Chapter intro video — in sidebar */}
-            {!bookComplete && (() => {
-              const chapterVideos = {
-                "early-life": "4184003e4d2943b0b7c7489136f42e31",
-                "becoming-you": "e6499e21f45f4dd09adedb0b58e4b595",
-                "faith": "9d7bf4bb7654418593406ddb3bc42093",
-                "family-love": "44e503c5182b4cb39f7330b3e9be70a5",
-                "wisdom": "48986e0d7d68415faa4c19e9ac8220dd",
-              };
-              const videoId = chapterVideos[chapter?.id];
-              if (!videoId || dismissedVideos[chapter?.id || activeChapter]) return null;
-              return (
-                <div style={{ marginTop: 16 }}>
-                  <div style={{ borderRadius: 10, overflow: "hidden", border: "1px solid rgba(180,140,80,0.2)", boxShadow: "0 4px 16px rgba(93,61,26,0.1)", background: "#000", position: "relative", paddingBottom: "56.25%", height: 0 }}>
-                    <iframe
-                      src={`https://app.heygen.com/embeds/${videoId}`}
-                      title={`${chapter.title} introduction`}
-                      frameBorder="0"
-                      allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
-                      allowFullScreen
-                      style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }}
-                    />
-                  </div>
-                  <button onClick={() => setDismissedVideos(p => ({ ...p, [chapter?.id || activeChapter]: true }))}
-                    style={{ display: "block", margin: "8px auto 0", background: "none", border: "1px solid rgba(180,140,80,0.3)", color: "#7a5c3a", fontFamily: "'Lato',sans-serif", fontSize: fs(11), cursor: "pointer", padding: "5px 14px", borderRadius: 100, minHeight: 28, width: "100%" }}>
-                    ✓ Got it, let's begin
-                  </button>
-                </div>
-              );
-            })()}
             </nav>
 
           {/* Chat area */}
