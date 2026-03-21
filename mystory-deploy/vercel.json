@@ -1,3 +1,4 @@
+
 {
   "buildCommand": "npm install && npm run build",
   "outputDirectory": "dist",
@@ -8,7 +9,7 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "frame-src 'self' https://app.heygen.com https://*.heygen.com https://app.termly.io; frame-ancestors 'self'"
+          "value": "frame-src 'self' https://app.heygen.com https://*.heygen.com https://app.termly.io https://calendly.com; frame-ancestors 'self'"
         }
       ]
     }
@@ -19,6 +20,7 @@
     { "source": "/privacy", "destination": "/privacy.html" },
     { "source": "/terms", "destination": "/terms.html" },
     { "source": "/cookies", "destination": "/cookies.html" },
+    { "source": "/partners", "destination": "/partners.html" },
     { "source": "/((?!api|book).*)", "destination": "/index.html" }
   ],
   "crons": [
