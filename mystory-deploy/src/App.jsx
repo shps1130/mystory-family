@@ -2306,60 +2306,60 @@ export default function MyStoryFamily() {
         <main id="main-content" style={{ width: "100%", overflowX: "hidden" }}>
 
           {/* ── HERO ── */}
-          <section style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "64px 24px 48px", background: "linear-gradient(160deg,#fdf6ec 0%,#f5ede0 60%,#ede4d5 100%)" }}>
-            <img src="/logo.png" alt="MyStory.Family" style={{ width: 100, height: 100, objectFit: "contain", marginBottom: 20, animation: "pulse 3s ease-in-out infinite" }} />
+          <section style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "72px 48px 56px", background: "linear-gradient(160deg,#fdf6ec 0%,#f5ede0 60%,#ede4d5 100%)", minHeight: "92vh", justifyContent: "center" }}>
+            <img src="/logo.png" alt="MyStory.Family" style={{ width: 120, height: 120, objectFit: "contain", marginBottom: 24, animation: "pulse 3s ease-in-out infinite" }} />
 
             {/* Mother's Day badge */}
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "rgba(184,134,11,0.1)", border: "1.5px solid rgba(184,134,11,0.35)", borderRadius: 100, padding: "7px 18px", marginBottom: 24 }}>
-              <span style={{ fontSize: 14 }}>🌸</span>
-              <span style={{ fontSize: fs(12), color: "#b8860b", fontFamily: "'Lato',sans-serif", fontWeight: 700, letterSpacing: "1.5px", textTransform: "uppercase" }}>Perfect Mother's Day Gift</span>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "rgba(184,134,11,0.1)", border: "1.5px solid rgba(184,134,11,0.35)", borderRadius: 100, padding: "8px 22px", marginBottom: 28 }}>
+              <span style={{ fontSize: 16 }}>🌸</span>
+              <span style={{ fontSize: fs(13), color: "#b8860b", fontFamily: "'Lato',sans-serif", fontWeight: 700, letterSpacing: "1.5px", textTransform: "uppercase" }}>Perfect Mother's Day Gift</span>
             </div>
 
-            <h1 style={{ fontSize: fs(48), fontWeight: 300, color: tc("#3d2b1a","#1a0e00"), fontStyle: "italic", lineHeight: 1.2, marginBottom: 16, maxWidth: 680 }}>
+            <h1 style={{ fontSize: fs(56), fontWeight: 300, color: tc("#3d2b1a","#1a0e00"), fontStyle: "italic", lineHeight: 1.2, marginBottom: 20, maxWidth: 860, width: "100%" }}>
               Mom has stories she's never told anyone.
             </h1>
-            <p style={{ fontSize: fs(20), color: tc("#5c4a35","#2a1a0a"), maxWidth: 560, lineHeight: 1.85, marginBottom: 12, fontStyle: "italic" }}>
+            <p style={{ fontSize: fs(22), color: tc("#5c4a35","#2a1a0a"), maxWidth: 720, width: "100%", lineHeight: 1.85, marginBottom: 14, fontStyle: "italic" }}>
               This Mother's Day, give her Grace — a faith-centered AI guide who will walk alongside her, one memory at a time, and shape her stories into a beautiful legacy book your whole family will treasure forever.
             </p>
-            <p style={{ fontSize: fs(14), color: tc("#8b7355","#5c3d1e"), fontFamily: "'Lato',sans-serif", marginBottom: 36, letterSpacing: "0.3px" }}>
+            <p style={{ fontSize: fs(16), color: tc("#8b7355","#5c3d1e"), fontFamily: "'Lato',sans-serif", marginBottom: 40, letterSpacing: "0.3px" }}>
               Not a subscription. Not a year of weekly emails. <strong>Done in her own time. Preserved forever.</strong>
             </p>
 
             {/* Promo code */}
             {!promoInfo ? (
-              <div style={{ marginBottom: 24, width: "100%", maxWidth: 360 }}>
+              <div style={{ marginBottom: 28, width: "100%", maxWidth: 440 }}>
                 <div style={{ display: "flex", gap: 8 }}>
                   <label htmlFor="promo-input" style={{ position: "absolute", left: -9999, width: 1 }}>School or discount code</label>
                   <input id="promo-input" value={promoInput} onChange={e => { setPromoInput(e.target.value); setPromoError(""); }}
                     onKeyDown={e => e.key === "Enter" && applyPromoCode()}
                     placeholder="Have a school or gift code? Enter it here"
-                    style={{ flex: 1, border: `1.5px solid ${promoError ? "#c0392b" : highContrast ? "#7a5c3a" : "rgba(180,140,80,0.3)"}`, borderRadius: 8, padding: "11px 14px", fontFamily: "'Lato',sans-serif", fontSize: fs(14), color: tc("#3d2b1a","#1a0e00"), background: "#fffdf5", outline: "none", minHeight: 46 }} />
+                    style={{ flex: 1, border: `1.5px solid ${promoError ? "#c0392b" : highContrast ? "#7a5c3a" : "rgba(180,140,80,0.3)"}`, borderRadius: 8, padding: "13px 16px", fontFamily: "'Lato',sans-serif", fontSize: fs(15), color: tc("#3d2b1a","#1a0e00"), background: "#fffdf5", outline: "none", minHeight: 50 }} />
                   <button onClick={applyPromoCode} disabled={!promoInput.trim()}
-                    style={{ background: promoInput.trim() ? "rgba(93,61,26,0.9)" : "rgba(139,94,52,0.2)", color: promoInput.trim() ? "#fdf6ec" : "#a89070", border: "none", borderRadius: 8, padding: "11px 18px", fontFamily: "'Lato',sans-serif", fontSize: fs(13), fontWeight: 600, cursor: promoInput.trim() ? "pointer" : "not-allowed", whiteSpace: "nowrap", minHeight: 46 }}>
+                    style={{ background: promoInput.trim() ? "rgba(93,61,26,0.9)" : "rgba(139,94,52,0.2)", color: promoInput.trim() ? "#fdf6ec" : "#a89070", border: "none", borderRadius: 8, padding: "13px 20px", fontFamily: "'Lato',sans-serif", fontSize: fs(14), fontWeight: 600, cursor: promoInput.trim() ? "pointer" : "not-allowed", whiteSpace: "nowrap", minHeight: 50 }}>
                     Apply
                   </button>
                 </div>
-                {promoError && <p role="alert" style={{ fontSize: fs(12), color: "#c0392b", fontFamily: "'Lato',sans-serif", marginTop: 6 }}>{promoError}</p>}
+                {promoError && <p role="alert" style={{ fontSize: fs(13), color: "#c0392b", fontFamily: "'Lato',sans-serif", marginTop: 6 }}>{promoError}</p>}
               </div>
             ) : (
-              <div style={{ marginBottom: 24, background: "rgba(184,134,11,0.08)", border: "1.5px solid rgba(184,134,11,0.3)", borderRadius: 10, padding: "12px 20px", maxWidth: 380, display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ marginBottom: 28, background: "rgba(184,134,11,0.08)", border: "1.5px solid rgba(184,134,11,0.3)", borderRadius: 10, padding: "14px 22px", maxWidth: 440, width: "100%", display: "flex", alignItems: "center", gap: 10 }}>
                 <span aria-hidden="true">{promoInfo.school ? "🏫" : "🏷️"}</span>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: fs(13), fontWeight: 600, color: tc("#3d2b1a","#1a0e00"), fontFamily: "'Lato',sans-serif" }}>
+                  <div style={{ fontSize: fs(14), fontWeight: 600, color: tc("#3d2b1a","#1a0e00"), fontFamily: "'Lato',sans-serif" }}>
                     {promoInfo.school ? `Supporting ${promoInfo.school}` : `${Math.round(promoInfo.discount * 100)}% discount applied`}
                   </div>
-                  {promoInfo.school && <div style={{ fontSize: fs(12), color: tc("#6b5030","#4a3020"), fontFamily: "'Lato',sans-serif", marginTop: 2 }}>
+                  {promoInfo.school && <div style={{ fontSize: fs(13), color: tc("#6b5030","#4a3020"), fontFamily: "'Lato',sans-serif", marginTop: 2 }}>
                     ${promoInfo.schoolShare} from your purchase goes to the school
                   </div>}
                 </div>
                 <button onClick={() => { setPromoInfo(null); setPromoCode(""); setPromoInput(""); }} aria-label="Remove promo code"
-                  style={{ background: "none", border: "none", color: "#a89070", cursor: "pointer", fontSize: 16, minWidth: 28, minHeight: 28, padding: "2px 6px" }}>✕</button>
+                  style={{ background: "none", border: "none", color: "#a89070", cursor: "pointer", fontSize: 18, minWidth: 32, minHeight: 32, padding: "2px 6px" }}>✕</button>
               </div>
             )}
 
             {/* Primary CTA */}
             <button className="start-btn" onClick={() => setScreen("signup")}
-              style={{ background: "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: highContrast ? "3px solid #3d2b1a" : "none", padding: "20px 60px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(21), letterSpacing: 1, cursor: "pointer", boxShadow: "0 6px 28px rgba(93,61,26,0.3)", minHeight: 64, marginBottom: 14, transition: "all 0.2s" }}>
+              style={{ background: "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: highContrast ? "3px solid #3d2b1a" : "none", padding: "22px 80px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(24), letterSpacing: 1, cursor: "pointer", boxShadow: "0 6px 28px rgba(93,61,26,0.3)", minHeight: 70, marginBottom: 16, transition: "all 0.2s" }}>
               Begin My Legacy ✦
             </button>
 
