@@ -2259,7 +2259,7 @@ export default function MyStoryFamily() {
       {/* ── HEADER ── */}
       <header style={{ background: headerBg, backdropFilter: "blur(8px)", borderBottom: `2px solid ${highContrast ? "#3d2b1a" : "rgba(180,140,80,0.2)"}`, padding: "12px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 20 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 36, height: 36, background: persona ? personaAvatarBg : "linear-gradient(135deg,#5c3d1e,#8b5e34)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }} aria-hidden="true">{personaAvatar}</div>
+          <img src="/logo.png" alt="MyStory.Family" style={{ width: 40, height: 40, objectFit: "contain" }} />
           <div>
             <div style={{ fontSize: fs(20), fontWeight: 600, color: tc("#3d2b1a", "#1a0e00"), letterSpacing: 0.5 }}>MyStory.Family</div>
             {persona
@@ -2307,7 +2307,7 @@ export default function MyStoryFamily() {
 
           {/* ── HERO ── */}
           <section style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "64px 24px 48px", background: "linear-gradient(160deg,#fdf6ec 0%,#f5ede0 60%,#ede4d5 100%)" }}>
-            <div style={{ fontSize: 56, marginBottom: 20, animation: "pulse 3s ease-in-out infinite" }} aria-hidden="true">🕊️</div>
+            <img src="/logo.png" alt="MyStory.Family" style={{ width: 100, height: 100, objectFit: "contain", marginBottom: 20, animation: "pulse 3s ease-in-out infinite" }} />
 
             {/* Mother's Day badge */}
             <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "rgba(184,134,11,0.1)", border: "1.5px solid rgba(184,134,11,0.35)", borderRadius: 100, padding: "7px 18px", marginBottom: 24 }}>
