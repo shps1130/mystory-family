@@ -43,7 +43,7 @@ async function sendReminder(firstName, email, dayNumber) {
   <div style="max-width:560px;margin:0 auto;padding:48px 24px;">
 
     <div style="text-align:center;margin-bottom:40px;">
-      <div style="font-size:40px;margin-bottom:16px;">🕊️</div>
+      <img src="https://mystory.family/logo.png" alt="MyStory.Family" style="width:72px;height:72px;object-fit:contain;display:block;margin:0 auto 16px;" />
       <h1 style="font-size:30px;font-weight:300;color:#3d2b1a;font-style:italic;margin:0;">${headline}</h1>
     </div>
 
