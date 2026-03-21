@@ -642,7 +642,7 @@ Keep their voice. Keep the warmth. Make it sound like them, not like a textbook.
   const photoPositions = { 2: chPhotos[0], 4: chPhotos[1], 6: chPhotos[2] };
 
   return (
-    <div style={{ maxWidth: 780, margin: "0 auto", padding: "40px 24px", width: "100%", animation: "fadeUp 0.4s ease forwards" }} role="main">
+    <div style={{ maxWidth: 1000, margin: "0 auto", padding: "40px 32px", width: "100%", animation: "fadeUp 0.4s ease forwards" }} role="main">
       <div style={{ textAlign: "center", marginBottom: 32 }}>
         <div style={{ fontSize: 36, marginBottom: 10 }} aria-hidden="true">✨</div>
         <h2 style={{ fontSize: fs(28), fontWeight: 600, color: tc("#3d2b1a","#1a0e00"), marginBottom: 6 }}>{chapter.title} — Complete</h2>
@@ -1326,7 +1326,7 @@ export default function MyStoryFamily() {
   const [chapterContext, setChapterContext] = useState(""); // seed prompts for current chapter
 
   // ── ACCESSIBILITY STATE ───────────────────────────────────────────────────
-  const [textScale, setTextScale] = useState(1);
+  const [textScale, setTextScale] = useState(1.15);
   const [highContrast, setHighContrast] = useState(false);
 
   const messagesEndRef = useRef(null);
@@ -2342,7 +2342,7 @@ export default function MyStoryFamily() {
                 {promoError && <p role="alert" style={{ fontSize: fs(14), color: "#c0392b", fontFamily: "'Lato',sans-serif", marginTop: 8 }}>{promoError}</p>}
               </div>
             ) : (
-              <div style={{ marginBottom: 32, background: "rgba(184,134,11,0.08)", border: "1.5px solid rgba(184,134,11,0.3)", borderRadius: 12, padding: "16px 24px", maxWidth: 520, width: "100%", display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ marginBottom: 32, background: "rgba(184,134,11,0.08)", border: "1.5px solid rgba(184,134,11,0.3)", borderRadius: 12, padding: "16px 24px", maxWidth: 640, width: "100%", display: "flex", alignItems: "center", gap: 12 }}>
                 <span aria-hidden="true" style={{ fontSize: 20 }}>{promoInfo.school ? "🏫" : "🏷️"}</span>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: fs(15), fontWeight: 600, color: tc("#3d2b1a","#1a0e00"), fontFamily: "'Lato',sans-serif" }}>
@@ -2365,7 +2365,7 @@ export default function MyStoryFamily() {
 
             {/* Returning user */}
             {savedSession?.user && (
-              <div style={{ marginBottom: 16, padding: "18px 28px", background: "rgba(184,134,11,0.07)", border: "1.5px solid rgba(184,134,11,0.2)", borderRadius: 14, maxWidth: 460, width: "100%", textAlign: "center" }}>
+              <div style={{ marginBottom: 16, padding: "18px 28px", background: "rgba(184,134,11,0.07)", border: "1.5px solid rgba(184,134,11,0.2)", borderRadius: 14, maxWidth: 580, width: "100%", textAlign: "center" }}>
                 <div style={{ fontSize: fs(15), color: tc("#5c3d1e","#2a1000"), fontFamily: "'Lato',sans-serif", marginBottom: 12 }}>
                   Welcome back, <strong>{savedSession.user.firstName}</strong> — your story is waiting for you
                 </div>
@@ -2552,7 +2552,7 @@ export default function MyStoryFamily() {
       {/* ── GIFT PURCHASE ── */}
       {screen === "giftpurchase" && (
         <main id="main-content" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "78vh", padding: "40px 24px", animation: "fadeUp 0.4s ease forwards" }}>
-          <div style={{ maxWidth: 480, width: "100%" }}>
+          <div style={{ maxWidth: 720, width: "100%" }}>
             <div style={{ textAlign: "center", marginBottom: 36 }}>
               <div style={{ fontSize: 48, marginBottom: 12 }} aria-hidden="true">🎁</div>
               <h2 style={{ fontSize: fs(34), fontWeight: 300, color: tc("#3d2b1a","#1a0e00"), fontStyle: "italic", marginBottom: 8 }}>Give the Gift of Story</h2>
@@ -2648,7 +2648,7 @@ export default function MyStoryFamily() {
       {/* ── GIFT SENT CONFIRMATION ── */}
       {screen === "giftsent" && (
         <main id="main-content" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "78vh", padding: "40px 24px", animation: "fadeUp 0.5s ease forwards", textAlign: "center" }}>
-          <div style={{ maxWidth: 500, width: "100%" }}>
+          <div style={{ maxWidth: 620, width: "100%" }}>
             <div style={{ fontSize: 64, marginBottom: 24, animation: "pulse 2s ease-in-out infinite" }} aria-hidden="true">🎁</div>
             <p style={{ fontSize: fs(12), letterSpacing: "3px", textTransform: "uppercase", color: "#b8860b", fontFamily: "'Lato',sans-serif", marginBottom: 16 }}>Your gift is on its way</p>
             <h1 style={{ fontSize: fs(40), fontWeight: 300, color: tc("#3d2b1a","#1a0e00"), fontStyle: "italic", lineHeight: 1.2, marginBottom: 20 }}>
@@ -2673,7 +2673,7 @@ export default function MyStoryFamily() {
       {/* ── GIFT CODE REDEMPTION ── */}
       {screen === "giftcode" && (
         <main id="main-content" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "78vh", padding: "40px 24px", animation: "fadeUp 0.4s ease forwards" }}>
-          <div style={{ maxWidth: 460, width: "100%" }}>
+          <div style={{ maxWidth: 580, width: "100%" }}>
             <div style={{ textAlign: "center", marginBottom: 36 }}>
               <div style={{ fontSize: 48, marginBottom: 12 }} aria-hidden="true">🎁</div>
               <h2 style={{ fontSize: fs(32), fontWeight: 300, color: tc("#3d2b1a","#1a0e00"), fontStyle: "italic", marginBottom: 8 }}>You've Received a Gift</h2>
@@ -2713,7 +2713,7 @@ export default function MyStoryFamily() {
       {/* ── BOOK LOCKED ── */}
       {screen === "booklocked" && (
         <main id="main-content" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "78vh", textAlign: "center", padding: "40px 24px", animation: "fadeUp 0.5s ease forwards" }}>
-          <div style={{ maxWidth: 520, width: "100%" }}>
+          <div style={{ maxWidth: 640, width: "100%" }}>
             <div style={{ fontSize: 52, marginBottom: 20 }} aria-hidden="true">📖</div>
             <p style={{ fontSize: fs(12), letterSpacing: "2.5px", textTransform: "uppercase", color: "#b8860b", fontFamily: "'Lato',sans-serif", marginBottom: 16 }}>Your story is complete</p>
             <h1 style={{ fontSize: fs(38), fontWeight: 300, color: tc("#3d2b1a","#1a0e00"), fontStyle: "italic", lineHeight: 1.2, marginBottom: 20 }}>
@@ -2744,7 +2744,7 @@ export default function MyStoryFamily() {
       {/* ── SIGNUP ── */}
       {screen === "signup" && (
         <main id="main-content" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "78vh", padding: "40px 24px", animation: "fadeUp 0.4s ease forwards" }}>
-          <div style={{ maxWidth: 480, width: "100%" }}>
+          <div style={{ maxWidth: 720, width: "100%" }}>
             <div style={{ textAlign: "center", marginBottom: 36 }}>
               <div style={{ fontSize: 40, marginBottom: 12 }} aria-hidden="true">🕊️</div>
               <h2 style={{ fontSize: fs(32), fontWeight: 300, color: tc("#3d2b1a","#1a0e00"), fontStyle: "italic", marginBottom: 8 }}>Create Your Account</h2>
@@ -2809,7 +2809,7 @@ export default function MyStoryFamily() {
       {/* ── SIGN IN ── */}
       {screen === "signin" && (
         <main id="main-content" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "78vh", padding: "40px 24px", animation: "fadeUp 0.4s ease forwards" }}>
-          <div style={{ maxWidth: 440, width: "100%" }}>
+          <div style={{ maxWidth: 580, width: "100%" }}>
             <div style={{ textAlign: "center", marginBottom: 36 }}>
               <div style={{ fontSize: 40, marginBottom: 12 }} aria-hidden="true">🕊️</div>
               <h2 style={{ fontSize: fs(32), fontWeight: 300, color: tc("#3d2b1a","#1a0e00"), fontStyle: "italic", marginBottom: 8 }}>Welcome Back</h2>
@@ -2947,7 +2947,7 @@ export default function MyStoryFamily() {
       {/* ── ONBOARDING ── */}
       {screen === "onboarding" && (
         <main id="main-content" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "78vh", padding: "40px 24px" }}>
-          <div style={{ maxWidth: 600, width: "100%", animation: "fadeUp 0.4s ease forwards" }}>
+          <div style={{ maxWidth: 720, width: "100%", animation: "fadeUp 0.4s ease forwards" }}>
             {/* Progress dots */}
             <div style={{ display: "flex", gap: 8, justifyContent: "center", marginBottom: 40 }} aria-label={`Question ${onboardStep + 1} of ${ONBOARDING_STEPS.length}`}>
               {ONBOARDING_STEPS.map((_, i) => (
@@ -3058,7 +3058,7 @@ export default function MyStoryFamily() {
       {/* ── PERSONA REVEAL ── */}
       {screen === "reveal" && persona && (
         <main id="main-content" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "78vh", textAlign: "center", padding: "40px 24px", animation: "fadeIn 0.6s ease forwards" }}>
-          <div style={{ maxWidth: 560, width: "100%" }}>
+          <div style={{ maxWidth: 680, width: "100%" }}>
             <p style={{ fontSize: fs(12), letterSpacing: "2.5px", textTransform: "uppercase", color: tc("#8b7355", "#4a3020"), fontFamily: "'Lato',sans-serif", marginBottom: 28 }}>Your guide is ready</p>
             <div style={{ width: 100, height: 100, borderRadius: "50%", background: personaAvatarBg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 44, margin: "0 auto 24px", boxShadow: "0 8px 32px rgba(93,61,26,0.2)", animation: "revealGlow 2s ease-in-out" }} aria-hidden="true">
               {personaAvatar}
@@ -3231,7 +3231,7 @@ export default function MyStoryFamily() {
       {/* Between sections — coaching moment */}
       {screen === "chat" && showBetweenSections && (
         <main id="main-content" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "78vh", padding: "40px 24px", animation: "fadeUp 0.4s ease forwards" }}>
-          <div style={{ maxWidth: 560, width: "100%", textAlign: "center" }}>
+          <div style={{ maxWidth: 680, width: "100%", textAlign: "center" }}>
             <div style={{ fontSize: 44, marginBottom: 16 }} aria-hidden="true">{persona?.avatar || "🕊️"}</div>
             <h2 style={{ fontSize: fs(36), fontWeight: 300, fontStyle: "italic", color: tc("#3d2b1a","#1a0e00"), marginBottom: 16, lineHeight: 1.2 }}>You just did something wonderful.</h2>
             <p style={{ fontSize: fs(18), color: tc("#6b5540","#3a2510"), fontFamily: "'Cormorant Garamond',serif", fontStyle: "italic", lineHeight: 1.85, marginBottom: 36 }}>
@@ -3281,7 +3281,7 @@ export default function MyStoryFamily() {
 
       {screen === "chat" && showPaywall && previewChapter && (
         <main id="main-content" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "78vh", padding: "40px 24px", animation: "fadeUp 0.5s ease forwards" }}>
-          <div style={{ maxWidth: 560, width: "100%", textAlign: "center" }}>
+          <div style={{ maxWidth: 680, width: "100%", textAlign: "center" }}>
 
             {/* Persona avatar */}
             <div style={{ width: 72, height: 72, borderRadius: "50%", background: personaAvatarBg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, margin: "0 auto 24px", boxShadow: "0 8px 32px rgba(93,61,26,0.2)" }} aria-hidden="true">
@@ -3394,7 +3394,7 @@ export default function MyStoryFamily() {
       {/* ── POST-PAYMENT PRINT ORDER ── */}
       {showPrintOrderAfterPay && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(61,43,26,0.7)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-          <div style={{ background: "white", borderRadius: 20, padding: "36px 32px", maxWidth: 500, width: "100%", boxShadow: "0 20px 60px rgba(0,0,0,0.3)", animation: "fadeUp 0.3s ease forwards" }}>
+          <div style={{ background: "white", borderRadius: 20, padding: "36px 32px", maxWidth: 620, width: "100%", boxShadow: "0 20px 60px rgba(0,0,0,0.3)", animation: "fadeUp 0.3s ease forwards" }}>
             {printShipDone ? (
               <div style={{ textAlign: "center" }}>
                 <div style={{ fontSize: 48, marginBottom: 16 }}>📖</div>
@@ -3476,7 +3476,7 @@ export default function MyStoryFamily() {
       {/* ── BOOK COMPLETE ── */}
       {screen === "chat" && bookComplete && (
         <main id="main-content" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "78vh", padding: "40px 24px", animation: "fadeUp 0.5s ease forwards" }}>
-          <div style={{ maxWidth: 600, width: "100%", textAlign: "center" }}>
+          <div style={{ maxWidth: 720, width: "100%", textAlign: "center" }}>
 
             <div style={{ fontSize: 64, marginBottom: 24, animation: "pulse 2s ease-in-out infinite" }} aria-hidden="true">🕊️</div>
             <p style={{ fontSize: fs(12), letterSpacing: "3px", textTransform: "uppercase", color: "#b8860b", fontFamily: "'Lato',sans-serif", marginBottom: 16 }}>Your legacy is complete</p>
@@ -3543,9 +3543,9 @@ export default function MyStoryFamily() {
       )}
 
       {screen === "chat" && !previewChapter && !showPaywall && !bookComplete && chapter && (
-        <div style={{ display: "flex", flex: 1, maxWidth: 1080, margin: "0 auto", width: "100%", padding: "32px 24px", gap: 32 }}>
+        <div style={{ display: "flex", flex: 1, width: "100%", padding: "32px 32px", gap: 32 }}>
           {/* Sidebar */}
-          <nav aria-label="Section navigation" style={{ width: 240, flexShrink: 0 }}>
+          <nav aria-label="Section navigation" style={{ width: 320, flexShrink: 0 }}>
             <div style={{ fontSize: fs(11), letterSpacing: "2px", textTransform: "uppercase", color: tc("#8b7355", "#4a3020"), fontFamily: "'Lato',sans-serif", marginBottom: 14 }}>Your Sections</div>
             {chapters.map((ch, idx) => {
               const chPhotos = (photos[ch.id || ch.title] || []).length;
@@ -3628,7 +3628,7 @@ export default function MyStoryFamily() {
           <main id="main-content" style={{ flex: 1, display: "flex", flexDirection: "column" }}>
             <div style={{ marginBottom: 18 }}>
               <p style={{ fontSize: fs(12), letterSpacing: "2px", textTransform: "uppercase", color: "#b8860b", fontFamily: "'Lato',sans-serif" }}>Section {activeChapter + 1} of {chapters.length + 1}</p>
-              <h2 style={{ fontSize: fs(28), fontWeight: 600, color: tc("#3d2b1a", "#1a0e00"), marginTop: 4 }}>{chapter.icon} {chapter.title}</h2>
+              <h2 style={{ fontSize: fs(32), fontWeight: 600, color: tc("#3d2b1a", "#1a0e00"), marginTop: 4 }}>{chapter.icon} {chapter.title}</h2>
               {userMessageCount > 0 && (
                 <p style={{ fontSize: fs(12), color: tc("#a89070", "#6b5030"), fontFamily: "'Lato',sans-serif", marginTop: 6 }}>
                   {userMessageCount} {userMessageCount === 1 ? "story shared" : "stories shared"} · {chapter.prompts.length} topics to explore
@@ -3650,7 +3650,7 @@ export default function MyStoryFamily() {
               </div>
             )}
 
-            <div role="log" aria-label="Conversation" aria-live="polite" style={{ flex: 1, overflowY: "auto", paddingBottom: 16, display: "flex", flexDirection: "column", gap: 18, minHeight: 260, maxHeight: 360 }}>
+            <div role="log" aria-label="Conversation" aria-live="polite" style={{ flex: 1, overflowY: "auto", paddingBottom: 16, display: "flex", flexDirection: "column", gap: 18, minHeight: 320, maxHeight: 520 }}>
 
               {messages.map((msg, i) => (
                 <div key={i}>
@@ -3659,7 +3659,7 @@ export default function MyStoryFamily() {
                       {msg.role === "user" ? "You" : personaAvatar}
                     </div>
                     <div className={msg.role === "assistant" ? "msg-ai" : ""}
-                      style={{ maxWidth: "75%", padding: "14px 18px", borderRadius: msg.role === "user" ? "14px 4px 14px 14px" : "4px 14px 14px 14px", lineHeight: 1.85, fontSize: fs(16), background: msg.role === "user" ? "linear-gradient(135deg,#5c3d1e,#7a5030)" : "white", color: msg.role === "user" ? "#fdf6ec" : tc("#3d2b1a", "#1a0e00"), boxShadow: msg.role === "user" ? "none" : "0 2px 10px rgba(93,61,26,0.07)", border: highContrast && msg.role === "assistant" ? "2px solid rgba(93,61,26,0.2)" : "none" }}
+                      style={{ maxWidth: "88%", padding: "14px 18px", borderRadius: msg.role === "user" ? "14px 4px 14px 14px" : "4px 14px 14px 14px", lineHeight: 1.85, fontSize: fs(18), background: msg.role === "user" ? "linear-gradient(135deg,#5c3d1e,#7a5030)" : "white", color: msg.role === "user" ? "#fdf6ec" : tc("#3d2b1a", "#1a0e00"), boxShadow: msg.role === "user" ? "none" : "0 2px 10px rgba(93,61,26,0.07)", border: highContrast && msg.role === "assistant" ? "2px solid rgba(93,61,26,0.2)" : "none" }}
                       role={msg.role === "assistant" ? "article" : undefined}
                       aria-label={msg.role === "assistant" ? `${persona?.name || "Guide"} says` : "Your response"}>
                       {renderText(msg.content)}
@@ -3669,7 +3669,7 @@ export default function MyStoryFamily() {
                   {msg.role === "user" && msg.isGhostwritten && (
                     <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 6, paddingRight: 48 }}>
                       {revisingIdx === i ? (
-                        <div style={{ display: "flex", gap: 8, alignItems: "flex-end", maxWidth: "75%", width: "100%", animation: "slideDown 0.2s ease forwards" }}>
+                        <div style={{ display: "flex", gap: 8, alignItems: "flex-end", maxWidth: "88%", width: "100%", animation: "slideDown 0.2s ease forwards" }}>
                           <div style={{ flex: 1 }}>
                             <label htmlFor={`revision-${i}`} style={{ position: "absolute", left: -9999, width: 1 }}>What needs to change?</label>
                             <input id={`revision-${i}`} value={revisionInput} onChange={e => setRevisionInput(e.target.value)}
@@ -3732,7 +3732,7 @@ export default function MyStoryFamily() {
                   placeholder="Start anywhere — there's no wrong way to begin..."
                   aria-label="Type your story here. Press Enter to send, Shift+Enter for a new line."
                   rows={1}
-                  style={{ flex: 1, border: "none", outline: "none", resize: "none", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(17), color: tc("#3d2b1a", "#1a0e00"), background: "transparent", lineHeight: 1.7, minHeight: 36, maxHeight: 140, overflowY: "auto" }} />
+                  style={{ flex: 1, border: "none", outline: "none", resize: "none", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(20), color: tc("#3d2b1a", "#1a0e00"), background: "transparent", lineHeight: 1.7, minHeight: 36, maxHeight: 140, overflowY: "auto" }} />
                 <button onClick={toggleMic} aria-label={isListening ? "Stop listening" : "Start voice input"} title={isListening ? "Tap to stop" : "Tap to speak"}
                   style={{ width: 46, height: 46, borderRadius: "50%", background: isListening ? "linear-gradient(135deg,#c0392b,#e74c3c)" : "rgba(184,134,11,0.12)", border: `1.5px solid ${isListening ? "#c0392b" : "rgba(184,134,11,0.3)"}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all 0.2s", minWidth: 46, animation: isListening ? "pulse 1.5s ease-in-out infinite" : "none" }}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
