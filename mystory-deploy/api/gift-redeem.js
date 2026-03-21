@@ -64,7 +64,7 @@ export default async function handler(req, res) {
   <div style="max-width:560px;margin:0 auto;padding:48px 24px;">
 
     <div style="text-align:center;margin-bottom:40px;">
-      <div style="font-size:40px;margin-bottom:16px;">🕊️</div>
+      <img src="https://mystory.family/logo.png" alt="MyStory.Family" style="width:72px;height:72px;object-fit:contain;display:block;margin:0 auto 16px;" />
       <h1 style="font-size:32px;font-weight:300;color:#3d2b1a;font-style:italic;margin:0 0 8px;">
         Welcome, ${firstName}.
       </h1>
@@ -119,7 +119,7 @@ export default async function handler(req, res) {
 <body style="margin:0;padding:0;background:#fdf6ec;font-family:'Georgia',serif;">
   <div style="max-width:560px;margin:0 auto;padding:48px 24px;">
     <div style="text-align:center;margin-bottom:32px;">
-      <div style="font-size:36px;margin-bottom:12px;">🕊️</div>
+      <img src="https://mystory.family/logo.png" alt="MyStory.Family" style="width:72px;height:72px;object-fit:contain;display:block;margin:0 auto 16px;" />
       <h1 style="font-size:26px;font-weight:300;color:#3d2b1a;font-style:italic;margin:0;">
         Your gift has been received.
       </h1>
