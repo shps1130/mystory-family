@@ -1358,6 +1358,7 @@ export default function MyStoryFamily() {
   const [highContrast, setHighContrast] = useState(false);
 
   const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
   const textareaRef = useRef(null);
   const toastKey = useRef(0);
   const liveRef = useRef(null);
@@ -1367,7 +1368,11 @@ export default function MyStoryFamily() {
   const textSizeLabels = ["A", "A+", "A++"];
   const textScales = [1, 1.2, 1.4];
 
-  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+  useEffect(() => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+    }
+  }, [messages]);
 
   // Scroll to top on every screen change
   useEffect(() => { window.scrollTo({ top: 0, behavior: "smooth" }); }, [screen]);
@@ -3767,7 +3772,7 @@ Start with topic 1. Only introduce topic 2 when topic 1 feels fully explored. Th
               </div>
             )}
 
-            <div role="log" aria-label="Conversation" aria-live="polite" style={{ flex: 1, overflowY: "auto", paddingBottom: 16, display: "flex", flexDirection: "column", gap: 18, minHeight: 320, maxHeight: 520 }}>
+            <div ref={messagesContainerRef} role="log" aria-label="Conversation" aria-live="polite" style={{ flex: 1, overflowY: "auto", paddingBottom: 16, display: "flex", flexDirection: "column", gap: 18, minHeight: 320, maxHeight: 520 }}>
 
               {messages.map((msg, i) => (
                 <div key={i}>
@@ -3836,7 +3841,7 @@ Start with topic 1. Only introduce topic 2 when topic 1 feels fully explored. Th
                   </div>
                 </div>
               )}
-              <div ref={messagesEndRef} />
+              <div ref={messagesEndRef} aria-hidden="true" />
             </div>
 
             {/* Input */}
