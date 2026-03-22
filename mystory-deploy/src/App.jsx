@@ -3938,58 +3938,95 @@ Start with topic 1. Only introduce topic 2 when topic 1 feels fully explored. Th
             const steps = [
               {
                 id: 1,
-                title: "Welcome to your dashboard",
-                body: "This bar shows your progress through each section. Once you complete a section, you can click its name to go back and add more anytime.",
-                position: { top: 120, left: "50%", transform: "translateX(-50%)" },
-                arrow: "top",
+                title: "Your progress dashboard",
+                body: "This bar shows all your sections. Once you finish a section, click its name to go back and add more anytime.",
+                position: { top: 100, left: "50%", transform: "translateX(-50%)" },
+                arrow: "top", // arrow points UP toward the nav bar
               },
               {
                 id: 2,
                 title: "Your conversation with Grace",
-                body: "Grace asks you questions here and your answers appear in this area. Just have a natural conversation — there are no wrong answers.",
-                position: { top: "40%", left: "50%", transform: "translate(-50%, -50%)" },
-                arrow: "none",
+                body: "Grace asks you questions here and your answers appear above. Just have a natural conversation — there are no wrong answers.",
+                position: { top: "35%", left: "50%", transform: "translate(-50%, -50%)" },
+                arrow: "up-left", // arrow points up-left toward conversation
               },
               {
                 id: 3,
                 title: "This is where you type",
-                body: "Type your answer in this box, then press the Send button or hit Enter on your keyboard. Grace will respond and keep the conversation going.",
-                position: { bottom: 280, left: "50%", transform: "translateX(-50%)" },
-                arrow: "bottom",
+                body: "Type your answer in this box below, then press the Send button or hit Enter on your keyboard.",
+                position: { bottom: 300, left: "50%", transform: "translateX(-50%)" },
+                arrow: "bottom", // arrow points DOWN toward input box
               },
               {
                 id: 4,
                 title: "Add photos to your book",
-                body: "Click here to add photos to this section. One or two photos per section works best — they'll be included in your printed book.",
-                position: { bottom: 200, left: "50%", transform: "translateX(-50%)" },
+                body: "Click the camera button below to add photos. One or two photos per section works best — they'll appear in your printed book.",
+                position: { bottom: 220, left: "50%", transform: "translateX(-50%)" },
                 arrow: "bottom",
               },
               {
                 id: 5,
                 title: "When you're ready to move on",
-                body: "When you feel like you've shared enough for this section, click this button. Grace will show you everything you've written so far — beautifully shaped into your story — before you continue.",
-                position: { bottom: 120, left: "50%", transform: "translateX(-50%)" },
+                body: "Click this button below when you've shared enough. Grace will show you everything you've written — beautifully shaped into your story — before continuing.",
+                position: { bottom: 160, left: "50%", transform: "translateX(-50%)" },
                 arrow: "bottom",
               },
             ];
+
+            // Arrow styles — CSS triangle pointing toward the element
+            const arrowStyles = {
+              top: { // arrow on TOP of box, points upward toward nav
+                position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)",
+                width: 0, height: 0,
+                borderLeft: "14px solid transparent",
+                borderRight: "14px solid transparent",
+                borderBottom: "14px solid white",
+                filter: "drop-shadow(0 -3px 4px rgba(0,0,0,0.12))",
+              },
+              bottom: { // arrow on BOTTOM of box, points downward toward element
+                position: "absolute", bottom: -14, left: "50%", transform: "translateX(-50%)",
+                width: 0, height: 0,
+                borderLeft: "14px solid transparent",
+                borderRight: "14px solid transparent",
+                borderTop: "14px solid white",
+                filter: "drop-shadow(0 3px 4px rgba(0,0,0,0.12))",
+              },
+              "up-left": { // arrow on top-left, points toward conversation
+                position: "absolute", top: -14, left: "20%",
+                width: 0, height: 0,
+                borderLeft: "14px solid transparent",
+                borderRight: "14px solid transparent",
+                borderBottom: "14px solid white",
+                filter: "drop-shadow(0 -3px 4px rgba(0,0,0,0.12))",
+              },
+              none: null,
+            };
+
             const step = steps[tutorialStep - 1];
+            const arrowStyle = arrowStyles[step.arrow];
+
             return (
-              <div style={{ position: "absolute", ...step.position, background: "white", borderRadius: 16, padding: "24px 28px", maxWidth: 400, width: "90%", boxShadow: "0 20px 60px rgba(0,0,0,0.4)", pointerEvents: "auto", animation: "fadeUp 0.3s ease forwards" }}>
-                {/* Step indicator */}
+              <div style={{ position: "absolute", ...step.position, background: "white", borderRadius: 16, padding: "24px 28px", maxWidth: 420, width: "90%", boxShadow: "0 20px 60px rgba(0,0,0,0.45)", pointerEvents: "auto", animation: "fadeUp 0.3s ease forwards" }}>
+                {/* CSS Arrow */}
+                {arrowStyle && <div style={arrowStyle} />}
+
+                {/* Step progress dots */}
                 <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
                   {[1,2,3,4,5].map(n => (
                     <div key={n} style={{ width: n === tutorialStep ? 20 : 8, height: 8, borderRadius: 4, background: n === tutorialStep ? "#b8860b" : n < tutorialStep ? "rgba(184,134,11,0.4)" : "rgba(180,140,80,0.2)", transition: "all 0.3s" }} />
                   ))}
                 </div>
-                <h3 style={{ fontSize: 18, fontWeight: 700, color: "#3d2b1a", fontFamily: "'Cormorant Garamond',serif", marginBottom: 10 }}>{step.title}</h3>
-                <p style={{ fontSize: 15, color: "#6b5540", fontFamily: "'Lato',sans-serif", lineHeight: 1.7, marginBottom: 20 }}>{step.body}</p>
+
+                <h3 style={{ fontSize: 20, fontWeight: 700, color: "#3d2b1a", fontFamily: "'Cormorant Garamond',serif", marginBottom: 10 }}>{step.title}</h3>
+                <p style={{ fontSize: 16, color: "#6b5540", fontFamily: "'Lato',sans-serif", lineHeight: 1.75, marginBottom: 22 }}>{step.body}</p>
+
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <button onClick={skipTutorial}
                     style={{ background: "none", border: "none", color: "#a89070", fontFamily: "'Lato',sans-serif", fontSize: 13, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3, padding: "4px 0" }}>
                     Skip tutorial
                   </button>
                   <button onClick={advanceTutorial}
-                    style={{ background: "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", padding: "12px 28px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 17, cursor: "pointer", minHeight: 44 }}>
+                    style={{ background: "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", padding: "14px 32px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 18, cursor: "pointer", minHeight: 48, boxShadow: "0 4px 16px rgba(93,61,26,0.3)" }}>
                     {tutorialStep === 5 ? "Got it ✦" : "Next →"}
                   </button>
                 </div>
