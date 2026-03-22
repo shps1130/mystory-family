@@ -86,7 +86,14 @@ const buildSystemPrompt = (persona, profile) => {
   const faithVoice = "You speak naturally about God, faith, scripture, and spiritual meaning. References to God's hand, answered prayer, and biblical wisdom feel natural and authentic in your voice — never preachy, always warm.";
 
   const personalityNote = profile.personality?.length
-    ? `The person describes themselves as: ${profile.personality.join(", ")}. Honor this in how you engage — match your energy to theirs.`
+    ? `The person describes themselves as: ${profile.personality.join(", ")}. This is crucial — let it genuinely shape your voice:
+- If they said "the funny one" — be warm and light, reflect humor back when they show it, don't be stiff or overly formal
+- If they said "the quiet one" — be gentle, leave space, don't overwhelm them with follow-ups, let silence be okay
+- If they said "the faithful one" or "the strong one" — lean into faith and resilience language naturally from the start
+- If they said "the storyteller" — give them room to run, don't interrupt a good story mid-flow
+- If they said "the caretaker" — acknowledge the people they've cared for, their stories will center others
+- If they said "the dreamer" or "the adventurer" — match their energy, be curious and expansive
+Always open your VERY FIRST response with one warm sentence that acknowledges who they are. Example: "I hear you're the funny one in the family — I love that, the best stories always have a little laughter in them." Then move straight into your first question. Keep it to one sentence — show don't tell.`
     : "";
 
   const audienceNote = profile.audience
@@ -1826,8 +1833,22 @@ export default function MyStoryFamily() {
   };
 
   // ── CHAT LOGIC ────────────────────────────────────────────────────────────
-  const buildChapterContext = (ch) =>
-    `\n\nCURRENT CHAPTER: "${ch.title}"\nStory territory to cover in this chapter — introduce these naturally as the conversation flows, following each thread deeply before moving to the next. Never announce them as a list:\n${ch.prompts.map((p, i) => `${i + 1}. ${getQuestion(p)}`).join("\n")}\n\nStart with topic 1. Only introduce topic 2 when topic 1 feels fully explored. The person decides when the whole chapter is complete.`;
+  const buildChapterContext = (ch) => {
+    const sectionScope = {
+      "early-life": "This section is ONLY about childhood and early family life — where they were born, their home, their parents, and earliest memories. If they bring up anything from adulthood, gently redirect: 'That's a wonderful story — let's save that for when we get to [the right section]. Right now I want to stay in your early years.'",
+      "becoming-you": "This section is ONLY about early adulthood — school, first jobs, the turning points and choices that shaped who they became. Not childhood (that's done) and not marriage/children (that comes next).",
+      "family-love": "This section is ONLY about love, marriage, and children — how they met their spouse, building a family, their home life, and the people closest to their heart.",
+      "faith": "This section is ONLY about spiritual life — church, prayer, scripture, the moments they felt God closest, and the faith legacy they want to pass on.",
+      "wisdom": "This section is about life's lessons and legacy — what they've learned, what they'd tell their younger self, and what they want remembered. This is the closing chapter.",
+    };
+    const scope = sectionScope[ch.id] || "";
+    return `\n\nCURRENT SECTION: "${ch.title}"
+SCOPE — WHAT BELONGS HERE: ${scope}
+Story territory to cover — introduce these naturally as the conversation flows, following each thread deeply before moving to the next. Never announce them as a list:
+${ch.prompts.map((p, i) => `${i + 1}. ${getQuestion(p)}`).join("\n")}
+
+Start with topic 1. Only introduce topic 2 when topic 1 feels fully explored. The person decides when the whole section is complete.`;
+  };
 
   const generateCustomPrompts = async (title) => {
     if (!title.trim()) return;
@@ -3258,6 +3279,14 @@ export default function MyStoryFamily() {
           "family-love": "44e503c5182b4cb39f7330b3e9be70a5",
           "wisdom": "48986e0d7d68415faa4c19e9ac8220dd",
         };
+        const chapterScope = {
+          "early-life": "This section is simply about where you came from — where you were born, what home felt like, your parents, and your earliest memories. Nothing else.",
+          "becoming-you": "This section is about early adulthood — school, your first job, the choices and turning points that shaped the person you became. That's it.",
+          "family-love": "This section is about the people closest to your heart — how you met your spouse, your children, your home, and the love that defined your life.",
+          "faith": "This section is about your spiritual life — your church, your prayers, the moments you felt God closest, and the faith you want to pass on.",
+          "wisdom": "This section is simply about what you've learned — the lessons life taught you, what you'd tell your younger self, and what you want remembered.",
+        };
+        const scope = chapterScope[chapter?.id] || chapter.description;
         const videoId = chapterVideos[chapter?.id];
         return (
           <main id="main-content" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "92vh", padding: "48px 32px", background: "linear-gradient(160deg,#fdf6ec 0%,#f5ede0 60%,#ede4d5 100%)", textAlign: "center", animation: "fadeUp 0.4s ease forwards" }}>
@@ -3269,12 +3298,19 @@ export default function MyStoryFamily() {
 
             {/* Icon + Title */}
             <div style={{ fontSize: 52, marginBottom: 12 }} aria-hidden="true">{chapter.icon}</div>
-            <h1 style={{ fontSize: fs(48), fontWeight: 300, color: tc("#3d2b1a","#1a0e00"), fontStyle: "italic", marginBottom: 8, lineHeight: 1.2 }}>
+            <h1 style={{ fontSize: fs(48), fontWeight: 300, color: tc("#3d2b1a","#1a0e00"), fontStyle: "italic", marginBottom: 16, lineHeight: 1.2 }}>
               {chapter.title}
             </h1>
-            <p style={{ fontSize: fs(18), color: tc("#6b5540","#3a2510"), fontFamily: "'Lato',sans-serif", marginBottom: 36, lineHeight: 1.7 }}>
-              {chapter.description}
-            </p>
+
+            {/* Clear scope — what belongs here */}
+            <div style={{ background: "white", borderRadius: 14, padding: "20px 28px", maxWidth: 620, marginBottom: 16, border: "1px solid rgba(180,140,80,0.2)", boxShadow: "0 4px 20px rgba(93,61,26,0.07)" }}>
+              <p style={{ fontSize: fs(18), color: tc("#5c4a35","#2a1a0a"), lineHeight: 1.8, fontStyle: "italic", fontFamily: "'Cormorant Garamond',serif" }}>
+                {scope}
+              </p>
+              <p style={{ fontSize: fs(14), color: tc("#8b7355","#5c3d1e"), fontFamily: "'Lato',sans-serif", marginTop: 12, lineHeight: 1.6 }}>
+                Don't worry about getting it perfect — just start talking and Grace will help you shape it. Most people finish this section in <strong>15–20 minutes.</strong>
+              </p>
+            </div>
 
             {/* Video */}
             {videoId && (
@@ -3297,6 +3333,11 @@ export default function MyStoryFamily() {
               style={{ background: "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", padding: "22px 72px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(24), letterSpacing: 1, cursor: "pointer", boxShadow: "0 8px 32px rgba(93,61,26,0.28)", minHeight: 70, transition: "all 0.2s" }}>
               I'm Ready — Let's Begin ✦
             </button>
+
+            {/* Save and return note */}
+            <p style={{ fontSize: fs(13), color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", marginTop: 16, fontStyle: "italic" }}>
+              Your progress saves automatically — you can always stop and come back anytime.
+            </p>
 
           </main>
         );
