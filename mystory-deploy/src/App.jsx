@@ -170,6 +170,25 @@ YOUR RULES:
 - If they've only given you one or two short answers, you have not dug deep enough yet
 - You are writing a book together. Every exchange is a page. Make every page count.
 
+KNOWING WHEN A SECTION FEELS COMPLETE:
+After 4-6 substantive exchanges where the person has shared meaningful stories, you should naturally sense when this section of their life feels well-covered. Watch for these signals:
+- They are giving shorter answers or seem to be wrapping up
+- The main themes of the section have been touched (childhood home, parents, early memories)
+- They say things like "I think that's about it" or "I can't think of anything else"
+- You have rich material covering at least 2-3 of the section's core topics
+
+When you sense the section feels complete, do a warm recap like this:
+1. Reflect back what you've heard in 2-3 warm sentences — name specific details they shared
+2. Express genuine warmth about what they've given you
+3. Then wrap your message with the exact tag: <SECTION_RECAP>
+This tag tells the app to show a "Ready to Move On" button. Do NOT ask another question when you include this tag.
+
+Example recap: "What a beautiful picture you've painted of your childhood in Kansas City — the smell of your grandmother's kitchen, your father's quiet strength, and those long summer evenings on the porch. I feel like I know that little girl already, and so will your grandchildren. <SECTION_RECAP>"
+
+REDIRECTING OFF-TOPIC STORIES:
+If someone shares a story that clearly belongs in a different section (e.g. talking about their wedding during Early Life, or their faith journey during Family & Love), gently acknowledge it and redirect warmly:
+"That story about [topic] is so important — and I want to make sure we give it the full space it deserves when we get to [section name]. For now, let's stay in your early years. Tell me more about..."
+
 WHAT TO HOLD CLOSE:
 ${mustIncludeNote}
 ${privateNote}`;
@@ -1928,7 +1947,12 @@ export default function MyStoryFamily() {
       const fullSystem = systemPrompt + chapterContext + angleNudge;
       const res = await fetch("/api/claude", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 1000, system: fullSystem, messages: next.map(m => ({ role: m.role, content: m.content })) }) });
       const data = await res.json();
-      setMessages([...next, { role: "assistant", content: data.content?.[0]?.text || "I'm here with you. Tell me more." }]);
+      const rawText = data.content?.[0]?.text || "I'm here with you. Tell me more.";
+      // Check if Grace is signaling the section feels complete
+      const hasRecap = rawText.includes("<SECTION_RECAP>");
+      const cleanText = rawText.replace(/<SECTION_RECAP>/g, "").trim();
+      setMessages([...next, { role: "assistant", content: cleanText }]);
+      if (hasRecap) setShowRecapButton(true);
       announce("New response received.");
     } catch { setMessages([...next, { role: "assistant", content: "I'm here. Take your time." }]); }
     setLoading(false);
@@ -2029,6 +2053,7 @@ export default function MyStoryFamily() {
       setActiveChapter(nextC);
       setActivePrompt(0);
       setAnglesUsed(false);
+      setShowRecapButton(false);
       setChapterContext(buildChapterContext(chapters[nextC]));
       setMessages([{ role: "assistant", content: `You've completed ${chapters[nextC - 1]?.title || "that section"}. What you've shared is precious. 💛\n\nNow let's step into the next section of your life...\n\n*${getQuestion(chapters[nextC].prompts[0])}*` }]);
       announce(`Starting section: ${chapters[nextC].title}`);
@@ -2198,6 +2223,7 @@ export default function MyStoryFamily() {
   const progress = chapters.length ? Math.round((activeChapter / chapters.length) * 100) : 0;
   const userMessageCount = messages.filter(m => m.role === "user").length;
   const showChapterControls = userMessageCount >= 1;
+  const [showRecapButton, setShowRecapButton] = useState(false);
   const personaAvatar = persona?.avatar || "🌿";
   const personaAvatarBg = persona?.avatarBg || "linear-gradient(135deg,#5c3d1e,#8b5e34)";
 
@@ -3540,67 +3566,74 @@ export default function MyStoryFamily() {
       )}
 
       {screen === "chat" && !previewChapter && !showPaywall && !bookComplete && chapter && (
-        <div style={{ display: "flex", flex: 1, width: "100%", padding: "32px 32px", gap: 32 }}>
-          {/* Sidebar */}
-          <nav aria-label="Section navigation" style={{ width: 320, flexShrink: 0 }}>
-            <div style={{ fontSize: fs(11), letterSpacing: "2px", textTransform: "uppercase", color: tc("#8b7355", "#4a3020"), fontFamily: "'Lato',sans-serif", marginBottom: 14 }}>Your Sections</div>
-            {chapters.map((ch, idx) => {
-              const chPhotos = (photos[ch.id || ch.title] || []).length;
-              const isDone = idx < activeChapter || bookComplete;
-              const isCurrent = idx === activeChapter && !bookComplete;
-              const isLocked = idx > activeChapter && !bookComplete;
-              return (
-                <div key={ch.id || ch.title} aria-current={isCurrent ? "step" : undefined}
-                  onClick={() => {
-                    if (isDone) {
-                      setBookComplete(false);
-                      setActiveChapter(idx);
-                      setMessages(chapterHistory[ch.id || ch.title] || []);
-                      setPreviewChapter(null);
-                      setChapterContext(buildChapterContext(ch));
-                    }
-                  }}
-                  style={{ display: "flex", alignItems: "center", gap: 9, padding: "10px 12px", borderRadius: 8, marginBottom: 4, border: `1px solid ${isCurrent ? "rgba(139,94,52,0.2)" : "transparent"}`, background: isCurrent ? "rgba(139,94,52,0.1)" : "transparent", opacity: isLocked ? 0.35 : 1, cursor: isDone ? "pointer" : "default", minHeight: 40, transition: "all 0.15s" }}
-                  onMouseEnter={e => { if (isDone) e.currentTarget.style.background = "rgba(139,94,52,0.06)"; }}
-                  onMouseLeave={e => { if (isDone && !isCurrent) e.currentTarget.style.background = "transparent"; }}>
-                  <span style={{ fontSize: 15, width: 22, textAlign: "center" }} aria-hidden="true">{isDone ? "✓" : ch.icon}</span>
-                  <span style={{ fontSize: fs(13), color: tc(isDone ? "#8b7355" : "#3d2b1a", isDone ? "#5c3d1e" : "#1a0e00"), fontFamily: "'Lato',sans-serif", fontWeight: isCurrent ? 600 : 400, flex: 1, textDecoration: isDone ? "line-through" : "none", textDecorationColor: "rgba(139,94,52,0.4)" }}>{ch.title}</span>
-                  {chPhotos > 0 && <span style={{ fontSize: fs(10), color: "#b8860b" }}>📷{chPhotos}</span>}
-                  {ch.isCustom && <span style={{ fontSize: fs(9), color: "#b8860b", background: "rgba(184,134,11,0.1)", padding: "2px 5px", borderRadius: 3 }}>Custom</span>}
-                </div>
-              );
-            })}
-            {/* Your Book — final numbered section */}
-            <div onClick={() => { if (bookComplete) setBookComplete(true); }}
-              style={{ display: "flex", alignItems: "center", gap: 9, padding: "10px 12px", borderRadius: 8, marginBottom: 4, marginTop: 4, border: `1px solid ${bookComplete ? "#b8860b" : "transparent"}`, background: bookComplete ? "rgba(184,134,11,0.1)" : "transparent", opacity: bookComplete ? 1 : 0.25, cursor: bookComplete ? "pointer" : "default", minHeight: 40, transition: "all 0.3s" }}>
-              <span style={{ fontSize: 15, width: 22, textAlign: "center" }} aria-hidden="true">📖</span>
-              <span style={{ fontSize: fs(13), color: bookComplete ? "#b8860b" : tc("#3d2b1a","#1a0e00"), fontFamily: "'Lato',sans-serif", fontWeight: bookComplete ? 600 : 400, flex: 1 }}>Your Book</span>
-              {bookComplete && <span style={{ fontSize: fs(10), color: "#b8860b" }}>✦</span>}
-            </div>
+        <div style={{ display: "flex", flex: 1, flexDirection: "column", width: "100%", padding: "0" }}>
 
-            {/* Guide card */}
-            {persona && (
-              <div style={{ marginTop: 20, padding: "12px 14px", background: "white", borderRadius: 10, border: "1px solid rgba(180,140,80,0.2)" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                  <div style={{ width: 28, height: 28, borderRadius: "50%", background: personaAvatarBg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13 }} aria-hidden="true">{personaAvatar}</div>
-                  <div style={{ fontSize: fs(13), fontWeight: 600, color: tc("#3d2b1a", "#1a0e00") }}>{persona.name}</div>
+          {/* ── TOP SECTION NAVIGATION BAR ── */}
+          <nav aria-label="Section navigation" style={{ background: "white", borderBottom: "2px solid rgba(180,140,80,0.15)", padding: "16px 32px", overflowX: "auto" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, minWidth: "fit-content", margin: "0 auto" }}>
+              {chapters.map((ch, idx) => {
+                const isDone = idx < activeChapter || bookComplete;
+                const isCurrent = idx === activeChapter && !bookComplete;
+                const isLocked = idx > activeChapter && !bookComplete;
+                return (
+                  <div key={ch.id || ch.title} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div
+                      aria-current={isCurrent ? "step" : undefined}
+                      onClick={() => {
+                        if (isDone) {
+                          setBookComplete(false);
+                          setActiveChapter(idx);
+                          setMessages(chapterHistory[ch.id || ch.title] || []);
+                          setPreviewChapter(null);
+                          setChapterContext(buildChapterContext(ch));
+                          setShowRecapButton(false);
+                        }
+                      }}
+                      style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, cursor: isDone ? "pointer" : "default", opacity: isLocked ? 0.35 : 1, minWidth: 90 }}>
+                      {/* Circle */}
+                      <div style={{ width: 44, height: 44, borderRadius: "50%", background: isDone ? "#5c3d1e" : isCurrent ? "linear-gradient(135deg,#b8860b,#d4a843)" : "rgba(180,140,80,0.12)", border: isCurrent ? "none" : isDone ? "none" : "2px solid rgba(180,140,80,0.3)", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s", boxShadow: isCurrent ? "0 4px 14px rgba(184,134,11,0.35)" : "none" }}>
+                        {isDone
+                          ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5L20 7" stroke="#fdf6ec" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                          : <span style={{ fontSize: 18 }}>{ch.icon}</span>
+                        }
+                      </div>
+                      {/* Label */}
+                      <span style={{ fontSize: fs(12), fontFamily: "'Lato',sans-serif", fontWeight: isCurrent ? 700 : isDone ? 400 : 400, color: isCurrent ? "#b8860b" : isDone ? "#8b7355" : tc("#6b5030","#4a3020"), textAlign: "center", lineHeight: 1.3, textDecoration: isDone ? "line-through" : "none", textDecorationColor: "rgba(139,94,52,0.4)" }}>{ch.title}</span>
+                    </div>
+                    {/* Connector line between steps */}
+                    {idx < chapters.length - 1 && (
+                      <div style={{ width: 32, height: 2, background: idx < activeChapter ? "#5c3d1e" : "rgba(180,140,80,0.2)", borderRadius: 2, marginBottom: 22 }} />
+                    )}
+                  </div>
+                );
+              })}
+              {/* Your Book final step */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ width: 32, height: 2, background: bookComplete ? "#5c3d1e" : "rgba(180,140,80,0.2)", borderRadius: 2, marginBottom: 22 }} />
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, minWidth: 80, opacity: bookComplete ? 1 : 0.25 }}>
+                  <div style={{ width: 44, height: 44, borderRadius: "50%", background: bookComplete ? "linear-gradient(135deg,#b8860b,#d4a843)" : "rgba(180,140,80,0.12)", border: bookComplete ? "none" : "2px solid rgba(180,140,80,0.3)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <span style={{ fontSize: 18 }}>📖</span>
+                  </div>
+                  <span style={{ fontSize: fs(12), fontFamily: "'Lato',sans-serif", fontWeight: bookComplete ? 700 : 400, color: bookComplete ? "#b8860b" : tc("#6b5030","#4a3020"), textAlign: "center" }}>Your Book</span>
                 </div>
-                <div style={{ fontSize: fs(11), color: tc("#8b7355", "#5c3d1e"), fontFamily: "'Lato',sans-serif", fontStyle: "italic", lineHeight: 1.5 }}>{persona.tagline}</div>
               </div>
-            )}
+            </div>
+          </nav>
 
-            </nav>
+          {/* ── CHAT AREA — full width ── */}
+          <main id="main-content" style={{ flex: 1, display: "flex", flexDirection: "column", padding: "24px 40px 16px", width: "100%" }}>
 
-          {/* Chat area */}
-          <main id="main-content" style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-            <div style={{ marginBottom: 18 }}>
-              <p style={{ fontSize: fs(12), letterSpacing: "2px", textTransform: "uppercase", color: "#b8860b", fontFamily: "'Lato',sans-serif" }}>Section {activeChapter + 1} of {chapters.length + 1}</p>
-              <h2 style={{ fontSize: fs(32), fontWeight: 600, color: tc("#3d2b1a", "#1a0e00"), marginTop: 4 }}>{chapter.icon} {chapter.title}</h2>
-              {userMessageCount > 0 && (
-                <p style={{ fontSize: fs(12), color: tc("#a89070", "#6b5030"), fontFamily: "'Lato',sans-serif", marginTop: 6 }}>
-                  {userMessageCount} {userMessageCount === 1 ? "story shared" : "stories shared"} · {chapter.prompts.length} topics to explore
-                </p>
-              )}
+            {/* Section title */}
+            <div style={{ marginBottom: 16, display: "flex", alignItems: "center", gap: 12 }}>
+              <span style={{ fontSize: 28 }}>{chapter.icon}</span>
+              <div>
+                <h2 style={{ fontSize: fs(28), fontWeight: 600, color: tc("#3d2b1a", "#1a0e00") }}>{chapter.title}</h2>
+                {userMessageCount > 0 && (
+                  <p style={{ fontSize: fs(13), color: tc("#a89070", "#6b5030"), fontFamily: "'Lato',sans-serif", marginTop: 2 }}>
+                    {userMessageCount} {userMessageCount === 1 ? "story shared" : "stories shared"}
+                  </p>
+                )}
+              </div>
             </div>
 
             {/* Book complete celebration video */}
@@ -3691,41 +3724,46 @@ export default function MyStoryFamily() {
 
             {/* Input */}
             <div style={{ display: "flex", flexDirection: "column" }}>
-              <div style={{ display: "flex", gap: 10, alignItems: "flex-end", padding: "14px 16px 10px", background: "white", borderRadius: "14px 14px 0 0", border: `${highContrast ? 2 : 1}px solid ${highContrast ? "#9a7a50" : "rgba(180,140,80,0.18)"}`, borderBottom: "none" }}>
+              {/* Input label */}
+              <div style={{ fontSize: fs(13), fontWeight: 700, color: tc("#5c3d1e","#2a1000"), fontFamily: "'Lato',sans-serif", marginBottom: 6, letterSpacing: "0.3px" }}>
+                ✦ Type your answer here
+              </div>
+              <div style={{ display: "flex", gap: 10, alignItems: "flex-end", padding: "16px 18px 12px", background: "white", borderRadius: "14px 14px 0 0", border: `${highContrast ? 3 : 2}px solid ${highContrast ? "#9a7a50" : "#b8860b"}`, borderBottom: "none", boxShadow: "0 -2px 12px rgba(184,134,11,0.08)" }}>
                 <label htmlFor="story-input" style={{ position: "absolute", left: -9999, width: 1 }}>Your story response</label>
                 <textarea id="story-input" ref={textareaRef} value={input}
                   onChange={e => { setInput(e.target.value); if (e.target.value) setAnglesUsed(true); }}
                   onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-                  placeholder="Start anywhere — there's no wrong way to begin..."
-                  aria-label="Type your story here. Press Enter to send, Shift+Enter for a new line."
-                  rows={1}
-                  style={{ flex: 1, border: "none", outline: "none", resize: "none", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(20), color: tc("#3d2b1a", "#1a0e00"), background: "transparent", lineHeight: 1.7, minHeight: 36, maxHeight: 140, overflowY: "auto" }} />
-                <button onClick={toggleMic} aria-label={isListening ? "Stop listening" : "Start voice input"} title={isListening ? "Tap to stop" : "Tap to speak"}
-                  style={{ width: 46, height: 46, borderRadius: "50%", background: isListening ? "linear-gradient(135deg,#c0392b,#e74c3c)" : "rgba(184,134,11,0.12)", border: `1.5px solid ${isListening ? "#c0392b" : "rgba(184,134,11,0.3)"}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all 0.2s", minWidth: 46, animation: isListening ? "pulse 1.5s ease-in-out infinite" : "none" }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                    <rect x="9" y="2" width="6" height="11" rx="3" fill={isListening ? "white" : "#b8860b"} />
-                    <path d="M5 10a7 7 0 0014 0" stroke={isListening ? "white" : "#b8860b"} strokeWidth="2" strokeLinecap="round" fill="none"/>
-                    <line x1="12" y1="19" x2="12" y2="22" stroke={isListening ? "white" : "#b8860b"} strokeWidth="2" strokeLinecap="round"/>
-                    <line x1="9" y1="22" x2="15" y2="22" stroke={isListening ? "white" : "#b8860b"} strokeWidth="2" strokeLinecap="round"/>
-                  </svg>
-                </button>
-                <button className="send-btn" onClick={() => sendMessage()} disabled={!input.trim() || loading} aria-label="Send your response"
-                  style={{ width: 46, height: 46, borderRadius: "50%", background: personaAvatarBg, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all 0.2s", opacity: (!input.trim() || loading) ? 0.35 : 1, minWidth: 46 }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M22 2L11 13" stroke="#fdf6ec" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="#fdf6ec" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                </button>
+                  placeholder="Share your story here — there's no wrong way to begin..."
+                  aria-label="Type your story here. Press the Send button or hit Enter when ready."
+                  rows={3}
+                  style={{ flex: 1, border: "none", outline: "none", resize: "none", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(20), color: tc("#3d2b1a", "#1a0e00"), background: "transparent", lineHeight: 1.7, minHeight: 72, maxHeight: 180, overflowY: "auto" }} />
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, flexShrink: 0 }}>
+                  <button onClick={toggleMic} aria-label={isListening ? "Stop listening" : "Start voice input"} title={isListening ? "Tap to stop" : "Tap to speak"}
+                    style={{ width: 52, height: 52, borderRadius: "50%", background: isListening ? "linear-gradient(135deg,#c0392b,#e74c3c)" : "rgba(184,134,11,0.12)", border: `2px solid ${isListening ? "#c0392b" : "rgba(184,134,11,0.3)"}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s", animation: isListening ? "pulse 1.5s ease-in-out infinite" : "none" }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <rect x="9" y="2" width="6" height="11" rx="3" fill={isListening ? "white" : "#b8860b"} />
+                      <path d="M5 10a7 7 0 0014 0" stroke={isListening ? "white" : "#b8860b"} strokeWidth="2" strokeLinecap="round" fill="none"/>
+                      <line x1="12" y1="19" x2="12" y2="22" stroke={isListening ? "white" : "#b8860b"} strokeWidth="2" strokeLinecap="round"/>
+                      <line x1="9" y1="22" x2="15" y2="22" stroke={isListening ? "white" : "#b8860b"} strokeWidth="2" strokeLinecap="round"/>
+                    </svg>
+                  </button>
+                  <button className="send-btn" onClick={() => sendMessage()} disabled={!input.trim() || loading} aria-label="Send your response"
+                    style={{ width: 52, height: 52, borderRadius: "50%", background: input.trim() && !loading ? personaAvatarBg : "rgba(139,94,52,0.2)", border: "none", cursor: input.trim() && !loading ? "pointer" : "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s", opacity: (!input.trim() || loading) ? 0.4 : 1 }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M22 2L11 13" stroke="#fdf6ec" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="#fdf6ec" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  </button>
+                </div>
               </div>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 16px 12px", background: "white", borderRadius: "0 0 14px 14px", border: `${highContrast ? 2 : 1}px solid ${highContrast ? "#9a7a50" : "rgba(180,140,80,0.18)"}`, borderTop: "1px solid rgba(180,140,80,0.1)" }}>
-                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                  <span style={{ fontSize: fs(13), color: tc("#b8a070", "#6b5030"), fontFamily: "'Lato',sans-serif", fontStyle: "italic" }}>
-                    Or just start typing and {persona?.name || "I"}'ll help you shape it into your story
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 18px 14px", background: "white", borderRadius: "0 0 14px 14px", border: `${highContrast ? 3 : 2}px solid ${highContrast ? "#9a7a50" : "#b8860b"}`, borderTop: "1px solid rgba(180,140,80,0.15)", boxShadow: "0 4px 12px rgba(184,134,11,0.06)" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                  <span style={{ fontSize: fs(14), color: tc("#5c3d1e","#2a1000"), fontFamily: "'Lato',sans-serif", fontWeight: 600 }}>
+                    Press the Send button → or hit Enter on your keyboard when ready
                   </span>
-                  <span style={{ fontSize: fs(12), color: tc("#c4a882", "#8b7355"), fontFamily: "'Lato',sans-serif" }}>
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} aria-hidden="true"><rect x="9" y="2" width="6" height="11" rx="3" fill="#b8860b"/><path d="M5 10a7 7 0 0014 0" stroke="#b8860b" strokeWidth="2" strokeLinecap="round" fill="none"/><line x1="12" y1="19" x2="12" y2="22" stroke="#b8860b" strokeWidth="2" strokeLinecap="round"/><line x1="9" y1="22" x2="15" y2="22" stroke="#b8860b" strokeWidth="2" strokeLinecap="round"/></svg>
-                    Tap the microphone to speak — or use your keyboard mic on mobile
+                  <span style={{ fontSize: fs(12), color: tc("#b8a070", "#6b5030"), fontFamily: "'Lato',sans-serif", fontStyle: "italic" }}>
+                    Or just start typing and {persona?.name || "Grace"}'ll help you shape it into your story
                   </span>
                 </div>
                 <button className="help-btn" onClick={helpMeWrite} disabled={!input.trim() || writingHelp} aria-label="Help me write this"
-                  style={{ background: input.trim() ? "rgba(184,134,11,0.1)" : "transparent", border: `${highContrast ? 2 : 1}px solid ${input.trim() ? "rgba(184,134,11,0.35)" : "rgba(180,140,80,0.2)"}`, color: input.trim() ? tc("#7a5030", "#3d2b1a") : tc("#c4a882", "#8b7355"), fontFamily: "'Lato',sans-serif", fontSize: fs(12), fontWeight: 600, padding: "8px 16px", borderRadius: 100, cursor: input.trim() ? "pointer" : "default", whiteSpace: "nowrap", minHeight: 40 }}>
+                  style={{ background: input.trim() ? "rgba(184,134,11,0.1)" : "transparent", border: `${highContrast ? 2 : 1}px solid ${input.trim() ? "rgba(184,134,11,0.35)" : "rgba(180,140,80,0.2)"}`, color: input.trim() ? tc("#7a5030", "#3d2b1a") : tc("#c4a882", "#8b7355"), fontFamily: "'Lato',sans-serif", fontSize: fs(13), fontWeight: 600, padding: "10px 20px", borderRadius: 100, cursor: input.trim() ? "pointer" : "default", whiteSpace: "nowrap", minHeight: 44, flexShrink: 0, marginLeft: 16 }}>
                   {writingHelp ? "Shaping your story..." : `✦ Help me write this`}
                 </button>
               </div>
@@ -3749,7 +3787,26 @@ export default function MyStoryFamily() {
               )}
             </div>
 
-            {showChapterControls && (
+            {/* Grace recap button — appears when Grace signals section is complete */}
+            {showRecapButton && (
+              <div style={{ marginTop: 16, background: "linear-gradient(135deg,rgba(184,134,11,0.08),rgba(93,61,26,0.04))", border: "2px solid rgba(184,134,11,0.35)", borderRadius: 16, padding: "20px 24px", display: "flex", flexDirection: "column", alignItems: "center", gap: 12, animation: "fadeUp 0.4s ease forwards" }}>
+                <p style={{ fontSize: fs(16), color: tc("#5c3d1e","#2a1000"), fontFamily: "'Lato',sans-serif", textAlign: "center", lineHeight: 1.7 }}>
+                  {persona?.name || "Grace"} feels this section is beautifully covered. Ready to move on?
+                </p>
+                <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
+                  <button onClick={() => { setShowRecapButton(false); chapterComplete(); }}
+                    style={{ background: "linear-gradient(135deg,#b8860b,#d4a843)", color: "#fdf6ec", border: "none", padding: "16px 40px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(20), cursor: "pointer", boxShadow: "0 6px 24px rgba(184,134,11,0.35)", minHeight: 56, transition: "all 0.2s" }}>
+                    Yes, I'm Ready to Move On ✦
+                  </button>
+                  <button onClick={() => setShowRecapButton(false)}
+                    style={{ background: "white", border: "2px solid rgba(180,140,80,0.3)", color: tc("#6b5030","#3d2b1a"), fontFamily: "'Lato',sans-serif", fontSize: fs(14), padding: "16px 24px", borderRadius: 100, cursor: "pointer", minHeight: 56 }}>
+                    I have more to share
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {showChapterControls && !showRecapButton && (
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, marginTop: 14 }}>
                 <button className="complete-btn" onClick={chapterComplete}
                   style={{ background: "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", padding: "14px 36px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(17), letterSpacing: 0.5, cursor: "pointer", boxShadow: "0 4px 16px rgba(93,61,26,0.2)", minHeight: 52, transition: "all 0.2s" }}>
