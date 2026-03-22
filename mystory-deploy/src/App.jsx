@@ -1353,6 +1353,8 @@ export default function MyStoryFamily() {
 
   // ── ACCESSIBILITY STATE ───────────────────────────────────────────────────
   const [textScale, setTextScale] = useState(1.15);
+  const [tutorialStep, setTutorialStep] = useState(null);
+  const [tutorialDone, setTutorialDone] = useState(false);
   const [highContrast, setHighContrast] = useState(false);
 
   const messagesEndRef = useRef(null);
@@ -2290,8 +2292,6 @@ Start with topic 1. Only introduce topic 2 when topic 1 feels fully explored. Th
   const userMessageCount = messages.filter(m => m.role === "user").length;
   const showChapterControls = userMessageCount >= 1;
   const [showRecapButton, setShowRecapButton] = useState(false);
-  const [tutorialStep, setTutorialStep] = useState(null); // null = off, 1-5 = active step
-  const [tutorialDone, setTutorialDone] = useState(false);
   const personaAvatar = persona?.avatar || "🌿";
   const personaAvatarBg = persona?.avatarBg || "linear-gradient(135deg,#5c3d1e,#8b5e34)";
 
