@@ -1366,6 +1366,20 @@ export default function MyStoryFamily() {
   const textScales = [1, 1.2, 1.4];
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+
+  // Scroll to top on every screen change
+  useEffect(() => { window.scrollTo({ top: 0, behavior: "smooth" }); }, [screen]);
+
+  // Auto-start tutorial on first chat visit per device
+  useEffect(() => {
+    if (screen === "chat" && !previewChapter && !bookComplete && chapter) {
+      const tutorialKey = "mystory_tutorial_done";
+      const done = localStorage.getItem(tutorialKey) === "true";
+      if (!done && !tutorialDone) {
+        setTimeout(() => setTutorialStep(1), 600);
+      }
+    }
+  }, [screen, previewChapter, bookComplete]);
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
@@ -2220,7 +2234,31 @@ Start with topic 1. Only introduce topic 2 when topic 1 feels fully explored. Th
     window.location.href = stripeUrl;
   };
 
+  const advanceTutorial = () => {
+    if (tutorialStep < 5) {
+      setTutorialStep(tutorialStep + 1);
+    } else {
+      setTutorialStep(null);
+      setTutorialDone(true);
+      localStorage.setItem("mystory_tutorial_done", "true");
+    }
+  };
+
+  const skipTutorial = () => {
+    setTutorialStep(null);
+    setTutorialDone(true);
+    localStorage.setItem("mystory_tutorial_done", "true");
+  };
+
+  const replayTutorial = () => {
+    setTutorialStep(1);
+  };
+
   const addMoreToChapter = () => {
+    const ch = chapters[previewChapter.chapterIndex];
+    setMessages(chapterHistory[ch.id || ch.title] || []);
+    setPreviewChapter(null);
+  };
     const ch = chapters[previewChapter.chapterIndex];
     setMessages(chapterHistory[ch.id || ch.title] || []);
     setPreviewChapter(null);
@@ -2245,6 +2283,8 @@ Start with topic 1. Only introduce topic 2 when topic 1 feels fully explored. Th
   const userMessageCount = messages.filter(m => m.role === "user").length;
   const showChapterControls = userMessageCount >= 1;
   const [showRecapButton, setShowRecapButton] = useState(false);
+  const [tutorialStep, setTutorialStep] = useState(null); // null = off, 1-5 = active step
+  const [tutorialDone, setTutorialDone] = useState(false);
   const personaAvatar = persona?.avatar || "🌿";
   const personaAvatarBg = persona?.avatarBg || "linear-gradient(135deg,#5c3d1e,#8b5e34)";
 
@@ -3665,16 +3705,23 @@ Start with topic 1. Only introduce topic 2 when topic 1 feels fully explored. Th
           <main id="main-content" style={{ flex: 1, display: "flex", flexDirection: "column", padding: "24px 40px 16px", width: "100%" }}>
 
             {/* Section title */}
-            <div style={{ marginBottom: 16, display: "flex", alignItems: "center", gap: 12 }}>
-              <span style={{ fontSize: 28 }}>{chapter.icon}</span>
-              <div>
-                <h2 style={{ fontSize: fs(28), fontWeight: 600, color: tc("#3d2b1a", "#1a0e00") }}>{chapter.title}</h2>
-                {userMessageCount > 0 && (
-                  <p style={{ fontSize: fs(13), color: tc("#a89070", "#6b5030"), fontFamily: "'Lato',sans-serif", marginTop: 2 }}>
-                    {userMessageCount} {userMessageCount === 1 ? "story shared" : "stories shared"}
-                  </p>
-                )}
+            <div style={{ marginBottom: 16, display: "flex", alignItems: "center", gap: 12, justifyContent: "space-between" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <span style={{ fontSize: 28 }}>{chapter.icon}</span>
+                <div>
+                  <h2 style={{ fontSize: fs(28), fontWeight: 600, color: tc("#3d2b1a", "#1a0e00") }}>{chapter.title}</h2>
+                  {userMessageCount > 0 && (
+                    <p style={{ fontSize: fs(13), color: tc("#a89070", "#6b5030"), fontFamily: "'Lato',sans-serif", marginTop: 2 }}>
+                      {userMessageCount} {userMessageCount === 1 ? "story shared" : "stories shared"}
+                    </p>
+                  )}
+                </div>
               </div>
+              {/* ? Help button — replays tutorial */}
+              <button onClick={replayTutorial} title="Show me how this works"
+                style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(184,134,11,0.1)", border: "1.5px solid rgba(184,134,11,0.3)", color: "#b8860b", fontFamily: "'Lato',sans-serif", fontSize: 16, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                ?
+              </button>
             </div>
 
             {/* Book complete celebration video */}
@@ -3847,31 +3894,114 @@ Start with topic 1. Only introduce topic 2 when topic 1 feels fully explored. Th
               </div>
             )}
 
-            {showChapterControls && !showRecapButton && (
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, marginTop: 14 }}>
-                <button className="complete-btn" onClick={chapterComplete}
-                  style={{ background: "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", padding: "14px 36px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(17), letterSpacing: 0.5, cursor: "pointer", boxShadow: "0 4px 16px rgba(93,61,26,0.2)", minHeight: 52, transition: "all 0.2s" }}>
+            {/* Section complete button — always visible, greyed until first message */}
+            {!showRecapButton && (
+              <div id="tutorial-step-5" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, marginTop: 14 }}>
+                <button className="complete-btn" onClick={userMessageCount > 0 ? chapterComplete : undefined}
+                  disabled={userMessageCount === 0}
+                  style={{ background: userMessageCount > 0 ? "linear-gradient(135deg,#5c3d1e,#8b5e34)" : "rgba(139,94,52,0.2)", color: userMessageCount > 0 ? "#fdf6ec" : "#a89070", border: "none", padding: "14px 36px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(17), letterSpacing: 0.5, cursor: userMessageCount > 0 ? "pointer" : "not-allowed", boxShadow: userMessageCount > 0 ? "0 4px 16px rgba(93,61,26,0.2)" : "none", minHeight: 52, transition: "all 0.3s" }}>
                   ✦ This section feels complete
                 </button>
-                <button className="next-btn" onClick={exploreNewAngle} disabled={loading}
-                  style={{ background: "transparent", border: `${highContrast ? 2 : 1.5}px solid rgba(180,140,80,0.4)`, color: tc("#7a5030", "#3d2b1a"), fontFamily: "'Lato',sans-serif", fontSize: fs(12), letterSpacing: "1px", textTransform: "uppercase", padding: "10px 22px", borderRadius: 100, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.4 : 1, minHeight: 44, transition: "all 0.2s" }}>
-                  Take me somewhere new in this section →
-                </button>
-                {chapters.length > 1 && activeChapter < chapters.length - 1 && (
-                  <button onClick={() => {
-                    if (window.confirm(`Skip ${chapter.title}? This section won't appear in your book, but you can always come back and add it later.`)) {
-                      const skipped = chapters.filter((_, i) => i !== activeChapter);
-                      setChapters(skipped);
-                      showToast(`${chapter.title} skipped — you can add it later from your book.`);
-                    }
-                  }}
-                    style={{ background: "none", border: "none", color: tc("#c4a882","#6b5030"), fontFamily: "'Lato',sans-serif", fontSize: fs(12), cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3, padding: "4px 8px", minHeight: 32 }}>
-                    Skip this section
-                  </button>
+                {userMessageCount === 0 && (
+                  <p style={{ fontSize: fs(12), color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", fontStyle: "italic" }}>
+                    Start sharing your story above — this button will activate when you're ready
+                  </p>
+                )}
+                {userMessageCount > 0 && (
+                  <>
+                    <button className="next-btn" onClick={exploreNewAngle} disabled={loading}
+                      style={{ background: "transparent", border: `${highContrast ? 2 : 1.5}px solid rgba(180,140,80,0.4)`, color: tc("#7a5030", "#3d2b1a"), fontFamily: "'Lato',sans-serif", fontSize: fs(12), letterSpacing: "1px", textTransform: "uppercase", padding: "10px 22px", borderRadius: 100, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.4 : 1, minHeight: 44, transition: "all 0.2s" }}>
+                      Take me somewhere new in this section →
+                    </button>
+                    {chapters.length > 1 && activeChapter < chapters.length - 1 && (
+                      <button onClick={() => {
+                        if (window.confirm(`Skip ${chapter.title}? This section won't appear in your book, but you can always come back and add it later.`)) {
+                          const skipped = chapters.filter((_, i) => i !== activeChapter);
+                          setChapters(skipped);
+                          showToast(`${chapter.title} skipped — you can add it later from your book.`);
+                        }
+                      }}
+                        style={{ background: "none", border: "none", color: tc("#c4a882","#6b5030"), fontFamily: "'Lato',sans-serif", fontSize: fs(12), cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3, padding: "4px 8px", minHeight: 32 }}>
+                        Skip this section
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
             )}
           </main>
+        </div>
+      )}
+
+      {/* ── TUTORIAL OVERLAY ── */}
+      {tutorialStep && screen === "chat" && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 200, pointerEvents: "none" }}>
+          {/* Dark overlay */}
+          <div style={{ position: "absolute", inset: 0, background: "rgba(30,18,8,0.72)", pointerEvents: "auto" }} onClick={skipTutorial} />
+
+          {/* Tutorial steps */}
+          {(() => {
+            const steps = [
+              {
+                id: 1,
+                title: "Welcome to your dashboard",
+                body: "This bar shows your progress through each section. Once you complete a section, you can click its name to go back and add more anytime.",
+                position: { top: 120, left: "50%", transform: "translateX(-50%)" },
+                arrow: "top",
+              },
+              {
+                id: 2,
+                title: "Your conversation with Grace",
+                body: "Grace asks you questions here and your answers appear in this area. Just have a natural conversation — there are no wrong answers.",
+                position: { top: "40%", left: "50%", transform: "translate(-50%, -50%)" },
+                arrow: "none",
+              },
+              {
+                id: 3,
+                title: "This is where you type",
+                body: "Type your answer in this box, then press the Send button or hit Enter on your keyboard. Grace will respond and keep the conversation going.",
+                position: { bottom: 280, left: "50%", transform: "translateX(-50%)" },
+                arrow: "bottom",
+              },
+              {
+                id: 4,
+                title: "Add photos to your book",
+                body: "Click here to add photos to this section. One or two photos per section works best — they'll be included in your printed book.",
+                position: { bottom: 200, left: "50%", transform: "translateX(-50%)" },
+                arrow: "bottom",
+              },
+              {
+                id: 5,
+                title: "When you're ready to move on",
+                body: "When you feel like you've shared enough for this section, click this button. Grace will show you everything you've written so far — beautifully shaped into your story — before you continue.",
+                position: { bottom: 120, left: "50%", transform: "translateX(-50%)" },
+                arrow: "bottom",
+              },
+            ];
+            const step = steps[tutorialStep - 1];
+            return (
+              <div style={{ position: "absolute", ...step.position, background: "white", borderRadius: 16, padding: "24px 28px", maxWidth: 400, width: "90%", boxShadow: "0 20px 60px rgba(0,0,0,0.4)", pointerEvents: "auto", animation: "fadeUp 0.3s ease forwards" }}>
+                {/* Step indicator */}
+                <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+                  {[1,2,3,4,5].map(n => (
+                    <div key={n} style={{ width: n === tutorialStep ? 20 : 8, height: 8, borderRadius: 4, background: n === tutorialStep ? "#b8860b" : n < tutorialStep ? "rgba(184,134,11,0.4)" : "rgba(180,140,80,0.2)", transition: "all 0.3s" }} />
+                  ))}
+                </div>
+                <h3 style={{ fontSize: 18, fontWeight: 700, color: "#3d2b1a", fontFamily: "'Cormorant Garamond',serif", marginBottom: 10 }}>{step.title}</h3>
+                <p style={{ fontSize: 15, color: "#6b5540", fontFamily: "'Lato',sans-serif", lineHeight: 1.7, marginBottom: 20 }}>{step.body}</p>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <button onClick={skipTutorial}
+                    style={{ background: "none", border: "none", color: "#a89070", fontFamily: "'Lato',sans-serif", fontSize: 13, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3, padding: "4px 0" }}>
+                    Skip tutorial
+                  </button>
+                  <button onClick={advanceTutorial}
+                    style={{ background: "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", padding: "12px 28px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 17, cursor: "pointer", minHeight: 44 }}>
+                    {tutorialStep === 5 ? "Got it ✦" : "Next →"}
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
 
