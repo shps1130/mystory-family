@@ -2341,6 +2341,30 @@ Start with topic 1. Only introduce topic 2 when topic 1 feels fully explored. Th
         .photo-btn:hover{background:rgba(184,134,11,0.1)!important;}
         .help-btn:hover:not(:disabled){background:rgba(184,134,11,0.14)!important;}
         .a11y-btn:hover{background:rgba(93,61,26,0.08)!important;}
+
+        /* ── MOBILE RESPONSIVE ── */
+        @media(max-width:640px){
+          /* Header */
+          header{padding:10px 14px!important;}
+          /* Chat layout — full width, no horizontal padding */
+          #main-content{padding:16px 14px 12px!important;}
+          /* Nav section bar — scroll horizontally, smaller circles */
+          nav[aria-label="Section navigation"]{padding:10px 12px!important;}
+          nav[aria-label="Section navigation"] > div{gap:4px!important;}
+          /* Make section circles smaller on mobile */
+          nav[aria-label="Section navigation"] div[style*="width: 44px"]{width:36px!important;height:36px!important;}
+          /* Section title smaller */
+          h2{font-size:22px!important;}
+          /* Chat messages full width */
+          div[style*="maxWidth: \"88%\""]{max-width:95%!important;}
+          /* Input box */
+          textarea{font-size:17px!important;}
+          /* Buttons full width on mobile */
+          button[style*="padding: \"22px 72px\""]{padding:18px 32px!important;font-size:20px!important;}
+          /* Footer */
+          footer{padding:12px 14px!important;}
+          footer p{font-size:11px!important;}
+        }
       `}</style>
 
       {/* ── HEADER ── */}
@@ -3960,16 +3984,16 @@ Start with topic 1. Only introduce topic 2 when topic 1 feels fully explored. Th
                 id: 2,
                 title: "Your conversation with Grace",
                 body: "Grace asks you questions here and your answers appear in this area. Just have a natural conversation — there are no wrong answers.",
-                position: { top: 220, right: 40 },
+                position: { top: 220, left: "50%", transform: "translateX(-50%)" },
                 arrowEl: (
-                  <div style={{ position: "absolute", top: 28, left: -14, width: 0, height: 0, borderTop: "14px solid transparent", borderBottom: "14px solid transparent", borderRight: "14px solid #1a4a5c" }} />
+                  <div style={{ position: "absolute", top: -14, left: "25%", width: 0, height: 0, borderLeft: "14px solid transparent", borderRight: "14px solid transparent", borderBottom: "14px solid #1a4a5c" }} />
                 ),
               },
               {
                 id: 3,
                 title: "This is where you type",
                 body: "Type your answer in this box below, then press the Send button or hit Enter on your keyboard.",
-                position: { top: "42%", right: 40 },
+                position: { top: "38%", left: "50%", transform: "translateX(-50%)" },
                 arrowEl: (
                   <div style={{ position: "absolute", bottom: -14, left: "50%", transform: "translateX(-50%)", width: 0, height: 0, borderLeft: "14px solid transparent", borderRight: "14px solid transparent", borderTop: "14px solid #1a4a5c" }} />
                 ),
@@ -3978,7 +4002,7 @@ Start with topic 1. Only introduce topic 2 when topic 1 feels fully explored. Th
                 id: 4,
                 title: "Add photos to your book",
                 body: "Scroll down to find the camera button. Click it to add photos — one or two per section works best and they'll appear in your printed book.",
-                position: { top: "42%", right: 40 },
+                position: { top: "38%", left: "50%", transform: "translateX(-50%)" },
                 arrowEl: (
                   <div style={{ position: "absolute", bottom: -14, left: "50%", transform: "translateX(-50%)", width: 0, height: 0, borderLeft: "14px solid transparent", borderRight: "14px solid transparent", borderTop: "14px solid #1a4a5c" }} />
                 ),
@@ -3987,7 +4011,7 @@ Start with topic 1. Only introduce topic 2 when topic 1 feels fully explored. Th
                 id: 5,
                 title: "When you're ready to move on",
                 body: "Scroll down to find this button. When you've shared enough, click it and Grace will show you everything you've written — beautifully shaped into your story.",
-                position: { top: "42%", right: 40 },
+                position: { top: "38%", left: "50%", transform: "translateX(-50%)" },
                 arrowEl: (
                   <div style={{ position: "absolute", bottom: -14, left: "50%", transform: "translateX(-50%)", width: 0, height: 0, borderLeft: "14px solid transparent", borderRight: "14px solid transparent", borderTop: "14px solid #1a4a5c" }} />
                 ),
@@ -3997,7 +4021,7 @@ Start with topic 1. Only introduce topic 2 when topic 1 feels fully explored. Th
             const step = steps[tutorialStep - 1];
 
             return (
-              <div style={{ position: "absolute", ...step.position, background: "#1a4a5c", borderRadius: 16, padding: "24px 28px", maxWidth: 400, width: "88%", boxShadow: "0 20px 60px rgba(0,0,0,0.5)", pointerEvents: "auto", animation: "fadeUp 0.3s ease forwards", border: "2px solid rgba(255,255,255,0.15)" }}>
+              <div style={{ position: "absolute", ...step.position, background: "#1a4a5c", borderRadius: 16, padding: "20px 20px", maxWidth: 400, width: "calc(100vw - 32px)", boxSizing: "border-box", boxShadow: "0 20px 60px rgba(0,0,0,0.5)", pointerEvents: "auto", animation: "fadeUp 0.3s ease forwards", border: "2px solid rgba(255,255,255,0.15)" }}>
                 {step.arrowEl}
 
                 {/* Step progress dots */}
