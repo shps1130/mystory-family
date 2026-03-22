@@ -2259,10 +2259,6 @@ Start with topic 1. Only introduce topic 2 when topic 1 feels fully explored. Th
     setMessages(chapterHistory[ch.id || ch.title] || []);
     setPreviewChapter(null);
   };
-    const ch = chapters[previewChapter.chapterIndex];
-    setMessages(chapterHistory[ch.id || ch.title] || []);
-    setPreviewChapter(null);
-  };
 
   const exploreNewAngle = () => {
     wantNewAngle.current = true;
@@ -3700,8 +3696,6 @@ Start with topic 1. Only introduce topic 2 when topic 1 feels fully explored. Th
               </div>
             </div>
           </nav>
-
-          {/* ── CHAT AREA — full width ── */}
           <main id="main-content" style={{ flex: 1, display: "flex", flexDirection: "column", padding: "24px 40px 16px", width: "100%" }}>
 
             {/* Section title */}
