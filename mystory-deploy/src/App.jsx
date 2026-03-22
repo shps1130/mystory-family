@@ -1370,7 +1370,18 @@ export default function MyStoryFamily() {
   // Scroll to top on every screen change
   useEffect(() => { window.scrollTo({ top: 0, behavior: "smooth" }); }, [screen]);
 
-  // Auto-start tutorial on first chat visit per device
+  // Scroll to the relevant element when tutorial step changes
+  useEffect(() => {
+    if (!tutorialStep) return;
+    const scrollTargets = {
+      1: () => window.scrollTo({ top: 0, behavior: "smooth" }),
+      2: () => window.scrollTo({ top: 0, behavior: "smooth" }),
+      3: () => document.getElementById("story-input")?.scrollIntoView({ behavior: "smooth", block: "center" }),
+      4: () => document.querySelector(".photo-btn")?.scrollIntoView({ behavior: "smooth", block: "center" }),
+      5: () => document.getElementById("tutorial-step-5")?.scrollIntoView({ behavior: "smooth", block: "center" }),
+    };
+    setTimeout(() => scrollTargets[tutorialStep]?.(), 200);
+  }, [tutorialStep]);
   useEffect(() => {
     if (screen === "chat" && !previewChapter && !bookComplete && chapter) {
       const tutorialKey = "mystory_tutorial_done";
