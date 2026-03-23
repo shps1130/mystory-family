@@ -1572,10 +1572,16 @@ export default function MyStoryFamily() {
     setActiveChapter(s.activeChapter || 0);
     setChapterHistory(s.chapterHistory || {});
     setMessages(s.messages || []);
+    setCurrentTopicMessages(s.messages || []); // show existing messages on left side
     setHasPaid(s.hasPaid === true);
     setEnabledChapters(s.enabledChapters || BASE_CHAPTERS.map(c => c.id));
     setChapterNarratives(s.chapterNarratives || {});
     setBookComplete(s.bookComplete || false);
+    // Init topic framework for restored chapter
+    if (s.chapters?.length > 0) {
+      const restoredChapter = s.chapters[s.activeChapter || 0];
+      if (restoredChapter) initTopicFramework(restoredChapter.id);
+    }
 
     if (fromPayment && s.previewChapter) {
       setPreviewChapter(s.previewChapter);
@@ -3899,7 +3905,7 @@ export default function MyStoryFamily() {
 
               {/* Messages — flow naturally down the page, no scroll trap */}
               <div role="log" aria-label="Conversation" aria-live="polite" style={{ display: "flex", flexDirection: "column", gap: 14, paddingBottom: 8 }}>
-                {currentTopicMessages.map((msg, i) => (
+                {(currentTopicMessages.length > 0 ? currentTopicMessages : messages).map((msg, i) => (
                   <div key={i}>
                     <div style={{ display: "flex", gap: 10, flexDirection: msg.role === "user" ? "row-reverse" : "row", animation: "fadeUp 0.35s ease forwards" }}>
                       <div style={{ width: 32, height: 32, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: msg.role === "user" ? 10 : 13, background: msg.role === "user" ? "linear-gradient(135deg,#b8860b,#d4a843)" : personaAvatarBg, color: "#fdf6ec", fontFamily: "'Lato',sans-serif", fontWeight: 700, marginTop: 2 }} aria-hidden="true">
