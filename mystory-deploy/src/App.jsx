@@ -76,7 +76,7 @@ const PERSONAS = {
     avatarBg: "linear-gradient(135deg,#6b4c8a,#9b7bc0)",
     role: "Your faith-centered legacy guide",
     tagline: "She listens with her whole heart",
-    intro: (profile) => `I've been looking forward to meeting you. 🕊️\n\nI'm Grace, and I'm here to help you tell the story only you can tell — the one your family will carry long after this moment.\n\nI know ${profile.audience ? `you're writing this for ${profile.audience}` : "this is for the people you love most"}. I know how much your faith has shaped who you are. And I promise to hold everything you share with the care it deserves.\n\nThere's no rush here. No wrong answer. Start wherever feels natural — or just begin typing and I'll help shape it into something beautiful.\n\n*${profile.firstQuestion}*`,
+    intro: (profile) => `I've been looking forward to meeting you. 🕊️\n\nI'm Grace, and I'm here to help you tell the story only you can tell — the one your family will carry long after this moment.\n\nI know ${profile.audience ? `you're writing this for ${profile.audience}` : "this is for the people you love most"}. I know how much your faith has shaped who you are. And I promise to hold everything you share with the care it deserves.\n\nThere's no rush here. No wrong answer. I'll guide you through everything — just start whenever you're ready.`,
   },
 };
 
@@ -1999,9 +1999,15 @@ export default function MyStoryFamily() {
       personality: onboardAnswers.personality || [],
       mustInclude: onboardAnswers.mustInclude,
       keepPrivate: onboardAnswers.keepPrivate,
-      firstQuestion: getQuestion(allChapters[0].prompts[0]),
     };
-    const introMsg = persona ? persona.intro(profile) : `Welcome. I'm so glad you're here.\n\nThere's no right or wrong way to begin. Start wherever feels natural.\n\n*${getQuestion(allChapters[0].prompts[0])}*`;
+    // Get first question from framework if available, otherwise fallback
+    const firstChapter = allChapters[0];
+    const framework = CHAPTER_FRAMEWORKS[firstChapter?.id];
+    const frameworkFirstQ = framework
+      ? "Before we dive in — did you grow up mostly in one place, or did your family move around?"
+      : getQuestion(firstChapter.prompts[0]);
+    const baseIntro = persona ? persona.intro(profile) : `Welcome. I'm so glad you're here.\n\nI'm Grace, and I'll guide you through your story one memory at a time.`;
+    const introMsg = baseIntro + "\n\n*" + frameworkFirstQ + "*";
     setMessages([{ role: "assistant", content: introMsg }]);
     setCurrentTopicMessages([{ role: "assistant", content: introMsg }]);
     initTopicFramework(allChapters[0].id);
