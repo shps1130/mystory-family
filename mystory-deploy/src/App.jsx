@@ -1362,6 +1362,9 @@ export default function MyStoryFamily() {
   const [textScale, setTextScale] = useState(1.15);
   const [tutorialStep, setTutorialStep] = useState(null);
   const [tutorialDone, setTutorialDone] = useState(false);
+  const [topicFramework, setTopicFramework] = useState([]);
+  const [currentTopicIdx, setCurrentTopicIdx] = useState(0);
+  const [currentTopicMessages, setCurrentTopicMessages] = useState([]);
   const [highContrast, setHighContrast] = useState(false);
 
   const messagesEndRef = useRef(null);
@@ -2431,9 +2434,6 @@ Start with topic 1. Only introduce topic 2 when topic 1 feels fully explored.`;
   const [showRecapButton, setShowRecapButton] = useState(false);
   const [sectionMemories, setSectionMemories] = useState([]); // warm bullet points built by Grace
   const [showMobileMemories, setShowMobileMemories] = useState(false);
-  const [topicFramework, setTopicFramework] = useState([]); // [{id, title, icon, details:[], complete:false}]
-  const [currentTopicIdx, setCurrentTopicIdx] = useState(0);
-  const [currentTopicMessages, setCurrentTopicMessages] = useState([]); // only current topic shown on left
   const personaAvatar = persona?.avatar || "🌿";
   const personaAvatarBg = persona?.avatarBg || "linear-gradient(135deg,#5c3d1e,#8b5e34)";
 
