@@ -1927,29 +1927,28 @@ export default function MyStoryFamily() {
     if (framework) {
       const currentTopic = framework[topicIdx];
       const remainingTopics = framework.slice(topicIdx + 1).map(t => t.title).join(", ");
-      return `\n\nCURRENT SECTION: "${ch.title}"
-TOPIC FRAMEWORK — work through these topics in order. You are currently on topic ${topicIdx + 1} of ${framework.length}.
-
-CURRENT TOPIC: "${currentTopic?.title}"
-${topicIdx === 0 && ch.id === "early-life" ? `Start by asking: "Before we dive in — did you grow up mostly in one place, or did your family move around?" Then go deep on their answer.` : `Dive into this topic with 3-5 exchanges, going deeper each time.`}
-
-REMAINING TOPICS AFTER THIS ONE: ${remainingTopics || "None — this is the last topic"}
-
-YOUR JOB FOR EACH TOPIC:
-1. Ask 3-5 warm questions that go progressively deeper
-2. After each substantive answer, capture key details with: <DETAIL>brief specific detail</DETAIL> (keep details short — names, places, descriptions)
-3. Dig for the meaningful stuff — nicknames, funny phrases, what they called the house, family sayings, sensory memories (smells, sounds, feelings)
-4. When the topic feels complete, ask: "Is there anything else about ${currentTopic?.title?.toLowerCase() || "this"} you'd like me to capture before we move on?"
-5. Then say a warm transition sentence and include <TOPIC_COMPLETE> at the very end
-
-TRANSITION EXAMPLE:
-"I've got everything about your home beautifully captured — I can already picture it. Now let's talk about your family. Who were the people that filled that house with life? <TOPIC_COMPLETE>"
-
-DETAIL EXAMPLES:
-<DETAIL>Kansas City, Missouri</DETAIL>
-<DETAIL>Raytown neighborhood</DETAIL>
-<DETAIL>Called the house "the green house on the corner"</DETAIL>
-<DETAIL>Mom's nickname was "Mama Jo"</DETAIL>`;
+      const topicInstruction = (topicIdx === 0 && ch.id === "early-life")
+        ? 'Start by asking: "Before we dive in — did you grow up mostly in one place, or did your family move around?" Then go deep on their answer.'
+        : "Dive into this topic with 3-5 exchanges, going deeper each time.";
+      const closingQuestion = currentTopic?.title?.toLowerCase() || "this";
+      return "\n\nCURRENT SECTION: \"" + ch.title + "\"\n" +
+        "TOPIC FRAMEWORK — work through these topics in order. You are currently on topic " + (topicIdx + 1) + " of " + framework.length + ".\n\n" +
+        "CURRENT TOPIC: \"" + (currentTopic?.title || "") + "\"\n" +
+        topicInstruction + "\n\n" +
+        "REMAINING TOPICS AFTER THIS ONE: " + (remainingTopics || "None — this is the last topic") + "\n\n" +
+        "YOUR JOB FOR EACH TOPIC:\n" +
+        "1. Ask 3-5 warm questions that go progressively deeper\n" +
+        "2. After each substantive answer, capture key details with: <DETAIL>brief specific detail</DETAIL> (keep details short — names, places, descriptions)\n" +
+        "3. Dig for the meaningful stuff — nicknames, funny phrases, what they called the house, family sayings, sensory memories\n" +
+        "4. When the topic feels complete, ask: \"Is there anything else about " + closingQuestion + " you'd like me to capture before we move on?\"\n" +
+        "5. Then say a warm transition sentence and include <TOPIC_COMPLETE> at the very end\n\n" +
+        "TRANSITION EXAMPLE:\n" +
+        "\"I've got everything about your home beautifully captured. Now let's talk about your family. Who were the people that filled that house with life? <TOPIC_COMPLETE>\"\n\n" +
+        "DETAIL EXAMPLES:\n" +
+        "<DETAIL>Kansas City, Missouri</DETAIL>\n" +
+        "<DETAIL>Raytown neighborhood</DETAIL>\n" +
+        "<DETAIL>Called the house the green house on the corner</DETAIL>\n" +
+        "<DETAIL>Mom's nickname was Mama Jo</DETAIL>";
     }
 
     // Fallback for chapters without a framework
@@ -1959,11 +1958,11 @@ DETAIL EXAMPLES:
       "faith": "This section is ONLY about spiritual life — church, prayer, scripture, the moments they felt God closest.",
       "wisdom": "This section is about life's lessons and legacy — what they've learned, what they'd tell their younger self.",
     };
-    return `\n\nCURRENT SECTION: "${ch.title}"
-SCOPE: ${sectionScope[ch.id] || ""}
-Story territory to cover:
-${ch.prompts.map((p, i) => `${i + 1}. ${getQuestion(p)}`).join("\n")}
-Start with topic 1. Only introduce topic 2 when topic 1 feels fully explored.`;
+    return "\n\nCURRENT SECTION: \"" + ch.title + "\"\n" +
+      "SCOPE: " + (sectionScope[ch.id] || "") + "\n" +
+      "Story territory to cover:\n" +
+      ch.prompts.map((p, i) => (i + 1) + ". " + getQuestion(p)).join("\n") + "\n" +
+      "Start with topic 1. Only introduce topic 2 when topic 1 feels fully explored.";
   };
 
   const generateCustomPrompts = async (title) => {
