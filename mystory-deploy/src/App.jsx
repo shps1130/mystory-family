@@ -1368,6 +1368,7 @@ export default function MyStoryFamily() {
   const [showRecapButton, setShowRecapButton] = useState(false);
   const [sectionMemories, setSectionMemories] = useState([]);
   const [showMobileMemories, setShowMobileMemories] = useState(false);
+  const [pendingEditMessage, setPendingEditMessage] = useState(null);
   const [highContrast, setHighContrast] = useState(false);
 
   const messagesEndRef = useRef(null);
@@ -2431,6 +2432,11 @@ export default function MyStoryFamily() {
     showToast("✦ Section saved — beautifully done.");
     setShowPhotoPanel(false);
     completeChapter();
+  };
+
+  const confirmEdit = () => {
+    setPendingEditMessage(null);
+    sendMessage("Yes, go ahead");
   };
 
   const chapter = chapters[activeChapter];
