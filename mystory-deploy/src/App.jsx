@@ -177,7 +177,14 @@ YOUR RULES:
 - If they've only given you one or two short answers, you have not dug deep enough yet
 - You are writing a book together. Every exchange is a page. Make every page count.
 
-KNOWING WHEN A SECTION FEELS COMPLETE:
+CAPTURING MEMORIES FOR THE PROGRESS PANEL:
+After each substantive response where the person has shared something meaningful, include ONE warm memory tag at the very end of your response (after any question). Format:
+<MEMORY>You shared a memory about [warm, specific description of what they just told you]</MEMORY>
+Keep it warm and personal — reference specific details they mentioned. Examples:
+- <MEMORY>You shared a beautiful memory about growing up in a small white house in Kansas City</MEMORY>
+- <MEMORY>You described your mother's warm kitchen and the smell of her cooking</MEMORY>
+- <MEMORY>You talked about the neighborhood kids you played with on summer evenings</MEMORY>
+Do NOT include a MEMORY tag if the person's message was too short or unclear to summarize meaningfully.
 After 4-6 substantive exchanges where the person has shared meaningful stories, you should naturally sense when this section of their life feels well-covered. Watch for these signals:
 - They are giving shorter answers or seem to be wrapping up
 - The main themes of the section have been touched (childhood home, parents, early memories)
@@ -2001,10 +2008,13 @@ Start with topic 1. Only introduce topic 2 when topic 1 feels fully explored. Th
       const res = await fetch("/api/claude", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 1000, system: fullSystem, messages: next.map(m => ({ role: m.role, content: m.content })) }) });
       const data = await res.json();
       const rawText = data.content?.[0]?.text || "I'm here with you. Tell me more.";
-      // Check if Grace is signaling the section feels complete
       const hasRecap = rawText.includes("<SECTION_RECAP>");
-      const cleanText = rawText.replace(/<SECTION_RECAP>/g, "").trim();
+      // Extract memory bullets
+      const memoryMatches = [...rawText.matchAll(/<MEMORY>(.*?)<\/MEMORY>/gs)];
+      const newMemories = memoryMatches.map(m => m[1].trim());
+      const cleanText = rawText.replace(/<SECTION_RECAP>/g, "").replace(/<MEMORY>.*?<\/MEMORY>/gs, "").trim();
       setMessages([...next, { role: "assistant", content: cleanText }]);
+      if (newMemories.length > 0) setSectionMemories(prev => [...prev, ...newMemories]);
       if (hasRecap) setShowRecapButton(true);
       announce("New response received.");
     } catch { setMessages([...next, { role: "assistant", content: "I'm here. Take your time." }]); }
@@ -2107,6 +2117,7 @@ Start with topic 1. Only introduce topic 2 when topic 1 feels fully explored. Th
       setActivePrompt(0);
       setAnglesUsed(false);
       setShowRecapButton(false);
+      setSectionMemories([]);
       setChapterContext(buildChapterContext(chapters[nextC]));
       setMessages([{ role: "assistant", content: `You've completed ${chapters[nextC - 1]?.title || "that section"}. What you've shared is precious. 💛\n\nNow let's step into the next section of your life...\n\n*${getQuestion(chapters[nextC].prompts[0])}*` }]);
       announce(`Starting section: ${chapters[nextC].title}`);
@@ -2297,6 +2308,8 @@ Start with topic 1. Only introduce topic 2 when topic 1 feels fully explored. Th
   const userMessageCount = messages.filter(m => m.role === "user").length;
   const showChapterControls = userMessageCount >= 1;
   const [showRecapButton, setShowRecapButton] = useState(false);
+  const [sectionMemories, setSectionMemories] = useState([]); // warm bullet points built by Grace
+  const [showMobileMemories, setShowMobileMemories] = useState(false);
   const personaAvatar = persona?.avatar || "🌿";
   const personaAvatarBg = persona?.avatarBg || "linear-gradient(135deg,#5c3d1e,#8b5e34)";
 
@@ -3736,234 +3749,237 @@ Start with topic 1. Only introduce topic 2 when topic 1 feels fully explored. Th
               </div>
             </div>
           </nav>
-          <main id="main-content" style={{ flex: 1, display: "flex", flexDirection: "column", padding: "24px 40px 16px", width: "100%" }}>
+          {/* ── SPLIT SCREEN: Left = Grace, Right = Memory Panel ── */}
+          <div style={{ display: "flex", flex: 1, overflow: "hidden", minHeight: 0 }}>
 
-            {/* Section title */}
-            <div style={{ marginBottom: 16, display: "flex", alignItems: "center", gap: 12, justifyContent: "space-between" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <span style={{ fontSize: 28 }}>{chapter.icon}</span>
-                <div>
-                  <h2 style={{ fontSize: fs(28), fontWeight: 600, color: tc("#3d2b1a", "#1a0e00") }}>{chapter.title}</h2>
-                  {userMessageCount > 0 && (
-                    <p style={{ fontSize: fs(13), color: tc("#a89070", "#6b5030"), fontFamily: "'Lato',sans-serif", marginTop: 2 }}>
-                      {userMessageCount} {userMessageCount === 1 ? "story shared" : "stories shared"}
-                    </p>
-                  )}
+            {/* ── LEFT: Grace conversation ── */}
+            <main id="main-content" style={{ flex: 1, display: "flex", flexDirection: "column", padding: "16px 24px 12px", minWidth: 0, overflow: "hidden" }}>
+
+              {/* Section title + ? button */}
+              <div style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 10, justifyContent: "space-between", flexShrink: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontSize: 22 }}>{chapter.icon}</span>
+                  <h2 style={{ fontSize: fs(22), fontWeight: 600, color: tc("#3d2b1a", "#1a0e00") }}>{chapter.title}</h2>
                 </div>
+                <button onClick={replayTutorial} title="Show me how this works"
+                  style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(184,134,11,0.1)", border: "1.5px solid rgba(184,134,11,0.3)", color: "#b8860b", fontFamily: "'Lato',sans-serif", fontSize: 14, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  ?
+                </button>
               </div>
-              {/* ? Help button — replays tutorial */}
-              <button onClick={replayTutorial} title="Show me how this works"
-                style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(184,134,11,0.1)", border: "1.5px solid rgba(184,134,11,0.3)", color: "#b8860b", fontFamily: "'Lato',sans-serif", fontSize: 16, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                ?
-              </button>
-            </div>
 
-            {/* Book complete celebration video */}
-            {messages.some(m => m.content?.includes("extraordinary")) && (
-              <div style={{ marginBottom: 16, borderRadius: 12, overflow: "hidden", border: "1px solid rgba(180,140,80,0.2)", boxShadow: "0 4px 20px rgba(93,61,26,0.1)", background: "#000", position: "relative", paddingBottom: "56.25%", height: 0 }}>
-                <iframe
-                  src="https://app.heygen.com/embeds/24c71acaec054add8b55ae4053297433"
-                  title="Your legacy is complete"
-                  frameBorder="0"
-                  allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
-                  allowFullScreen
-                  style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }}
-                />
-              </div>
-            )}
+              {/* Book complete celebration video */}
+              {messages.some(m => m.content?.includes("extraordinary")) && (
+                <div style={{ marginBottom: 14, borderRadius: 12, overflow: "hidden", border: "1px solid rgba(180,140,80,0.2)", background: "#000", position: "relative", paddingBottom: "56.25%", height: 0, flexShrink: 0 }}>
+                  <iframe src="https://app.heygen.com/embeds/24c71acaec054add8b55ae4053297433" title="Your legacy is complete" frameBorder="0" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowFullScreen style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }} />
+                </div>
+              )}
 
-            <div ref={messagesContainerRef} role="log" aria-label="Conversation" aria-live="polite" style={{ flex: 1, overflowY: "auto", paddingBottom: 16, display: "flex", flexDirection: "column", gap: 18, minHeight: 320, maxHeight: 520 }}>
-
-              {messages.map((msg, i) => (
-                <div key={i}>
-                  <div style={{ display: "flex", gap: 12, flexDirection: msg.role === "user" ? "row-reverse" : "row", animation: "fadeUp 0.35s ease forwards" }}>
-                    <div style={{ width: 36, height: 36, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: msg.role === "user" ? 12 : 14, background: msg.role === "user" ? "linear-gradient(135deg,#b8860b,#d4a843)" : personaAvatarBg, color: "#fdf6ec", fontFamily: "'Lato',sans-serif", fontWeight: 700, marginTop: 2 }} aria-hidden="true">
-                      {msg.role === "user" ? "You" : personaAvatar}
-                    </div>
-                    <div className={msg.role === "assistant" ? "msg-ai" : ""}
-                      style={{ maxWidth: "88%", padding: "14px 18px", borderRadius: msg.role === "user" ? "14px 4px 14px 14px" : "4px 14px 14px 14px", lineHeight: 1.85, fontSize: fs(18), background: msg.role === "user" ? "linear-gradient(135deg,#5c3d1e,#7a5030)" : "white", color: msg.role === "user" ? "#fdf6ec" : tc("#3d2b1a", "#1a0e00"), boxShadow: msg.role === "user" ? "none" : "0 2px 10px rgba(93,61,26,0.07)", border: highContrast && msg.role === "assistant" ? "2px solid rgba(93,61,26,0.2)" : "none" }}
-                      role={msg.role === "assistant" ? "article" : undefined}
-                      aria-label={msg.role === "assistant" ? `${persona?.name || "Guide"} says` : "Your response"}>
-                      {renderText(msg.content)}
-                    </div>
-                  </div>
-                  {/* Revision UI for ghostwritten messages */}
-                  {msg.role === "user" && msg.isGhostwritten && (
-                    <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 6, paddingRight: 48 }}>
-                      {revisingIdx === i ? (
-                        <div style={{ display: "flex", gap: 8, alignItems: "flex-end", maxWidth: "88%", width: "100%", animation: "slideDown 0.2s ease forwards" }}>
-                          <div style={{ flex: 1 }}>
-                            <label htmlFor={`revision-${i}`} style={{ position: "absolute", left: -9999, width: 1 }}>What needs to change?</label>
-                            <input id={`revision-${i}`} value={revisionInput} onChange={e => setRevisionInput(e.target.value)}
-                              onKeyDown={e => { if (e.key === "Enter") reviseGhostwritten(i, msg.content, revisionInput); if (e.key === "Escape") { setRevisingIdx(null); setRevisionInput(""); } }}
-                              placeholder="What's not quite right? (e.g. we didn't move right away)"
-                              autoFocus
-                              style={{ width: "100%", border: "1.5px solid rgba(184,134,11,0.5)", borderRadius: 8, padding: "9px 13px", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(15), color: tc("#3d2b1a", "#1a0e00"), background: "#fffdf5", outline: "none" }} />
-                          </div>
-                          <button onClick={() => reviseGhostwritten(i, msg.content, revisionInput)} disabled={!revisionInput.trim() || revisingLoading}
-                            style={{ background: "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", borderRadius: 8, padding: "9px 16px", fontFamily: "'Lato',sans-serif", fontSize: fs(12), fontWeight: 600, cursor: revisionInput.trim() ? "pointer" : "not-allowed", opacity: revisionInput.trim() ? 1 : 0.4, whiteSpace: "nowrap", minHeight: 40 }}>
-                            {revisingLoading ? "Fixing..." : "Fix it"}
-                          </button>
-                          <button onClick={() => { setRevisingIdx(null); setRevisionInput(""); }} aria-label="Cancel revision"
-                            style={{ background: "none", border: "1.5px solid rgba(180,140,80,0.3)", color: "#7a5c3a", borderRadius: 8, padding: "9px 12px", cursor: "pointer", fontFamily: "'Lato',sans-serif", fontSize: fs(13), minHeight: 40 }}>✕</button>
-                        </div>
-                      ) : (
-                        <button onClick={() => { setRevisingIdx(i); setRevisionInput(""); }}
-                          style={{ background: "none", border: "none", padding: "4px 6px", color: "rgba(253,246,236,0.55)", fontFamily: "'Lato',sans-serif", fontSize: fs(11), cursor: "pointer", letterSpacing: "0.3px", minHeight: 28, display: "flex", alignItems: "center", gap: 5, transition: "color 0.15s" }}
-                          onMouseEnter={e => e.target.style.color = "rgba(253,246,236,0.9)"}
-                          onMouseLeave={e => e.target.style.color = "rgba(253,246,236,0.55)"}
-                          aria-label="Something's not right — correct this paragraph">
-                          ✦ Something's off? Correct it
-                        </button>
-                      )}
-                    </div>
-                  )}
-                  {msg.role === "assistant" && i === 0 && showAngles && (
-                    <div style={{ marginLeft: 48, marginTop: 14 }}>
-                      <p style={{ fontSize: fs(12), color: tc("#a89070", "#5c3d1e"), fontFamily: "'Lato',sans-serif", letterSpacing: "1px", textTransform: "uppercase", marginBottom: 10 }}>Not sure where to start? Try one of these —</p>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }} role="group" aria-label="Story starting points">
-                        {currentAngles.map((angle, ai) => (
-                          <button key={ai} className="angle-chip" onClick={() => { setAnglesUsed(true); sendMessage(angle); }}
-                            style={{ background: "rgba(93,61,26,0.05)", border: `${highContrast ? 2 : 1}px solid rgba(139,94,52,0.25)`, borderRadius: 10, padding: "12px 18px", textAlign: "left", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(16), color: tc("#5c3d1e", "#2a1000"), lineHeight: 1.5, animation: `angleIn 0.4s ${ai * 0.08}s ease both`, display: "flex", alignItems: "center", gap: 10 }}>
-                            <span style={{ fontSize: 13, color: "#b8860b", fontFamily: "'Lato',sans-serif", flexShrink: 0 }} aria-hidden="true">→</span>{angle}
-                          </button>
-                        ))}
+              {/* Messages — scrollable */}
+              <div ref={messagesContainerRef} role="log" aria-label="Conversation" aria-live="polite"
+                style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 14, paddingBottom: 8, paddingRight: 4 }}>
+                {messages.map((msg, i) => (
+                  <div key={i}>
+                    <div style={{ display: "flex", gap: 10, flexDirection: msg.role === "user" ? "row-reverse" : "row", animation: "fadeUp 0.35s ease forwards" }}>
+                      <div style={{ width: 32, height: 32, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: msg.role === "user" ? 10 : 13, background: msg.role === "user" ? "linear-gradient(135deg,#b8860b,#d4a843)" : personaAvatarBg, color: "#fdf6ec", fontFamily: "'Lato',sans-serif", fontWeight: 700, marginTop: 2 }} aria-hidden="true">
+                        {msg.role === "user" ? "You" : personaAvatar}
+                      </div>
+                      <div className={msg.role === "assistant" ? "msg-ai" : ""}
+                        style={{ maxWidth: "88%", padding: "12px 16px", borderRadius: msg.role === "user" ? "14px 4px 14px 14px" : "4px 14px 14px 14px", lineHeight: 1.85, fontSize: fs(17), background: msg.role === "user" ? "linear-gradient(135deg,#5c3d1e,#7a5030)" : "white", color: msg.role === "user" ? "#fdf6ec" : tc("#3d2b1a", "#1a0e00"), boxShadow: msg.role === "user" ? "none" : "0 2px 10px rgba(93,61,26,0.07)", border: highContrast && msg.role === "assistant" ? "2px solid rgba(93,61,26,0.2)" : "none" }}
+                        role={msg.role === "assistant" ? "article" : undefined}
+                        aria-label={msg.role === "assistant" ? `${persona?.name || "Guide"} says` : "Your response"}>
+                        {renderText(msg.content)}
                       </div>
                     </div>
-                  )}
+                    {msg.role === "user" && msg.isGhostwritten && (
+                      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 6, paddingRight: 42 }}>
+                        {revisingIdx === i ? (
+                          <div style={{ display: "flex", gap: 8, alignItems: "flex-end", maxWidth: "88%", width: "100%", animation: "slideDown 0.2s ease forwards" }}>
+                            <div style={{ flex: 1 }}>
+                              <label htmlFor={`revision-${i}`} style={{ position: "absolute", left: -9999, width: 1 }}>What needs to change?</label>
+                              <input id={`revision-${i}`} value={revisionInput} onChange={e => setRevisionInput(e.target.value)}
+                                onKeyDown={e => { if (e.key === "Enter") reviseGhostwritten(i, msg.content, revisionInput); if (e.key === "Escape") { setRevisingIdx(null); setRevisionInput(""); } }}
+                                placeholder="What's not quite right?"
+                                autoFocus
+                                style={{ width: "100%", border: "1.5px solid rgba(184,134,11,0.5)", borderRadius: 8, padding: "8px 12px", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(15), color: tc("#3d2b1a", "#1a0e00"), background: "#fffdf5", outline: "none" }} />
+                            </div>
+                            <button onClick={() => reviseGhostwritten(i, msg.content, revisionInput)} disabled={!revisionInput.trim() || revisingLoading}
+                              style={{ background: "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", borderRadius: 8, padding: "8px 14px", fontFamily: "'Lato',sans-serif", fontSize: fs(12), fontWeight: 600, cursor: revisionInput.trim() ? "pointer" : "not-allowed", opacity: revisionInput.trim() ? 1 : 0.4, whiteSpace: "nowrap", minHeight: 38 }}>
+                              {revisingLoading ? "Fixing..." : "Fix it"}
+                            </button>
+                            <button onClick={() => { setRevisingIdx(null); setRevisionInput(""); }} aria-label="Cancel"
+                              style={{ background: "none", border: "1.5px solid rgba(180,140,80,0.3)", color: "#7a5c3a", borderRadius: 8, padding: "8px 10px", cursor: "pointer", fontFamily: "'Lato',sans-serif", fontSize: fs(13), minHeight: 38 }}>✕</button>
+                          </div>
+                        ) : (
+                          <button onClick={() => { setRevisingIdx(i); setRevisionInput(""); }}
+                            style={{ background: "none", border: "none", padding: "4px 6px", color: "rgba(253,246,236,0.55)", fontFamily: "'Lato',sans-serif", fontSize: fs(11), cursor: "pointer", minHeight: 28 }}>
+                            ✦ Something's off? Correct it
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {pendingEditMessage && !loading && (
+                  <div style={{ display: "flex", justifyContent: "center", marginTop: 4 }}>
+                    <button onClick={confirmEdit}
+                      style={{ background: "linear-gradient(135deg,#b8860b,#d4a843)", color: "#fdf6ec", border: "none", padding: "12px 28px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(17), cursor: "pointer", boxShadow: "0 4px 14px rgba(184,134,11,0.3)", animation: "fadeUp 0.3s ease forwards" }}>
+                      ✦ Yes, go ahead
+                    </button>
+                  </div>
+                )}
+                {loading && (
+                  <div style={{ display: "flex", gap: 10 }} role="status" aria-label={`${persona?.name || "Guide"} is responding`}>
+                    <div style={{ width: 32, height: 32, borderRadius: "50%", background: personaAvatarBg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13 }} aria-hidden="true">{personaAvatar}</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "12px 16px", background: "white", borderRadius: "4px 14px 14px 14px", boxShadow: "0 2px 10px rgba(93,61,26,0.07)" }}>
+                      {[0, 0.2, 0.4].map((d, i) => <div key={i} style={{ width: 7, height: 7, background: "#c9a87a", borderRadius: "50%", animation: `bounce 1.2s ${d}s infinite` }} />)}
+                    </div>
+                  </div>
+                )}
+                <div ref={messagesEndRef} aria-hidden="true" />
+              </div>
+
+              {/* Input */}
+              <div style={{ display: "flex", flexDirection: "column", flexShrink: 0, marginTop: 10 }}>
+                <div style={{ fontSize: fs(13), fontWeight: 700, color: tc("#5c3d1e","#2a1000"), fontFamily: "'Lato',sans-serif", marginBottom: 4 }}>
+                  ✦ Type your answer here
                 </div>
-              ))}
-              {loading && (
-                <div style={{ display: "flex", gap: 12 }} role="status" aria-label={`${persona?.name || "Guide"} is responding`}>
-                  <div style={{ width: 36, height: 36, borderRadius: "50%", background: personaAvatarBg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }} aria-hidden="true">{personaAvatar}</div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "14px 18px", background: "white", borderRadius: "4px 14px 14px 14px", boxShadow: "0 2px 10px rgba(93,61,26,0.07)" }}>
-                    {[0, 0.2, 0.4].map((d, i) => <div key={i} style={{ width: 7, height: 7, background: "#c9a87a", borderRadius: "50%", animation: `bounce 1.2s ${d}s infinite` }} />)}
+                <div style={{ display: "flex", gap: 8, alignItems: "flex-end", padding: "12px 14px 10px", background: "white", borderRadius: "14px 14px 0 0", border: `${highContrast ? 3 : 2}px solid ${highContrast ? "#9a7a50" : "#b8860b"}`, borderBottom: "none" }}>
+                  <label htmlFor="story-input" style={{ position: "absolute", left: -9999, width: 1 }}>Your story response</label>
+                  <textarea id="story-input" ref={textareaRef} value={input}
+                    onChange={e => { setInput(e.target.value); if (e.target.value) setAnglesUsed(true); }}
+                    onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+                    placeholder="Share your story here — there's no wrong way to begin..."
+                    aria-label="Type your story here. Press Enter when ready."
+                    rows={2}
+                    style={{ flex: 1, border: "none", outline: "none", resize: "none", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(18), color: tc("#3d2b1a", "#1a0e00"), background: "transparent", lineHeight: 1.7, minHeight: 52, maxHeight: 140, overflowY: "auto" }} />
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
+                    <button onClick={toggleMic} aria-label={isListening ? "Stop listening" : "Start voice input"}
+                      style={{ width: 44, height: 44, borderRadius: "50%", background: isListening ? "linear-gradient(135deg,#c0392b,#e74c3c)" : "rgba(184,134,11,0.12)", border: `2px solid ${isListening ? "#c0392b" : "rgba(184,134,11,0.3)"}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s" }}>
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <rect x="9" y="2" width="6" height="11" rx="3" fill={isListening ? "white" : "#b8860b"} />
+                        <path d="M5 10a7 7 0 0014 0" stroke={isListening ? "white" : "#b8860b"} strokeWidth="2" strokeLinecap="round" fill="none"/>
+                        <line x1="12" y1="19" x2="12" y2="22" stroke={isListening ? "white" : "#b8860b"} strokeWidth="2" strokeLinecap="round"/>
+                        <line x1="9" y1="22" x2="15" y2="22" stroke={isListening ? "white" : "#b8860b"} strokeWidth="2" strokeLinecap="round"/>
+                      </svg>
+                    </button>
+                    <button className="send-btn" onClick={() => sendMessage()} disabled={!input.trim() || loading} aria-label="Send your response"
+                      style={{ width: 44, height: 44, borderRadius: "50%", background: input.trim() && !loading ? personaAvatarBg : "rgba(139,94,52,0.2)", border: "none", cursor: input.trim() && !loading ? "pointer" : "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s", opacity: (!input.trim() || loading) ? 0.4 : 1 }}>
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M22 2L11 13" stroke="#fdf6ec" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="#fdf6ec" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    </button>
+                  </div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 14px 10px", background: "white", borderRadius: "0 0 14px 14px", border: `${highContrast ? 3 : 2}px solid ${highContrast ? "#9a7a50" : "#b8860b"}`, borderTop: "1px solid rgba(180,140,80,0.15)" }}>
+                  <span style={{ fontSize: fs(12), color: tc("#5c3d1e","#2a1000"), fontFamily: "'Lato',sans-serif", fontWeight: 600 }}>Press Enter or click Send when ready</span>
+                  <button onClick={() => { setMessages(prev => [...prev, { role: "assistant", content: "Your story is saved. ✦\n\nEverything you've shared is safe — come back anytime and I'll be right here waiting for you." }]); }}
+                    style={{ background: "none", border: "1px solid rgba(180,140,80,0.35)", color: tc("#7a5030","#3d2b1a"), fontFamily: "'Lato',sans-serif", fontSize: fs(12), padding: "6px 14px", borderRadius: 100, cursor: "pointer", whiteSpace: "nowrap", minHeight: 34, marginLeft: 10 }}>
+                    I'm done for now
+                  </button>
+                </div>
+              </div>
+
+              {/* Photos */}
+              <div style={{ marginTop: 8, flexShrink: 0 }} id="photo-section">
+                <button className="photo-btn" onClick={() => setShowPhotoPanel(v => !v)} aria-expanded={showPhotoPanel} aria-controls="photo-panel"
+                  style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 14px", background: showPhotoPanel ? "rgba(184,134,11,0.08)" : "rgba(253,246,236,0.9)", border: `${highContrast ? 2 : 1.5}px solid rgba(180,140,80,0.3)`, borderRadius: 10, cursor: "pointer", width: "fit-content", minHeight: 40 }}>
+                  <span aria-hidden="true">📷</span>
+                  <span style={{ fontSize: fs(13), color: tc("#5c3d1e", "#2a1000"), fontFamily: "'Lato',sans-serif" }}>
+                    {(photos[chapter.id || chapter.title] || []).length > 0 ? `${(photos[chapter.id || chapter.title] || []).length} photo${(photos[chapter.id || chapter.title] || []).length !== 1 ? "s" : ""} added` : "Add photos to this section"}
+                  </span>
+                  <span style={{ fontSize: 11, color: "#b8860b" }} aria-hidden="true">{showPhotoPanel ? "▲" : "▼"}</span>
+                </button>
+                {showPhotoPanel && (
+                  <div id="photo-panel" style={{ background: "white", borderRadius: 12, border: "1px solid rgba(180,140,80,0.2)", padding: "12px 14px", marginTop: 6, animation: "slideDown 0.25s ease forwards" }}>
+                    {chapter.photoPrompt && <p style={{ fontSize: fs(13), color: tc("#6b5540", "#3d2b1a"), fontStyle: "italic", marginBottom: 8, lineHeight: 1.65 }}>💡 {chapter.photoPrompt}</p>}
+                    <PhotoUpload chapterId={chapter.id || chapter.title} photos={photos} onAdd={addPhoto} onRemove={removePhoto} fs={fs} />
+                  </div>
+                )}
+              </div>
+
+              {/* Grace recap button */}
+              {showRecapButton && (
+                <div style={{ marginTop: 12, background: "rgba(184,134,11,0.06)", border: "2px solid rgba(184,134,11,0.35)", borderRadius: 14, padding: "16px 20px", display: "flex", flexDirection: "column", alignItems: "center", gap: 10, animation: "fadeUp 0.4s ease forwards", flexShrink: 0 }}>
+                  <p style={{ fontSize: fs(15), color: tc("#5c3d1e","#2a1000"), fontFamily: "'Lato',sans-serif", textAlign: "center", lineHeight: 1.7 }}>
+                    {persona?.name || "Grace"} feels this section is beautifully covered. Ready to move on?
+                  </p>
+                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
+                    <button onClick={() => { setShowRecapButton(false); chapterComplete(); }}
+                      style={{ background: "linear-gradient(135deg,#b8860b,#d4a843)", color: "#fdf6ec", border: "none", padding: "12px 28px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(17), cursor: "pointer", minHeight: 46 }}>
+                      Yes, I'm Ready to Move On ✦
+                    </button>
+                    <button onClick={() => setShowRecapButton(false)}
+                      style={{ background: "white", border: "2px solid rgba(180,140,80,0.3)", color: tc("#6b5030","#3d2b1a"), fontFamily: "'Lato',sans-serif", fontSize: fs(13), padding: "12px 20px", borderRadius: 100, cursor: "pointer", minHeight: 46 }}>
+                      I have more to share
+                    </button>
                   </div>
                 </div>
               )}
-              <div ref={messagesEndRef} aria-hidden="true" />
-            </div>
 
-            {/* Input */}
-            <div style={{ display: "flex", flexDirection: "column" }}>
-              {/* Input label */}
-              <div style={{ fontSize: fs(13), fontWeight: 700, color: tc("#5c3d1e","#2a1000"), fontFamily: "'Lato',sans-serif", marginBottom: 6, letterSpacing: "0.3px" }}>
-                ✦ Type your answer here
-              </div>
-              <div style={{ display: "flex", gap: 10, alignItems: "flex-end", padding: "16px 18px 12px", background: "white", borderRadius: "14px 14px 0 0", border: `${highContrast ? 3 : 2}px solid ${highContrast ? "#9a7a50" : "#b8860b"}`, borderBottom: "none", boxShadow: "0 -2px 12px rgba(184,134,11,0.08)" }}>
-                <label htmlFor="story-input" style={{ position: "absolute", left: -9999, width: 1 }}>Your story response</label>
-                <textarea id="story-input" ref={textareaRef} value={input}
-                  onChange={e => { setInput(e.target.value); if (e.target.value) setAnglesUsed(true); }}
-                  onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-                  placeholder="Share your story here — there's no wrong way to begin..."
-                  aria-label="Type your story here. Press the Send button or hit Enter when ready."
-                  rows={3}
-                  style={{ flex: 1, border: "none", outline: "none", resize: "none", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(20), color: tc("#3d2b1a", "#1a0e00"), background: "transparent", lineHeight: 1.7, minHeight: 72, maxHeight: 180, overflowY: "auto" }} />
-                <div style={{ display: "flex", flexDirection: "column", gap: 8, flexShrink: 0 }}>
-                  <button onClick={toggleMic} aria-label={isListening ? "Stop listening" : "Start voice input"} title={isListening ? "Tap to stop" : "Tap to speak"}
-                    style={{ width: 52, height: 52, borderRadius: "50%", background: isListening ? "linear-gradient(135deg,#c0392b,#e74c3c)" : "rgba(184,134,11,0.12)", border: `2px solid ${isListening ? "#c0392b" : "rgba(184,134,11,0.3)"}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s", animation: isListening ? "pulse 1.5s ease-in-out infinite" : "none" }}>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                      <rect x="9" y="2" width="6" height="11" rx="3" fill={isListening ? "white" : "#b8860b"} />
-                      <path d="M5 10a7 7 0 0014 0" stroke={isListening ? "white" : "#b8860b"} strokeWidth="2" strokeLinecap="round" fill="none"/>
-                      <line x1="12" y1="19" x2="12" y2="22" stroke={isListening ? "white" : "#b8860b"} strokeWidth="2" strokeLinecap="round"/>
-                      <line x1="9" y1="22" x2="15" y2="22" stroke={isListening ? "white" : "#b8860b"} strokeWidth="2" strokeLinecap="round"/>
-                    </svg>
+              {/* Section complete */}
+              {!showRecapButton && (
+                <div id="tutorial-step-5" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, marginTop: 10, flexShrink: 0 }}>
+                  <button className="complete-btn" onClick={userMessageCount > 0 ? chapterComplete : undefined}
+                    disabled={userMessageCount === 0}
+                    style={{ background: userMessageCount > 0 ? "linear-gradient(135deg,#5c3d1e,#8b5e34)" : "rgba(139,94,52,0.2)", color: userMessageCount > 0 ? "#fdf6ec" : "#a89070", border: "none", padding: "12px 30px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(15), cursor: userMessageCount > 0 ? "pointer" : "not-allowed", minHeight: 46, transition: "all 0.3s" }}>
+                    ✦ This section feels complete
                   </button>
-                  <button className="send-btn" onClick={() => sendMessage()} disabled={!input.trim() || loading} aria-label="Send your response"
-                    style={{ width: 52, height: 52, borderRadius: "50%", background: input.trim() && !loading ? personaAvatarBg : "rgba(139,94,52,0.2)", border: "none", cursor: input.trim() && !loading ? "pointer" : "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s", opacity: (!input.trim() || loading) ? 0.4 : 1 }}>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M22 2L11 13" stroke="#fdf6ec" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="#fdf6ec" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                  </button>
-                </div>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 18px 14px", background: "white", borderRadius: "0 0 14px 14px", border: `${highContrast ? 3 : 2}px solid ${highContrast ? "#9a7a50" : "#b8860b"}`, borderTop: "1px solid rgba(180,140,80,0.15)", boxShadow: "0 4px 12px rgba(184,134,11,0.06)" }}>
-                <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                  <span style={{ fontSize: fs(14), color: tc("#5c3d1e","#2a1000"), fontFamily: "'Lato',sans-serif", fontWeight: 600 }}>
-                    Press the Send button → or hit Enter on your keyboard when ready
-                  </span>
-                  <span style={{ fontSize: fs(12), color: tc("#b8a070", "#6b5030"), fontFamily: "'Lato',sans-serif", fontStyle: "italic" }}>
-                    Or just start typing and {persona?.name || "Grace"}'ll help you shape it into your story
-                  </span>
-                </div>
-                <button className="help-btn" onClick={helpMeWrite} disabled={!input.trim() || writingHelp} aria-label="Help me write this"
-                  style={{ background: input.trim() ? "rgba(184,134,11,0.1)" : "transparent", border: `${highContrast ? 2 : 1}px solid ${input.trim() ? "rgba(184,134,11,0.35)" : "rgba(180,140,80,0.2)"}`, color: input.trim() ? tc("#7a5030", "#3d2b1a") : tc("#c4a882", "#8b7355"), fontFamily: "'Lato',sans-serif", fontSize: fs(13), fontWeight: 600, padding: "10px 20px", borderRadius: 100, cursor: input.trim() ? "pointer" : "default", whiteSpace: "nowrap", minHeight: 44, flexShrink: 0, marginLeft: 16 }}>
-                  {writingHelp ? "Shaping your story..." : `✦ Help me write this`}
-                </button>
-              </div>
-            </div>
-
-            {/* Photos */}
-            <div style={{ marginTop: 10 }}>
-              <button className="photo-btn" onClick={() => setShowPhotoPanel(v => !v)} aria-expanded={showPhotoPanel} aria-controls="photo-panel"
-                style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", background: showPhotoPanel ? "rgba(184,134,11,0.08)" : "rgba(253,246,236,0.9)", border: `${highContrast ? 2 : 1.5}px solid rgba(180,140,80,0.3)`, borderRadius: 10, cursor: "pointer", width: "fit-content", minHeight: 44 }}>
-                <span aria-hidden="true">📷</span>
-                <span style={{ fontSize: fs(13), color: tc("#5c3d1e", "#2a1000"), fontFamily: "'Lato',sans-serif" }}>
-                  {(photos[chapter.id || chapter.title] || []).length > 0 ? `${(photos[chapter.id || chapter.title] || []).length} photo${(photos[chapter.id || chapter.title] || []).length !== 1 ? "s" : ""} added` : "Add photos to this chapter"}
-                </span>
-                <span style={{ fontSize: 11, color: "#b8860b", fontFamily: "'Lato',sans-serif" }} aria-hidden="true">{showPhotoPanel ? "▲" : "▼"}</span>
-              </button>
-              {showPhotoPanel && (
-                <div id="photo-panel" style={{ background: "white", borderRadius: 12, border: "1px solid rgba(180,140,80,0.2)", padding: "14px 16px", marginTop: 8, animation: "slideDown 0.25s ease forwards" }}>
-                  {chapter.photoPrompt && <p style={{ fontSize: fs(14), color: tc("#6b5540", "#3d2b1a"), fontStyle: "italic", marginBottom: 10, lineHeight: 1.65 }}>💡 {chapter.photoPrompt}</p>}
-                  <PhotoUpload chapterId={chapter.id || chapter.title} photos={photos} onAdd={addPhoto} onRemove={removePhoto} fs={fs} />
+                  {userMessageCount === 0 && (
+                    <p style={{ fontSize: fs(12), color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", fontStyle: "italic" }}>
+                      Start sharing above — this activates when you're ready
+                    </p>
+                  )}
+                  {userMessageCount > 0 && (
+                    <>
+                      <button className="next-btn" onClick={exploreNewAngle} disabled={loading}
+                        style={{ background: "transparent", border: `${highContrast ? 2 : 1.5}px solid rgba(180,140,80,0.4)`, color: tc("#7a5030", "#3d2b1a"), fontFamily: "'Lato',sans-serif", fontSize: fs(12), letterSpacing: "1px", textTransform: "uppercase", padding: "8px 18px", borderRadius: 100, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.4 : 1, minHeight: 38 }}>
+                        Take me somewhere new in this section →
+                      </button>
+                      {chapters.length > 1 && activeChapter < chapters.length - 1 && (
+                        <button onClick={() => {
+                          if (window.confirm(`Skip ${chapter.title}? You can always come back.`)) {
+                            const skipped = chapters.filter((_, i) => i !== activeChapter);
+                            setChapters(skipped);
+                            showToast(`${chapter.title} skipped.`);
+                          }
+                        }}
+                          style={{ background: "none", border: "none", color: tc("#c4a882","#6b5030"), fontFamily: "'Lato',sans-serif", fontSize: fs(12), cursor: "pointer", textDecoration: "underline", padding: "4px 8px", minHeight: 30 }}>
+                          Skip this section
+                        </button>
+                      )}
+                    </>
+                  )}
                 </div>
               )}
-            </div>
+            </main>
 
-            {/* Grace recap button — appears when Grace signals section is complete */}
-            {showRecapButton && (
-              <div style={{ marginTop: 16, background: "linear-gradient(135deg,rgba(184,134,11,0.08),rgba(93,61,26,0.04))", border: "2px solid rgba(184,134,11,0.35)", borderRadius: 16, padding: "20px 24px", display: "flex", flexDirection: "column", alignItems: "center", gap: 12, animation: "fadeUp 0.4s ease forwards" }}>
-                <p style={{ fontSize: fs(16), color: tc("#5c3d1e","#2a1000"), fontFamily: "'Lato',sans-serif", textAlign: "center", lineHeight: 1.7 }}>
-                  {persona?.name || "Grace"} feels this section is beautifully covered. Ready to move on?
+            {/* ── RIGHT: Memory progress panel ── */}
+            <aside style={{ width: 260, flexShrink: 0, borderLeft: "1px solid rgba(180,140,80,0.18)", background: "white", display: "flex", flexDirection: "column", padding: "18px 14px", overflowY: "auto" }}>
+              <div style={{ fontSize: fs(11), letterSpacing: "2px", textTransform: "uppercase", color: "#b8860b", fontFamily: "'Lato',sans-serif", marginBottom: 12 }}>
+                📖 Your story so far
+              </div>
+              {sectionMemories.length === 0 ? (
+                <p style={{ fontSize: fs(13), color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", fontStyle: "italic", lineHeight: 1.7, textAlign: "center", marginTop: 12 }}>
+                  Your memories will appear here as you share them with Grace.
                 </p>
-                <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
-                  <button onClick={() => { setShowRecapButton(false); chapterComplete(); }}
-                    style={{ background: "linear-gradient(135deg,#b8860b,#d4a843)", color: "#fdf6ec", border: "none", padding: "16px 40px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(20), cursor: "pointer", boxShadow: "0 6px 24px rgba(184,134,11,0.35)", minHeight: 56, transition: "all 0.2s" }}>
-                    Yes, I'm Ready to Move On ✦
-                  </button>
-                  <button onClick={() => setShowRecapButton(false)}
-                    style={{ background: "white", border: "2px solid rgba(180,140,80,0.3)", color: tc("#6b5030","#3d2b1a"), fontFamily: "'Lato',sans-serif", fontSize: fs(14), padding: "16px 24px", borderRadius: 100, cursor: "pointer", minHeight: 56 }}>
-                    I have more to share
-                  </button>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {sectionMemories.map((mem, i) => (
+                    <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start", animation: "fadeUp 0.4s ease forwards" }}>
+                      <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#b8860b", flexShrink: 0, marginTop: 6 }} />
+                      <p style={{ fontSize: fs(13), color: tc("#5c4a35","#2a1a0a"), fontFamily: "'Lato',sans-serif", lineHeight: 1.65, margin: 0 }}>{mem}</p>
+                    </div>
+                  ))}
                 </div>
-              </div>
-            )}
-
-            {/* Section complete button — always visible, greyed until first message */}
-            {!showRecapButton && (
-              <div id="tutorial-step-5" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, marginTop: 14 }}>
-                <button className="complete-btn" onClick={userMessageCount > 0 ? chapterComplete : undefined}
-                  disabled={userMessageCount === 0}
-                  style={{ background: userMessageCount > 0 ? "linear-gradient(135deg,#5c3d1e,#8b5e34)" : "rgba(139,94,52,0.2)", color: userMessageCount > 0 ? "#fdf6ec" : "#a89070", border: "none", padding: "14px 36px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(17), letterSpacing: 0.5, cursor: userMessageCount > 0 ? "pointer" : "not-allowed", boxShadow: userMessageCount > 0 ? "0 4px 16px rgba(93,61,26,0.2)" : "none", minHeight: 52, transition: "all 0.3s" }}>
-                  ✦ This section feels complete
-                </button>
-                {userMessageCount === 0 && (
-                  <p style={{ fontSize: fs(12), color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", fontStyle: "italic" }}>
-                    Start sharing your story above — this button will activate when you're ready
-                  </p>
-                )}
-                {userMessageCount > 0 && (
-                  <>
-                    <button className="next-btn" onClick={exploreNewAngle} disabled={loading}
-                      style={{ background: "transparent", border: `${highContrast ? 2 : 1.5}px solid rgba(180,140,80,0.4)`, color: tc("#7a5030", "#3d2b1a"), fontFamily: "'Lato',sans-serif", fontSize: fs(12), letterSpacing: "1px", textTransform: "uppercase", padding: "10px 22px", borderRadius: 100, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.4 : 1, minHeight: 44, transition: "all 0.2s" }}>
-                      Take me somewhere new in this section →
-                    </button>
-                    {chapters.length > 1 && activeChapter < chapters.length - 1 && (
-                      <button onClick={() => {
-                        if (window.confirm(`Skip ${chapter.title}? This section won't appear in your book, but you can always come back and add it later.`)) {
-                          const skipped = chapters.filter((_, i) => i !== activeChapter);
-                          setChapters(skipped);
-                          showToast(`${chapter.title} skipped — you can add it later from your book.`);
-                        }
-                      }}
-                        style={{ background: "none", border: "none", color: tc("#c4a882","#6b5030"), fontFamily: "'Lato',sans-serif", fontSize: fs(12), cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3, padding: "4px 8px", minHeight: 32 }}>
-                        Skip this section
-                      </button>
-                    )}
-                  </>
+              )}
+              <div style={{ marginTop: "auto", paddingTop: 14 }}>
+                {sectionMemories.length > 0 && (
+                  <button onClick={chapterComplete}
+                    style={{ background: "linear-gradient(135deg,#b8860b,#d4a843)", color: "#fdf6ec", border: "none", padding: "13px 16px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(15), cursor: "pointer", width: "100%", boxShadow: "0 4px 14px rgba(184,134,11,0.28)", transition: "all 0.2s" }}>
+                    See what we've written ✦
+                  </button>
                 )}
               </div>
-            )}
-          </main>
+            </aside>
+          </div>
         </div>
       )}
 
