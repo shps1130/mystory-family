@@ -1872,21 +1872,92 @@ export default function MyStoryFamily() {
   };
 
   // ── CHAT LOGIC ────────────────────────────────────────────────────────────
-  const buildChapterContext = (ch) => {
-    const sectionScope = {
-      "early-life": "This section is ONLY about childhood and early family life — where they were born, their home, their parents, and earliest memories. If they bring up anything from adulthood, gently redirect: 'That's a wonderful story — let's save that for when we get to [the right section]. Right now I want to stay in your early years.'",
-      "becoming-you": "This section is ONLY about early adulthood — school, first jobs, the turning points and choices that shaped who they became. Not childhood (that's done) and not marriage/children (that comes next).",
-      "family-love": "This section is ONLY about love, marriage, and children — how they met their spouse, building a family, their home life, and the people closest to their heart.",
-      "faith": "This section is ONLY about spiritual life — church, prayer, scripture, the moments they felt God closest, and the faith legacy they want to pass on.",
-      "wisdom": "This section is about life's lessons and legacy — what they've learned, what they'd tell their younger self, and what they want remembered. This is the closing chapter.",
-    };
-    const scope = sectionScope[ch.id] || "";
-    return `\n\nCURRENT SECTION: "${ch.title}"
-SCOPE — WHAT BELONGS HERE: ${scope}
-Story territory to cover — introduce these naturally as the conversation flows, following each thread deeply before moving to the next. Never announce them as a list:
-${ch.prompts.map((p, i) => `${i + 1}. ${getQuestion(p)}`).join("\n")}
+  // ── CHAPTER TOPIC FRAMEWORKS ────────────────────────────────────────────────
+  const CHAPTER_FRAMEWORKS = {
+    "early-life": [
+      { id: "where-grew-up", title: "Where You Grew Up", icon: "📍", details: [], complete: false },
+      { id: "your-home", title: "Your Home", icon: "🏠", details: [], complete: false },
+      { id: "your-family", title: "Your Family", icon: "👨‍👩‍👧", details: [], complete: false },
+      { id: "school-friends", title: "School & Friends", icon: "🏫", details: [], complete: false },
+      { id: "early-memories", title: "Early Memories", icon: "⭐", details: [], complete: false },
+    ],
+    "becoming-you": [
+      { id: "leaving-home", title: "Leaving Home", icon: "🚪", details: [], complete: false },
+      { id: "work-career", title: "Work & Career", icon: "💼", details: [], complete: false },
+      { id: "who-you-became", title: "Who You Became", icon: "🌿", details: [], complete: false },
+      { id: "defining-moments", title: "Defining Moments", icon: "⚡", details: [], complete: false },
+    ],
+    "family-love": [
+      { id: "meeting-spouse", title: "Meeting Your Spouse", icon: "💛", details: [], complete: false },
+      { id: "building-family", title: "Building Your Family", icon: "🏡", details: [], complete: false },
+      { id: "your-children", title: "Your Children", icon: "👶", details: [], complete: false },
+      { id: "family-traditions", title: "Family Traditions", icon: "🎄", details: [], complete: false },
+    ],
+    "faith": [
+      { id: "faith-roots", title: "Your Faith Roots", icon: "🌱", details: [], complete: false },
+      { id: "faith-journey", title: "Your Faith Journey", icon: "✝️", details: [], complete: false },
+      { id: "faith-community", title: "Your Church & Community", icon: "🕊️", details: [], complete: false },
+      { id: "faith-legacy", title: "Faith You Want to Pass On", icon: "📖", details: [], complete: false },
+    ],
+    "wisdom": [
+      { id: "life-lessons", title: "Life's Lessons", icon: "💡", details: [], complete: false },
+      { id: "what-matters", title: "What Matters Most", icon: "❤️", details: [], complete: false },
+      { id: "to-grandchildren", title: "To Your Grandchildren", icon: "🌟", details: [], complete: false },
+      { id: "your-legacy", title: "Your Legacy", icon: "🕊️", details: [], complete: false },
+    ],
+  };
 
-Start with topic 1. Only introduce topic 2 when topic 1 feels fully explored. The person decides when the whole section is complete.`;
+  const initTopicFramework = (chId) => {
+    const framework = CHAPTER_FRAMEWORKS[chId];
+    if (framework) {
+      setTopicFramework(framework.map(t => ({ ...t, details: [], complete: false })));
+      setCurrentTopicIdx(0);
+      setCurrentTopicMessages([]);
+    }
+  };
+
+  const buildChapterContext = (ch, topicIdx = 0) => {
+    const framework = CHAPTER_FRAMEWORKS[ch.id];
+    if (framework) {
+      const currentTopic = framework[topicIdx];
+      const remainingTopics = framework.slice(topicIdx + 1).map(t => t.title).join(", ");
+      return `\n\nCURRENT SECTION: "${ch.title}"
+TOPIC FRAMEWORK — work through these topics in order. You are currently on topic ${topicIdx + 1} of ${framework.length}.
+
+CURRENT TOPIC: "${currentTopic?.title}"
+${topicIdx === 0 && ch.id === "early-life" ? `Start by asking: "Before we dive in — did you grow up mostly in one place, or did your family move around?" Then go deep on their answer.` : `Dive into this topic with 3-5 exchanges, going deeper each time.`}
+
+REMAINING TOPICS AFTER THIS ONE: ${remainingTopics || "None — this is the last topic"}
+
+YOUR JOB FOR EACH TOPIC:
+1. Ask 3-5 warm questions that go progressively deeper
+2. After each substantive answer, capture key details with: <DETAIL>brief specific detail</DETAIL> (keep details short — names, places, descriptions)
+3. Dig for the meaningful stuff — nicknames, funny phrases, what they called the house, family sayings, sensory memories (smells, sounds, feelings)
+4. When the topic feels complete, ask: "Is there anything else about ${currentTopic?.title?.toLowerCase() || "this"} you'd like me to capture before we move on?"
+5. Then say a warm transition sentence and include <TOPIC_COMPLETE> at the very end
+
+TRANSITION EXAMPLE:
+"I've got everything about your home beautifully captured — I can already picture it. Now let's talk about your family. Who were the people that filled that house with life? <TOPIC_COMPLETE>"
+
+DETAIL EXAMPLES:
+<DETAIL>Kansas City, Missouri</DETAIL>
+<DETAIL>Raytown neighborhood</DETAIL>
+<DETAIL>Called the house "the green house on the corner"</DETAIL>
+<DETAIL>Mom's nickname was "Mama Jo"</DETAIL>`;
+    }
+
+    // Fallback for chapters without a framework
+    const sectionScope = {
+      "becoming-you": "This section is ONLY about early adulthood — school, first jobs, the turning points and choices that shaped who they became.",
+      "family-love": "This section is ONLY about love, marriage, and children — how they met their spouse, building a family, their home life.",
+      "faith": "This section is ONLY about spiritual life — church, prayer, scripture, the moments they felt God closest.",
+      "wisdom": "This section is about life's lessons and legacy — what they've learned, what they'd tell their younger self.",
+    };
+    return `\n\nCURRENT SECTION: "${ch.title}"
+SCOPE: ${sectionScope[ch.id] || ""}
+Story territory to cover:
+${ch.prompts.map((p, i) => `${i + 1}. ${getQuestion(p)}`).join("\n")}
+Start with topic 1. Only introduce topic 2 when topic 1 feels fully explored.`;
   };
 
   const generateCustomPrompts = async (title) => {
@@ -1920,6 +1991,8 @@ Start with topic 1. Only introduce topic 2 when topic 1 feels fully explored. Th
     };
     const introMsg = persona ? persona.intro(profile) : `Welcome. I'm so glad you're here.\n\nThere's no right or wrong way to begin. Start wherever feels natural.\n\n*${getQuestion(allChapters[0].prompts[0])}*`;
     setMessages([{ role: "assistant", content: introMsg }]);
+    setCurrentTopicMessages([{ role: "assistant", content: introMsg }]);
+    initTopicFramework(allChapters[0].id);
     // Show section intro page first
     setSectionIntroChapter({ chapter: allChapters[0], nextC: 0, isFirst: true });
     setScreen("sectionintro");
@@ -2001,6 +2074,7 @@ Start with topic 1. Only introduce topic 2 when topic 1 feels fully explored. Th
     const userMsg = { role: "user", content: text, isGhostwritten };
     const next = [...messages, userMsg];
     setMessages(next);
+    setCurrentTopicMessages(prev => [...prev, userMsg]);
     setInput("");
     setLoading(true);
     try {
@@ -2009,13 +2083,56 @@ Start with topic 1. Only introduce topic 2 when topic 1 feels fully explored. Th
       const data = await res.json();
       const rawText = data.content?.[0]?.text || "I'm here with you. Tell me more.";
       const hasRecap = rawText.includes("<SECTION_RECAP>");
-      // Extract memory bullets
+      const hasTopicComplete = rawText.includes("<TOPIC_COMPLETE>");
+
+      // Extract detail bullets for the topic framework
+      const detailMatches = [...rawText.matchAll(/<DETAIL>(.*?)<\/DETAIL>/gs)];
+      const newDetails = detailMatches.map(m => m[1].trim());
+
+      // Extract memory bullets (legacy)
       const memoryMatches = [...rawText.matchAll(/<MEMORY>(.*?)<\/MEMORY>/gs)];
       const newMemories = memoryMatches.map(m => m[1].trim());
-      const cleanText = rawText.replace(/<SECTION_RECAP>/g, "").replace(/<MEMORY>.*?<\/MEMORY>/gs, "").trim();
-      setMessages([...next, { role: "assistant", content: cleanText }]);
+
+      // Clean all tags from display text
+      const cleanText = rawText
+        .replace(/<SECTION_RECAP>/g, "")
+        .replace(/<TOPIC_COMPLETE>/g, "")
+        .replace(/<DETAIL>.*?<\/DETAIL>/gs, "")
+        .replace(/<MEMORY>.*?<\/MEMORY>/gs, "")
+        .trim();
+
+      const newMsg = { role: "assistant", content: cleanText };
+      const updatedMessages = [...next, newMsg];
+      setMessages(updatedMessages);
+
+      // Add details to current topic in framework
+      if (newDetails.length > 0) {
+        setTopicFramework(prev => prev.map((t, i) =>
+          i === currentTopicIdx ? { ...t, details: [...t.details, ...newDetails] } : t
+        ));
+      }
       if (newMemories.length > 0) setSectionMemories(prev => [...prev, ...newMemories]);
       if (hasRecap) setShowRecapButton(true);
+
+      // Handle topic complete — refresh left chat, advance topic
+      if (hasTopicComplete) {
+        setTopicFramework(prev => prev.map((t, i) =>
+          i === currentTopicIdx ? { ...t, complete: true } : t
+        ));
+        // The transition message becomes the first message of the new topic
+        setCurrentTopicMessages([newMsg]);
+        setCurrentTopicIdx(prev => {
+          const next = prev + 1;
+          // Update chapter context for new topic
+          if (chapter) {
+            setChapterContext(buildChapterContext(chapter, next));
+          }
+          return next;
+        });
+      } else {
+        setCurrentTopicMessages(prev => [...prev, newMsg]);
+      }
+
       announce("New response received.");
     } catch { setMessages([...next, { role: "assistant", content: "I'm here. Take your time." }]); }
     setLoading(false);
@@ -2118,8 +2235,12 @@ Start with topic 1. Only introduce topic 2 when topic 1 feels fully explored. Th
       setAnglesUsed(false);
       setShowRecapButton(false);
       setSectionMemories([]);
-      setChapterContext(buildChapterContext(chapters[nextC]));
-      setMessages([{ role: "assistant", content: `You've completed ${chapters[nextC - 1]?.title || "that section"}. What you've shared is precious. 💛\n\nNow let's step into the next section of your life...\n\n*${getQuestion(chapters[nextC].prompts[0])}*` }]);
+      const nextChapter = chapters[nextC];
+      setChapterContext(buildChapterContext(nextChapter, 0));
+      initTopicFramework(nextChapter.id);
+      const firstMsg = { role: "assistant", content: `You've completed ${chapters[nextC - 1]?.title || "that section"}. What you've shared is precious. 💛\n\nNow let's step into the next section of your life...\n\n*${getQuestion(nextChapter.prompts[0])}*` };
+      setMessages([firstMsg]);
+      setCurrentTopicMessages([firstMsg]);
       announce(`Starting section: ${chapters[nextC].title}`);
       // Show section intro page
       setSectionIntroChapter({ chapter: chapters[nextC], nextC, isFirst: false });
@@ -2310,6 +2431,9 @@ Start with topic 1. Only introduce topic 2 when topic 1 feels fully explored. Th
   const [showRecapButton, setShowRecapButton] = useState(false);
   const [sectionMemories, setSectionMemories] = useState([]); // warm bullet points built by Grace
   const [showMobileMemories, setShowMobileMemories] = useState(false);
+  const [topicFramework, setTopicFramework] = useState([]); // [{id, title, icon, details:[], complete:false}]
+  const [currentTopicIdx, setCurrentTopicIdx] = useState(0);
+  const [currentTopicMessages, setCurrentTopicMessages] = useState([]); // only current topic shown on left
   const personaAvatar = persona?.avatar || "🌿";
   const personaAvatarBg = persona?.avatarBg || "linear-gradient(135deg,#5c3d1e,#8b5e34)";
 
@@ -3749,11 +3873,11 @@ Start with topic 1. Only introduce topic 2 when topic 1 feels fully explored. Th
               </div>
             </div>
           </nav>
-          {/* ── SPLIT SCREEN: Left = Grace, Right = Memory Panel ── */}
-          <div style={{ display: "flex", flex: 1, overflow: "hidden", minHeight: 0 }}>
+          {/* ── SPLIT SCREEN: Left = Grace, Right = Topic Framework ── */}
+          <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
 
             {/* ── LEFT: Grace conversation ── */}
-            <main id="main-content" style={{ flex: 1, display: "flex", flexDirection: "column", padding: "16px 24px 12px", minWidth: 0, overflow: "hidden" }}>
+            <main id="main-content" style={{ flex: 1, display: "flex", flexDirection: "column", padding: "16px 24px 12px", minWidth: 0 }}>
 
               {/* Section title + ? button */}
               <div style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 10, justifyContent: "space-between", flexShrink: 0 }}>
@@ -3774,10 +3898,9 @@ Start with topic 1. Only introduce topic 2 when topic 1 feels fully explored. Th
                 </div>
               )}
 
-              {/* Messages — scrollable */}
-              <div ref={messagesContainerRef} role="log" aria-label="Conversation" aria-live="polite"
-                style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 14, paddingBottom: 8, paddingRight: 4 }}>
-                {messages.map((msg, i) => (
+              {/* Messages — flow naturally down the page, no scroll trap */}
+              <div role="log" aria-label="Conversation" aria-live="polite" style={{ display: "flex", flexDirection: "column", gap: 14, paddingBottom: 8 }}>
+                {currentTopicMessages.map((msg, i) => (
                   <div key={i}>
                     <div style={{ display: "flex", gap: 10, flexDirection: msg.role === "user" ? "row-reverse" : "row", animation: "fadeUp 0.35s ease forwards" }}>
                       <div style={{ width: 32, height: 32, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: msg.role === "user" ? 10 : 13, background: msg.role === "user" ? "linear-gradient(135deg,#b8860b,#d4a843)" : personaAvatarBg, color: "#fdf6ec", fontFamily: "'Lato',sans-serif", fontWeight: 700, marginTop: 2 }} aria-hidden="true">
@@ -3831,7 +3954,7 @@ Start with topic 1. Only introduce topic 2 when topic 1 feels fully explored. Th
                   <div style={{ display: "flex", gap: 10 }} role="status" aria-label={`${persona?.name || "Guide"} is responding`}>
                     <div style={{ width: 32, height: 32, borderRadius: "50%", background: personaAvatarBg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13 }} aria-hidden="true">{personaAvatar}</div>
                     <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "12px 16px", background: "white", borderRadius: "4px 14px 14px 14px", boxShadow: "0 2px 10px rgba(93,61,26,0.07)" }}>
-                      {[0, 0.2, 0.4].map((d, i) => <div key={i} style={{ width: 7, height: 7, background: "#c9a87a", borderRadius: "50%", animation: `bounce 1.2s ${d}s infinite` }} />)}
+                      {[0, 0.2, 0.4].map((d, idx) => <div key={idx} style={{ width: 7, height: 7, background: "#c9a87a", borderRadius: "50%", animation: `bounce 1.2s ${d}s infinite` }} />)}
                     </div>
                   </div>
                 )}
@@ -3951,27 +4074,60 @@ Start with topic 1. Only introduce topic 2 when topic 1 feels fully explored. Th
               )}
             </main>
 
-            {/* ── RIGHT: Memory progress panel ── */}
-            <aside style={{ width: 260, flexShrink: 0, borderLeft: "1px solid rgba(180,140,80,0.18)", background: "white", display: "flex", flexDirection: "column", padding: "18px 14px", overflowY: "auto" }}>
-              <div style={{ fontSize: fs(11), letterSpacing: "2px", textTransform: "uppercase", color: "#b8860b", fontFamily: "'Lato',sans-serif", marginBottom: 12 }}>
-                📖 Your story so far
+            {/* ── RIGHT: Topic framework checklist ── */}
+            <aside style={{ width: 270, flexShrink: 0, borderLeft: "1px solid rgba(180,140,80,0.18)", background: "white", display: "flex", flexDirection: "column", padding: "18px 14px", overflowY: "auto" }}>
+              <div style={{ fontSize: fs(11), letterSpacing: "2px", textTransform: "uppercase", color: "#b8860b", fontFamily: "'Lato',sans-serif", marginBottom: 16 }}>
+                📖 {chapter.title}
               </div>
-              {sectionMemories.length === 0 ? (
-                <p style={{ fontSize: fs(13), color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", fontStyle: "italic", lineHeight: 1.7, textAlign: "center", marginTop: 12 }}>
-                  Your memories will appear here as you share them with Grace.
-                </p>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {sectionMemories.map((mem, i) => (
-                    <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start", animation: "fadeUp 0.4s ease forwards" }}>
-                      <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#b8860b", flexShrink: 0, marginTop: 6 }} />
-                      <p style={{ fontSize: fs(13), color: tc("#5c4a35","#2a1a0a"), fontFamily: "'Lato',sans-serif", lineHeight: 1.65, margin: 0 }}>{mem}</p>
-                    </div>
-                  ))}
+
+              {/* Topic list */}
+              {topicFramework.length > 0 ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                  {topicFramework.map((topic, i) => {
+                    const isCurrent = i === currentTopicIdx && !topic.complete;
+                    const isDone = topic.complete;
+                    const isUpcoming = i > currentTopicIdx;
+                    return (
+                      <div key={topic.id} style={{ animation: "fadeUp 0.3s ease forwards" }}>
+                        {/* Topic header */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: topic.details.length > 0 ? 6 : 0 }}>
+                          {/* Status icon */}
+                          <div style={{ width: 22, height: 22, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: isDone ? "#5c3d1e" : isCurrent ? "linear-gradient(135deg,#b8860b,#d4a843)" : "rgba(180,140,80,0.12)", border: isUpcoming ? "1.5px solid rgba(180,140,80,0.25)" : "none", transition: "all 0.3s" }}>
+                            {isDone
+                              ? <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5L20 7" stroke="#fdf6ec" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                              : <span style={{ fontSize: 10 }}>{topic.icon}</span>
+                            }
+                          </div>
+                          <span style={{ fontSize: fs(13), fontFamily: "'Lato',sans-serif", fontWeight: isCurrent ? 700 : isDone ? 400 : 400, color: isCurrent ? "#5c3d1e" : isDone ? "#a89070" : tc("#8b7355","#6b5030"), textDecoration: isDone ? "line-through" : "none", textDecorationColor: "rgba(139,94,52,0.4)", opacity: isUpcoming ? 0.5 : 1 }}>
+                            {topic.title}
+                          </span>
+                          {isCurrent && <span style={{ fontSize: 9, background: "rgba(184,134,11,0.12)", color: "#b8860b", border: "1px solid rgba(184,134,11,0.3)", borderRadius: 100, padding: "2px 6px", fontFamily: "'Lato',sans-serif", fontWeight: 700, letterSpacing: "0.5px" }}>NOW</span>}
+                        </div>
+
+                        {/* Detail bullets */}
+                        {topic.details.length > 0 && (
+                          <div style={{ marginLeft: 30, display: "flex", flexDirection: "column", gap: 3 }}>
+                            {topic.details.map((detail, di) => (
+                              <div key={di} style={{ display: "flex", gap: 6, alignItems: "flex-start", animation: "fadeUp 0.3s ease forwards" }}>
+                                <span style={{ color: "#b8860b", fontSize: 10, marginTop: 4, flexShrink: 0 }}>·</span>
+                                <span style={{ fontSize: fs(12), color: tc("#6b5540","#3a2510"), fontFamily: "'Lato',sans-serif", lineHeight: 1.5 }}>{detail}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
+              ) : (
+                <p style={{ fontSize: fs(13), color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", fontStyle: "italic", lineHeight: 1.7, textAlign: "center", marginTop: 12 }}>
+                  Your story will build here as you share with Grace.
+                </p>
               )}
-              <div style={{ marginTop: "auto", paddingTop: 14 }}>
-                {sectionMemories.length > 0 && (
+
+              {/* See what we've written button */}
+              <div style={{ marginTop: "auto", paddingTop: 16 }}>
+                {topicFramework.some(t => t.details.length > 0 || t.complete) && (
                   <button onClick={chapterComplete}
                     style={{ background: "linear-gradient(135deg,#b8860b,#d4a843)", color: "#fdf6ec", border: "none", padding: "13px 16px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(15), cursor: "pointer", width: "100%", boxShadow: "0 4px 14px rgba(184,134,11,0.28)", transition: "all 0.2s" }}>
                     See what we've written ✦
