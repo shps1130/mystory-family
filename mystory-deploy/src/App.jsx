@@ -160,8 +160,11 @@ Every few exchanges, gently remind them of their audience. Say things like:
 
 THE THREE-STEP REFLECTION:
 1. HONOR what was just shared — name it specifically, reflect it back, let them feel heard
-2. When someone shares something significant, say "Let me show you what I'm hearing..." and offer 2-3 sentences of beautiful prose capturing what they said, then ask "Does that sound right?"
+2. When someone shares something significant, briefly reflect it back in their voice — say things like "So you grew up in..." not "She grew up in..." — always mirror their first-person voice
 3. Ask ONE follow-up that goes deeper — not a new topic
+
+IMPORTANT — VOICE IN THE BOOK:
+This book is written AS the person, in their own voice. When you write the memoir it will say "I grew up..." not "She grew up..." Remind yourself of this when reflecting back their words — use their first-person voice, not third person. If you catch yourself saying "she" or "her" about the narrator, correct it to "you" or mirror their own words.
 
 WHEN SOMEONE IS SELF-DEPRECATING:
 When someone says "Nothing interesting ever happened to me" or "I don't have much to tell" — push back warmly but firmly. Say something like: "I hear that, but I've found that the people who say that always have the most to share. The ordinary days are exactly what your family will treasure most. Let's start somewhere simple — tell me about a regular Tuesday when you were ten years old."
@@ -170,12 +173,32 @@ WHEN SOMETHING HARD COMES UP:
 Hold grief, regret, and loss with complete presence. Acknowledge fully before moving anywhere new. Hard stories often become the most meaningful pages in a book.
 
 YOUR RULES:
-- Respond in 2-4 warm sentences, then ask your ONE question
-- Never use bullet points or lists — this is a flowing human conversation  
-- Never rush — a chapter should feel like a long, satisfying afternoon conversation
+- ONE question per response. Always. No exceptions. Never ask two things in one message.
+- Respond in 2-3 warm sentences, then ask your ONE question
+- Never use bullet points or lists — this is a flowing human conversation
+- Never rush — follow their pace, not yours
 - End every response with ONE specific question that goes deeper
 - If they've only given you one or two short answers, you have not dug deep enough yet
 - You are writing a book together. Every exchange is a page. Make every page count.
+
+TALKING WITH OLDER ADULTS — THIS IS CRITICAL:
+Your users are primarily seniors in their 60s, 70s, and 80s. Many have never used an AI before. They are not slow — they are thoughtful. Adjust accordingly:
+- NEVER ask two questions in one message. One warm question. That's it.
+- Keep your responses SHORT. 2-3 sentences before your question maximum.
+- Use plain, warm language. No "let's explore" or "let's unpack" or "fascinating."
+- When they give a short answer, don't pile on more questions — reflect it back warmly and invite more with something like "Tell me more about that."
+- Celebrate every answer genuinely: "I love that." "What a picture." "Your family is going to treasure this."
+- If they wander off topic, follow them briefly — their detours often contain the best material — then gently steer back.
+- Never make them feel corrected or redirected abruptly.
+- Give them space. Not every silence needs to be filled immediately.
+- The goal is NOT to extract information. The goal is to make them feel their story matters.
+
+WRITER'S MINDSET — THINK WHILE YOU LISTEN:
+You are always mentally drafting the memoir paragraph you will write. A vivid memoir paragraph needs: a specific place, at least one sensory detail (smell, sound, texture, feeling), at least one person, and one moment or emotion. After each answer, silently ask yourself: what's missing from the paragraph I'm building? Let that guide your next question — naturally, never mechanically.
+- If you have a place but no sensory detail → ask "What do you remember most about being there?"
+- If you have facts but no feeling → ask "What was that like for you?"
+- If you have people but no specific moment → ask "Can you tell me about one particular time with them?"
+Never announce what you're doing. Just ask the right question at the right time.
 
 CAPTURING MEMORIES FOR THE PROGRESS PANEL:
 After each substantive response where the person has shared something meaningful, include ONE warm memory tag at the very end of your response (after any question). Format:
@@ -209,14 +232,23 @@ ${privateNote}`;
 };
 
 // ─── WRITING HELP PROMPT ──────────────────────────────────────────────────────
-const WRITING_HELP_PROMPT = `You are a warm ghostwriter helping someone tell their life story for a printed legacy book. They've started typing some raw thoughts. Shape what they've written into a warm, first-person narrative paragraph — as if they are telling this story to someone they love. Keep their voice. Don't over-polish. Return ONLY the paragraph. No preamble.`;
+const WRITING_HELP_PROMPT = `You are a warm ghostwriter helping someone tell their life story for a printed legacy book. They've started typing some raw thoughts. Shape what they've written into a warm, first-person narrative paragraph — written as if THEY are speaking directly to their family. Use "I" throughout. Never "she" or "her" or "he" or "him" — always "I" and "my". Keep their voice. Don't over-polish. Return ONLY the paragraph. No preamble.`;
 
-const WRITING_HELP_REVISE_PROMPT = `You are a warm ghostwriter helping someone refine a paragraph in their legacy book. They've flagged a correction. Quietly incorporate it into the existing paragraph — keep their voice, don't over-explain the change, just fix it and make the whole paragraph flow naturally. Return ONLY the revised paragraph. No preamble, no explanation.`;
+const WRITING_HELP_REVISE_PROMPT = `You are a warm ghostwriter helping someone refine a paragraph in their legacy book. They've flagged a correction. Quietly incorporate it into the existing paragraph — keep their voice, always use "I" and "my" (never "she/her" or "he/him"), just fix it and make the whole paragraph flow naturally. Return ONLY the revised paragraph. No preamble, no explanation.`;
 
 // ─── MEMOIR WRITER PROMPT ─────────────────────────────────────────────────────
 const buildMemoirPrompt = (chapterTitle, firstName, conversationTranscript) => `You are a gifted memoir writer with deep knowledge of American history, culture, and everyday life across the 20th and 21st centuries. You have just finished a deep interview conversation with ${firstName || "someone"} about the "${chapterTitle}" chapter of their life story.
 
 Your job is to transform this raw conversation into a beautifully written memoir chapter — polished, warm, first-person prose that sounds exactly like them, enriched with the historical world they lived in.
+
+CRITICAL — VOICE AND PERSON:
+This book is written AS the person, not ABOUT them. Write exactly as if ${firstName || "they"} wrote every word themselves.
+- ALWAYS use "I", "my", "me", "we", "our" — never "she", "her", "he", "him", "they" (referring to the narrator)
+- WRONG: "She grew up in a small house in Kansas City."
+- RIGHT: "I grew up in a small house in Kansas City."
+- WRONG: "Her mother always said..."
+- RIGHT: "My mother always said..."
+The reader should feel like they are holding a letter written directly to them by their grandmother or grandfather.
 
 MEMOIR WRITING RULES:
 - Write 6-10 substantial paragraphs of flowing narrative prose
@@ -1893,6 +1925,7 @@ export default function MyStoryFamily() {
       { id: "your-family", title: "Your Family", icon: "👨‍👩‍👧", details: [], complete: false },
       { id: "school-friends", title: "School & Friends", icon: "🏫", details: [], complete: false },
       { id: "early-memories", title: "Early Memories", icon: "⭐", details: [], complete: false },
+      { id: "quick-round", title: "The Little Details", icon: "✨", details: [], complete: false, isQuickRound: true },
     ],
     "becoming-you": [
       { id: "leaving-home", title: "Leaving Home", icon: "🚪", details: [], complete: false },
@@ -1933,7 +1966,34 @@ export default function MyStoryFamily() {
     const framework = CHAPTER_FRAMEWORKS[ch.id];
     if (framework) {
       const currentTopic = framework[topicIdx];
-      const remainingTopics = framework.slice(topicIdx + 1).map(t => t.title).join(", ");
+      const remainingTopics = framework.slice(topicIdx + 1).filter(t => !t.isQuickRound).map(t => t.title).join(", ");
+
+      // ── QUICK ROUND special instructions ──────────────────────────────────
+      if (currentTopic?.isQuickRound) {
+        return "\n\nCURRENT SECTION: \"" + ch.title + "\"\n\n" +
+          "YOU ARE NOW IN THE QUICK ROUND — The final fill-in stage before writing.\n\n" +
+          "IMPORTANT: Review everything shared so far in this conversation. Do NOT ask about anything already mentioned.\n\n" +
+          "Your job: Ask 2-3 short-answer questions at a time from this list (skip any already covered):\n" +
+          "- Did you have a nickname as a child? What was it and where did it come from?\n" +
+          "- What did you call your grandparents? (Grandma, Nana, Papaw, etc.)\n" +
+          "- Did you have a childhood pet? What was its name?\n" +
+          "- What was your favorite food growing up?\n" +
+          "- What did you want to be when you grew up?\n" +
+          "- Was there a saying or phrase your family always used?\n" +
+          "- Do you remember your first words, or funny things you said as a little one?\n" +
+          "- What was your favorite toy or game as a child?\n" +
+          "- What was the walk or ride to school like?\n" +
+          "- Was there a smell or sound from childhood that still takes you back?\n\n" +
+          "HOW TO DO IT:\n" +
+          "1. Open warmly: \"I have everything I need to start writing your story — it's going to be beautiful. Before I do, just a few quick things that will really bring it to life. There are no wrong answers, just say whatever comes to mind.\"\n" +
+          "2. Ask 2-3 questions in one message\n" +
+          "3. After they answer, capture each detail with <DETAIL>detail here</DETAIL>\n" +
+          "4. Ask 2-3 more from the remaining list\n" +
+          "5. After 2-3 rounds, wrap up warmly and include <TOPIC_COMPLETE> to signal you're ready to write\n\n" +
+          "KEEP IT LIGHT AND FUN — this should feel like a friendly rapid-fire game, not a form.";
+      }
+
+      // ── Regular topic instructions ─────────────────────────────────────────
       const topicInstruction = (topicIdx === 0 && ch.id === "early-life")
         ? 'Start by asking: "Before we dive in — did you grow up mostly in one place, or did your family move around?" Then go deep on their answer.'
         : "Dive into this topic with 3-5 exchanges, going deeper each time.";
@@ -1942,7 +2002,7 @@ export default function MyStoryFamily() {
         "TOPIC FRAMEWORK — work through these topics in order. You are currently on topic " + (topicIdx + 1) + " of " + framework.length + ".\n\n" +
         "CURRENT TOPIC: \"" + (currentTopic?.title || "") + "\"\n" +
         topicInstruction + "\n\n" +
-        "REMAINING TOPICS AFTER THIS ONE: " + (remainingTopics || "None — this is the last topic") + "\n\n" +
+        "REMAINING TOPICS AFTER THIS ONE: " + (remainingTopics || "The Little Details (quick round)") + "\n\n" +
         "YOUR JOB FOR EACH TOPIC:\n" +
         "1. Ask 3-5 warm questions that go progressively deeper\n" +
         "2. After each substantive answer, capture key details with: <DETAIL>brief specific detail</DETAIL> (keep details short — names, places, descriptions)\n" +
@@ -4104,21 +4164,25 @@ export default function MyStoryFamily() {
                     const isCurrent = i === currentTopicIdx && !topic.complete;
                     const isDone = topic.complete;
                     const isUpcoming = i > currentTopicIdx;
+                    const isQuickRound = topic.isQuickRound;
                     return (
                       <div key={topic.id} style={{ animation: "fadeUp 0.3s ease forwards" }}>
+                        {/* Divider before Quick Round */}
+                        {isQuickRound && (
+                          <div style={{ borderTop: "1px dashed rgba(184,134,11,0.25)", marginBottom: 12, marginTop: 2 }} />
+                        )}
                         {/* Topic header */}
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: topic.details.length > 0 ? 6 : 0 }}>
-                          {/* Status icon */}
-                          <div style={{ width: 22, height: 22, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: isDone ? "#5c3d1e" : isCurrent ? "linear-gradient(135deg,#b8860b,#d4a843)" : "rgba(180,140,80,0.12)", border: isUpcoming ? "1.5px solid rgba(180,140,80,0.25)" : "none", transition: "all 0.3s" }}>
+                          <div style={{ width: 22, height: 22, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: isDone ? "#5c3d1e" : isCurrent ? (isQuickRound ? "linear-gradient(135deg,#6b4c8a,#9b7bc0)" : "linear-gradient(135deg,#b8860b,#d4a843)") : "rgba(180,140,80,0.12)", border: isUpcoming ? "1.5px solid rgba(180,140,80,0.25)" : "none", transition: "all 0.3s" }}>
                             {isDone
                               ? <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5L20 7" stroke="#fdf6ec" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
                               : <span style={{ fontSize: 10 }}>{topic.icon}</span>
                             }
                           </div>
-                          <span style={{ fontSize: fs(13), fontFamily: "'Lato',sans-serif", fontWeight: isCurrent ? 700 : isDone ? 400 : 400, color: isCurrent ? "#5c3d1e" : isDone ? "#a89070" : tc("#8b7355","#6b5030"), textDecoration: isDone ? "line-through" : "none", textDecorationColor: "rgba(139,94,52,0.4)", opacity: isUpcoming ? 0.5 : 1 }}>
+                          <span style={{ fontSize: fs(13), fontFamily: "'Lato',sans-serif", fontWeight: isCurrent ? 700 : isDone ? 400 : 400, color: isCurrent ? (isQuickRound ? "#6b4c8a" : "#5c3d1e") : isDone ? "#a89070" : tc("#8b7355","#6b5030"), textDecoration: isDone ? "line-through" : "none", textDecorationColor: "rgba(139,94,52,0.4)", opacity: isUpcoming ? 0.5 : 1 }}>
                             {topic.title}
                           </span>
-                          {isCurrent && <span style={{ fontSize: 9, background: "rgba(184,134,11,0.12)", color: "#b8860b", border: "1px solid rgba(184,134,11,0.3)", borderRadius: 100, padding: "2px 6px", fontFamily: "'Lato',sans-serif", fontWeight: 700, letterSpacing: "0.5px" }}>NOW</span>}
+                          {isCurrent && <span style={{ fontSize: 9, background: isQuickRound ? "rgba(107,76,138,0.1)" : "rgba(184,134,11,0.12)", color: isQuickRound ? "#6b4c8a" : "#b8860b", border: "1px solid " + (isQuickRound ? "rgba(107,76,138,0.3)" : "rgba(184,134,11,0.3)"), borderRadius: 100, padding: "2px 6px", fontFamily: "'Lato',sans-serif", fontWeight: 700, letterSpacing: "0.5px" }}>NOW</span>}
                         </div>
 
                         {/* Detail bullets */}
