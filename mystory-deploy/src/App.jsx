@@ -52,11 +52,56 @@ const ONBOARDING_STEPS = [
     placeholder: "Or tell us in your own words...",
   },
   {
-    id: "personality",
-    question: "How would the people who love you describe you?",
-    subtext: "Choose all that feel true — this is how your voice will come through on the page.",
-    type: "multi_chips",
-    chips: ["The storyteller", "The quiet one", "The funny one", "The strong one", "The faithful one", "The caretaker", "The adventurer", "The peacemaker", "The steady one", "The dreamer"],
+    id: "voice_intro",
+    question: "Let's find your voice 🎙️",
+    subtext: "Before Grace starts asking about your life, she wants to get a feel for how YOU talk. The best books sound like the person who lived them — not like a computer wrote them.\n\nSo we're going to ask you 5 fun questions. There are no right answers. Just be yourself. This is going to be fun.",
+    type: "intro_only",
+    optional: true,
+    buttonLabel: "Let's do it →",
+  },
+  {
+    id: "voice_joke",
+    question: "What's a joke or funny story you've told so many times your family could finish it for you?",
+    subtext: "Why we're asking: The way you tell a joke is exactly how we want your book to sound. Don't worry about being funny — just tell it the way you always do.",
+    type: "text",
+    placeholder: "Go ahead — we'd love to hear it...",
+    optional: true,
+  },
+  {
+    id: "voice_sentence",
+    question: "Here's a boring sentence: \"I had a good childhood.\" How would YOU actually say that to a friend?",
+    subtext: "Why we're asking: We want your words in your book, not ours. There's no wrong answer — just say it however feels natural.",
+    type: "text",
+    placeholder: "In your own words...",
+    optional: true,
+  },
+  {
+    id: "voice_complaint",
+    question: "What's something small that drives you absolutely crazy — something your family would say \"there they go again\" about?",
+    subtext: "Why we're asking: The things that make you laugh or roll your eyes say a lot about who you are. This helps us capture your personality on the page.",
+    type: "text",
+    placeholder: "Could be anything — traffic, the TV remote, how people park...",
+    optional: true,
+  },
+  {
+    id: "voice_pairs",
+    question: "Which of these sounds more like you?",
+    subtext: "Why we're asking: This tells us whether your book should feel formal and elegant, or warm and down-to-earth. Pick the one that feels most natural — there's no wrong choice.",
+    type: "voice_pairs",
+    optional: true,
+    pairs: [
+      { a: "Our home was filled with warmth and laughter.", b: "Our house was loud and I loved every minute of it." },
+      { a: "It was a difficult time in our lives.", b: "It was hard, but we got through it together." },
+      { a: "I have always been deeply grateful.", b: "I count my blessings every single day." },
+    ],
+  },
+  {
+    id: "voice_proud",
+    question: "What's something you're quietly proud of that you don't talk about enough?",
+    subtext: "Why we're asking: How you talk about something you're proud of is the real you. We want that voice in your book.",
+    type: "text",
+    placeholder: "It doesn't have to be big — sometimes the small things matter most...",
+    optional: true,
   },
   {
     id: "faith",
@@ -86,15 +131,30 @@ const buildSystemPrompt = (persona, profile) => {
   const faithVoice = "You speak naturally about God, faith, scripture, and spiritual meaning. References to God's hand, answered prayer, and biblical wisdom feel natural and authentic in your voice — never preachy, always warm.";
 
   const personalityNote = profile.personality?.length
-    ? `The person describes themselves as: ${profile.personality.join(", ")}. This is crucial — let it genuinely shape your voice:
-- If they said "the funny one" — be warm and light, reflect humor back when they show it, don't be stiff or overly formal
-- If they said "the quiet one" — be gentle, leave space, don't overwhelm them with follow-ups, let silence be okay
-- If they said "the faithful one" or "the strong one" — lean into faith and resilience language naturally from the start
-- If they said "the storyteller" — give them room to run, don't interrupt a good story mid-flow
-- If they said "the caretaker" — acknowledge the people they've cared for, their stories will center others
-- If they said "the dreamer" or "the adventurer" — match their energy, be curious and expansive
-Always open your VERY FIRST response with one warm sentence that acknowledges who they are. Example: "I hear you're the funny one in the family — I love that, the best stories always have a little laughter in them." Then move straight into your first question. Keep it to one sentence — show don't tell.`
+    ? `The person describes themselves as: ${profile.personality.join(", ")}. Let this shape your energy and warmth.`
     : "";
+
+  // Build voice fingerprint from onboarding answers
+  const voicePairStep = ONBOARDING_STEPS.find(s => s.id === "voice_pairs");
+  const pairSelections = profile.voicePairs;
+  let voiceStyleNote = "";
+  if (pairSelections && voicePairStep) {
+    const styles = pairSelections.map((sel, i) => {
+      const pair = voicePairStep.pairs[i];
+      return pair ? (sel === "a" ? pair.a : pair.b) : null;
+    }).filter(Boolean);
+    if (styles.length > 0) {
+      voiceStyleNote = "Their natural voice style (from their own choices): " + styles.join(" / ");
+    }
+  }
+
+  const voiceNote = [
+    profile.voiceJoke ? "THEIR JOKE (this is how they actually talk — use this rhythm and vocabulary): \"" + profile.voiceJoke + "\"" : null,
+    profile.voiceSentence ? "HOW THEY DESCRIBE A GOOD CHILDHOOD (their actual words): \"" + profile.voiceSentence + "\"" : null,
+    profile.voiceComplaint ? "WHAT DRIVES THEM CRAZY (reveals personality and pet phrases): \"" + profile.voiceComplaint + "\"" : null,
+    voiceStyleNote || null,
+    profile.voiceProud ? "SOMETHING THEY'RE PROUD OF (how they talk about things that matter): \"" + profile.voiceProud + "\"" : null,
+  ].filter(Boolean).join("\n");
 
   const audienceNote = profile.audience
     ? `This book is being written for: ${profile.audience}. Keep this reader in mind — sometimes remind the person gently who will one day hold these pages.`
@@ -116,6 +176,17 @@ You are not a chatbot. You are a trusted friend who happens to be a gifted write
 YOUR VOICE:
 ${faithVoice}
 ${personalityNote}
+
+VOICE FINGERPRINT — THIS IS CRITICAL:
+Before writing a single word of their memoir, you have studied how this person actually talks. Use this to calibrate everything:
+${voiceNote || "No voice samples provided — use warm, accessible language and follow their lead."}
+
+HOW TO USE THE VOICE FINGERPRINT:
+- Mirror their vocabulary and rhythm in your responses and in the memoir
+- If their joke is punchy and dry, write the memoir with wit and economy
+- If their joke is long and meandering with detail, write the memoir with richness and warmth
+- Use their exact phrases naturally where they fit — if they said "count my blessings every day", that phrase should appear in the memoir
+- The memoir should sound like THEM, not like a professional writer
 
 THE READER:
 ${audienceNote}
@@ -1386,6 +1457,7 @@ export default function MyStoryFamily() {
   const [onboardInput, setOnboardInput] = useState("");
   const [onboardSelected, setOnboardSelected] = useState([]);
   const [onboardScale, setOnboardScale] = useState(null);
+  const [voicePairs, setVoicePairs] = useState([]); // ["a","b","a"] selections per pair
   const [persona, setPersona] = useState(null);
   const [systemPrompt, setSystemPrompt] = useState("");
   const [chapterContext, setChapterContext] = useState(""); // seed prompts for current chapter
@@ -1868,6 +1940,8 @@ export default function MyStoryFamily() {
   const getOnboardAnswer = () => {
     if (currentStep.type === "scale") return onboardScale;
     if (currentStep.type === "multi_chips") return onboardSelected.length > 0 ? onboardSelected : null;
+    if (currentStep.type === "voice_pairs") return voicePairs.length > 0 ? voicePairs : null;
+    if (currentStep.type === "intro_only") return "seen";
     return onboardInput.trim() || null;
   };
 
@@ -1884,6 +1958,7 @@ export default function MyStoryFamily() {
     setOnboardInput("");
     setOnboardSelected([]);
     setOnboardScale(null);
+    setVoicePairs([]);
 
     if (onboardStep < ONBOARDING_STEPS.length - 1) {
       setOnboardStep(s => s + 1);
@@ -1897,14 +1972,17 @@ export default function MyStoryFamily() {
         setEnabledChapters(updatedEnabledChapters);
       }
       const chosenPersona = PERSONAS.grace;
-      const firstQ = getQuestion(BASE_CHAPTERS.find(c => updatedEnabledChapters.includes(c.id))?.prompts[0] || BASE_CHAPTERS[0].prompts[0]);
       const profile = {
         audience: newAnswers.audience,
         faithScale: faithAnswer === "Yes, it's an important part of my story" ? 3 : faithAnswer === "It plays a small role" ? 2 : 1,
         personality: newAnswers.personality || [],
         mustInclude: newAnswers.mustInclude,
         keepPrivate: newAnswers.keepPrivate,
-        firstQuestion: firstQ,
+        voiceJoke: newAnswers.voice_joke || null,
+        voiceSentence: newAnswers.voice_sentence || null,
+        voiceComplaint: newAnswers.voice_complaint || null,
+        voicePairs: newAnswers.voice_pairs || null,
+        voiceProud: newAnswers.voice_proud || null,
       };
       setPersona(chosenPersona);
       setSystemPrompt(buildSystemPrompt(chosenPersona, profile));
@@ -3289,9 +3367,40 @@ export default function MyStoryFamily() {
             <h2 style={{ fontSize: fs(30), fontWeight: 600, color: tc("#3d2b1a", "#1a0e00"), textAlign: "center", marginBottom: 10, lineHeight: 1.3 }}>
               {currentStep.question}
             </h2>
-            <p style={{ fontSize: fs(15), color: tc("#7a6040", "#4a3020"), fontFamily: "'Lato',sans-serif", textAlign: "center", marginBottom: 32, lineHeight: 1.65 }}>
+            <p style={{ fontSize: fs(15), color: tc("#7a6040", "#4a3020"), fontFamily: "'Lato',sans-serif", textAlign: "center", marginBottom: 32, lineHeight: 1.75, whiteSpace: "pre-line" }}>
               {currentStep.subtext}
             </p>
+
+            {/* Intro only — just the subtext, no input */}
+            {currentStep.type === "intro_only" && (
+              <div style={{ textAlign: "center", padding: "8px 0" }}>
+                <div style={{ fontSize: 56, marginBottom: 20 }}>🎙️</div>
+              </div>
+            )}
+
+            {/* Voice pairs — pick which sounds more like you */}
+            {currentStep.type === "voice_pairs" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                {currentStep.pairs.map((pair, i) => (
+                  <div key={i}>
+                    <p style={{ fontSize: fs(13), color: tc("#8b7355","#5c3d1e"), fontFamily: "'Lato',sans-serif", marginBottom: 10, textAlign: "center", fontWeight: 600 }}>Option {i + 1}</p>
+                    <div style={{ display: "flex", gap: 10 }}>
+                      {[["a", pair.a], ["b", pair.b]].map(([key, text]) => (
+                        <button key={key} onClick={() => {
+                          const updated = [...voicePairs];
+                          updated[i] = key;
+                          setVoicePairs(updated);
+                        }}
+                          style={{ flex: 1, padding: "14px 16px", borderRadius: 12, border: `${highContrast ? 3 : 2}px solid ${voicePairs[i] === key ? "#b8860b" : "rgba(180,140,80,0.25)"}`, background: voicePairs[i] === key ? "rgba(184,134,11,0.08)" : "white", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(16), color: tc("#3d2b1a","#1a0e00"), cursor: "pointer", lineHeight: 1.6, textAlign: "left", transition: "all 0.15s", minHeight: 60 }}>
+                          {voicePairs[i] === key && <span style={{ color: "#b8860b", marginRight: 6 }}>✓</span>}
+                          {text}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* Scale input */}
             {currentStep.type === "scale" && (
@@ -3367,7 +3476,7 @@ export default function MyStoryFamily() {
               <button onClick={advanceOnboarding} disabled={!canAdvance()}
                 className="start-btn"
                 style={{ background: "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", padding: "16px 52px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(18), letterSpacing: 1, cursor: canAdvance() ? "pointer" : "not-allowed", opacity: canAdvance() ? 1 : 0.4, minHeight: 56 }}>
-                {onboardStep < ONBOARDING_STEPS.length - 1 ? "Continue →" : "Meet My Guide ✦"}
+                {onboardStep < ONBOARDING_STEPS.length - 1 ? (currentStep.buttonLabel || "Continue →") : "Meet My Guide ✦"}
               </button>
               {currentStep.optional && (
                 <button onClick={advanceOnboarding} style={{ background: "none", border: "none", color: tc("#8b7355", "#5c3d1e"), fontFamily: "'Lato',sans-serif", fontSize: fs(13), cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3, minHeight: 44, padding: "8px 16px" }}>
