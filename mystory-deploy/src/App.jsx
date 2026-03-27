@@ -1472,6 +1472,7 @@ export default function MyStoryFamily() {
   const [showRecapButton, setShowRecapButton] = useState(false);
   const [sectionMemories, setSectionMemories] = useState([]);
   const [showMobileMemories, setShowMobileMemories] = useState(false);
+  const [lockedMessages, setLockedMessages] = useState({}); // {messageIdx: true}
   const [pendingEditMessage, setPendingEditMessage] = useState(null);
   const [highContrast, setHighContrast] = useState(false);
 
@@ -2308,11 +2309,22 @@ export default function MyStoryFamily() {
     setShowPhotoPanel(false);
     setGeneratingNarrative(true);
 
+    // Identify locked messages (verbatim paragraphs the user approved)
+    const lockedParagraphs = messages
+      .map((m, i) => ({ msg: m, idx: i }))
+      .filter(({ idx }) => lockedMessages[idx])
+      .map(({ msg }) => msg.content.trim());
+
     // Build a clean transcript for the memoir writer
     const transcript = messages
       .filter(m => m.content?.trim())
       .map(m => `${m.role === "user" ? (user?.firstName || "Person") : "Guide"}: ${m.content}`)
       .join("\n\n");
+
+    // Add locked paragraph instructions to memoir prompt
+    const lockedNote = lockedParagraphs.length > 0
+      ? "\n\nLOCKED PARAGRAPHS — INCLUDE VERBATIM:\nThe person approved these exact paragraphs to appear word-for-word in the memoir. Include each one exactly as written — do not rephrase, polish, or alter them in any way. You may weave surrounding prose around them but the locked text itself must be preserved perfectly:\n\n" + lockedParagraphs.map((p, i) => `LOCKED ${i + 1}:\n"${p}"`).join("\n\n")
+      : "";
 
     // Need at least something to write from
     if (!transcript.trim()) {
@@ -2327,7 +2339,7 @@ export default function MyStoryFamily() {
         body: JSON.stringify({
           model: "claude-sonnet-4-20250514",
           max_tokens: 3000,
-          system: buildMemoirPrompt(ch.title, user?.firstName, transcript),
+          system: buildMemoirPrompt(ch.title, user?.firstName, transcript + lockedNote),
           messages: [{ role: "user", content: "Please write the memoir chapter now." }],
         }),
       });
@@ -4101,6 +4113,36 @@ export default function MyStoryFamily() {
                         role={msg.role === "assistant" ? "article" : undefined}
                         aria-label={msg.role === "assistant" ? `${persona?.name || "Guide"} says` : "Your response"}>
                         {renderText(msg.content)}
+
+                        {/* Lock button — only on Grace's messages, not the very first intro, not already locked */}
+                        {msg.role === "assistant" && i > 0 && !lockedMessages[i] && !loading && (
+                          <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid rgba(180,140,80,0.15)" }}>
+                            <button onClick={() => {
+                              setLockedMessages(prev => ({ ...prev, [i]: true }));
+                              // Add to right panel details
+                              setTopicFramework(prev => prev.map((t, ti) =>
+                                ti === currentTopicIdx ? { ...t, details: [...t.details, "🔒 " + msg.content.slice(0, 80) + (msg.content.length > 80 ? "..." : "")] } : t
+                              ));
+                              // Grace confirms warmly
+                              setTimeout(() => {
+                                const confirmMsg = { role: "assistant", content: "I've locked that in — here's exactly what will appear in your book:\n\n*\"" + msg.content + "\"*\n\nThat's beautiful. This clearly means a great deal to you — would you like to keep going and tell me more, or are you ready to move on?" };
+                                setMessages(prev => [...prev, confirmMsg]);
+                                setCurrentTopicMessages(prev => [...prev, confirmMsg]);
+                              }, 300);
+                            }}
+                              style={{ background: "rgba(184,134,11,0.08)", border: "1px solid rgba(184,134,11,0.3)", color: "#7a5c3a", fontFamily: "'Lato',sans-serif", fontSize: fs(12), fontWeight: 600, padding: "7px 14px", borderRadius: 100, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, minHeight: 34, transition: "all 0.2s" }}>
+                              🔒 Lock this into my book — word for word
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Locked confirmation badge */}
+                        {msg.role === "assistant" && lockedMessages[i] && (
+                          <div style={{ marginTop: 10, paddingTop: 8, borderTop: "1px solid rgba(184,134,11,0.15)", display: "flex", alignItems: "center", gap: 6 }}>
+                            <span style={{ fontSize: 12 }}>🔒</span>
+                            <span style={{ fontSize: fs(12), color: "#b8860b", fontFamily: "'Lato',sans-serif", fontWeight: 600 }}>Locked into your book — word for word</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                     {msg.role === "user" && msg.isGhostwritten && (
