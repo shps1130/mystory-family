@@ -1996,7 +1996,22 @@ export default function MyStoryFamily() {
       };
       setPersona(chosenPersona);
       setSystemPrompt(buildSystemPrompt(chosenPersona, profile));
-      setScreen("setup");
+      // New users go to startChat — setup screen is only shown after payment
+      setScreen("chat");
+      // Actually kick off the full startChat sequence
+      const selected = BASE_CHAPTERS.filter(c => updatedEnabledChapters.includes(c.id));
+      const allChapters = customChapter ? [...selected, customChapter] : selected;
+      setChapters(allChapters);
+      setAnglesUsed(false);
+      setChapterContext(buildChapterContext(allChapters[0]));
+      if (chosenPersona) setSystemPrompt(buildSystemPrompt(chosenPersona, profile));
+      const nameMsg = { role: "assistant", content: "Before we begin — what's your name? Just type it below." };
+      setMessages([nameMsg]);
+      setCurrentTopicMessages([nameMsg]);
+      setAwaitingName(true);
+      initTopicFramework(allChapters[0].id);
+      setSectionIntroChapter({ chapter: allChapters[0], nextC: 0, isFirst: true });
+      setScreen("sectionintro");
     }
   };
 
