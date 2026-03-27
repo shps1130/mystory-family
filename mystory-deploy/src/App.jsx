@@ -1494,8 +1494,11 @@ export default function MyStoryFamily() {
     }
   }, [messages]);
 
-  // Scroll to top on every screen change
-  useEffect(() => { window.scrollTo({ top: 0, behavior: "smooth" }); }, [screen]);
+  // Scroll to top on every screen change — instant so it never shows mid-page
+  useEffect(() => { window.scrollTo({ top: 0, behavior: "instant" }); }, [screen]);
+
+  // Force top on mount — prevents browser scroll restoration showing mid-page
+  useEffect(() => { window.scrollTo(0, 0); }, []);
 
   // Scroll to the relevant element when tutorial step changes
   useEffect(() => {
