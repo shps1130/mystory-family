@@ -2755,444 +2755,285 @@ export default function MyStoryFamily() {
       </header>
 
       {/* ── WELCOME ── */}
+      {/* ── WELCOME / LANDING PAGE ── */}
       {screen === "welcome" && (
         <main id="main-content" style={{ width: "100%", overflowX: "hidden" }}>
 
           {/* ── HERO ── */}
-          <section style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "72px 8% 64px", background: "linear-gradient(160deg,#fdf6ec 0%,#f5ede0 60%,#ede4d5 100%)", minHeight: "92vh", justifyContent: "center" }}>
-            <img src="/logo.png" alt="MyStory.Family" style={{ width: 130, height: 130, objectFit: "contain", marginBottom: 24, animation: "pulse 3s ease-in-out infinite" }} />
+          <section style={{ minHeight: "92vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: "120px 24px 80px", background: "linear-gradient(170deg,#fdf6ec 0%,#f5ede0 50%,#ede4d5 100%)", position: "relative", overflow: "hidden" }}>
+            {/* bg glows */}
+            <div style={{ position: "absolute", top: "-30%", left: "-15%", width: 500, height: 500, background: "radial-gradient(circle,rgba(184,134,11,0.07) 0%,transparent 70%)", pointerEvents: "none" }} />
+            <div style={{ position: "absolute", bottom: "-20%", right: "-10%", width: 400, height: 400, background: "radial-gradient(circle,rgba(93,61,26,0.06) 0%,transparent 70%)", pointerEvents: "none" }} />
 
-            {/* Mother's Day badge */}
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "rgba(184,134,11,0.1)", border: "1.5px solid rgba(184,134,11,0.35)", borderRadius: 100, padding: "10px 24px", marginBottom: 32 }}>
-              <span style={{ fontSize: 18 }}>🌸</span>
-              <span style={{ fontSize: fs(15), color: "#b8860b", fontFamily: "'Lato',sans-serif", fontWeight: 700, letterSpacing: "1.5px", textTransform: "uppercase" }}>Perfect Mother's Day Gift</span>
-            </div>
-
-            <h1 style={{ fontSize: fs(58), fontWeight: 300, color: tc("#3d2b1a","#1a0e00"), fontStyle: "italic", lineHeight: 1.2, marginBottom: 24, maxWidth: 1000, width: "100%" }}>
-              Mom has stories she's never told anyone.
+            <p style={{ fontFamily: "'Lato',sans-serif", fontSize: fs(11), letterSpacing: "3px", textTransform: "uppercase", color: "#b8860b", fontWeight: 700, marginBottom: 28, animation: "fadeUp 0.8s ease forwards" }}>
+              Your story. Your words. Their treasure forever.
+            </p>
+            <h1 style={{ fontSize: fs(58), fontWeight: 300, lineHeight: 1.15, color: tc("#3d2b1a","#1a0e00"), maxWidth: 820, marginBottom: 24, animation: "fadeUp 0.8s 0.1s ease both" }}>
+              Your grandchildren will ask<br/>about your life.<br/>
+              <em style={{ fontStyle: "italic", color: tc("#5c3d1e","#2a1000") }}>Make sure someone can answer.</em>
             </h1>
-            <p style={{ fontSize: fs(24), color: tc("#5c4a35","#2a1a0a"), maxWidth: 860, width: "100%", lineHeight: 1.85, marginBottom: 16, fontStyle: "italic" }}>
-              This Mother's Day, give her Grace — a faith-centered AI guide who will walk alongside her, one memory at a time, and shape her stories into a beautiful legacy book your whole family will treasure forever.
+            <p style={{ fontSize: fs(20), color: tc("#8b7355","#5c3d1e"), maxWidth: 540, marginBottom: 48, lineHeight: 1.7, fontFamily: "'Lato',sans-serif", fontWeight: 300, animation: "fadeUp 0.8s 0.2s ease both" }}>
+              Grace asks the questions. You just talk. Your family gets a beautiful book.
             </p>
-            <p style={{ fontSize: fs(18), color: tc("#8b7355","#5c3d1e"), fontFamily: "'Lato',sans-serif", marginBottom: 44, letterSpacing: "0.3px" }}>
-              Not a subscription. Not a year of weekly emails. <strong>Done in her own time. Preserved forever.</strong>
-            </p>
-
-            {/* Promo code */}
-            {!promoInfo ? (
-              <div style={{ marginBottom: 32, width: "100%", maxWidth: 520 }}>
-                <div style={{ display: "flex", gap: 10 }}>
-                  <label htmlFor="promo-input" style={{ position: "absolute", left: -9999, width: 1 }}>School or discount code</label>
-                  <input id="promo-input" value={promoInput} onChange={e => { setPromoInput(e.target.value); setPromoError(""); }}
-                    onKeyDown={e => e.key === "Enter" && applyPromoCode()}
-                    placeholder="Have a school or gift code? Enter it here"
-                    style={{ flex: 1, border: `1.5px solid ${promoError ? "#c0392b" : highContrast ? "#7a5c3a" : "rgba(180,140,80,0.3)"}`, borderRadius: 10, padding: "14px 18px", fontFamily: "'Lato',sans-serif", fontSize: fs(16), color: tc("#3d2b1a","#1a0e00"), background: "#fffdf5", outline: "none", minHeight: 54 }} />
-                  <button onClick={applyPromoCode} disabled={!promoInput.trim()}
-                    style={{ background: promoInput.trim() ? "rgba(93,61,26,0.9)" : "rgba(139,94,52,0.2)", color: promoInput.trim() ? "#fdf6ec" : "#a89070", border: "none", borderRadius: 10, padding: "14px 22px", fontFamily: "'Lato',sans-serif", fontSize: fs(15), fontWeight: 600, cursor: promoInput.trim() ? "pointer" : "not-allowed", whiteSpace: "nowrap", minHeight: 54 }}>
-                    Apply
-                  </button>
-                </div>
-                {promoError && <p role="alert" style={{ fontSize: fs(14), color: "#c0392b", fontFamily: "'Lato',sans-serif", marginTop: 8 }}>{promoError}</p>}
-              </div>
-            ) : (
-              <div style={{ marginBottom: 32, background: "rgba(184,134,11,0.08)", border: "1.5px solid rgba(184,134,11,0.3)", borderRadius: 12, padding: "16px 24px", maxWidth: 640, width: "100%", display: "flex", alignItems: "center", gap: 12 }}>
-                <span aria-hidden="true" style={{ fontSize: 20 }}>{promoInfo.school ? "🏫" : "🏷️"}</span>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: fs(15), fontWeight: 600, color: tc("#3d2b1a","#1a0e00"), fontFamily: "'Lato',sans-serif" }}>
-                    {promoInfo.school ? `Supporting ${promoInfo.school}` : `${Math.round(promoInfo.discount * 100)}% discount applied`}
-                  </div>
-                  {promoInfo.school && <div style={{ fontSize: fs(14), color: tc("#6b5030","#4a3020"), fontFamily: "'Lato',sans-serif", marginTop: 2 }}>
-                    ${promoInfo.schoolShare} from your purchase goes to the school
-                  </div>}
-                </div>
-                <button onClick={() => { setPromoInfo(null); setPromoCode(""); setPromoInput(""); }} aria-label="Remove promo code"
-                  style={{ background: "none", border: "none", color: "#a89070", cursor: "pointer", fontSize: 20, minWidth: 36, minHeight: 36, padding: "2px 8px" }}>✕</button>
-              </div>
-            )}
-
-            {/* Primary CTA */}
-            <button className="start-btn" onClick={() => setScreen("signup")}
-              style={{ background: "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: highContrast ? "3px solid #3d2b1a" : "none", padding: "24px 88px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(26), letterSpacing: 1, cursor: "pointer", boxShadow: "0 6px 28px rgba(93,61,26,0.3)", minHeight: 76, marginBottom: 18, transition: "all 0.2s" }}>
-              Begin My Legacy ✦
-            </button>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16, animation: "fadeUp 0.8s 0.3s ease both" }}>
+              <button className="start-btn" onClick={() => setScreen("signup")}
+                style={{ background: "linear-gradient(135deg,#b8860b,#d4a843)", color: "#fdf6ec", border: "none", padding: "20px 52px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(21), letterSpacing: 0.5, cursor: "pointer", boxShadow: "0 6px 28px rgba(184,134,11,0.4)", transition: "all 0.25s", minHeight: 64 }}>
+                Start My Story — It's Free ✦
+              </button>
+              <p style={{ fontFamily: "'Lato',sans-serif", fontSize: fs(14), color: tc("#8b7355","#5c3d1e") }}>
+                <strong style={{ color: tc("#5c3d1e","#2a1000") }}>No credit card required.</strong> Your first section is completely free. Start today and see how easy it is — then decide.
+              </p>
+            </div>
 
             {/* Returning user */}
             {savedSession?.user && (
-              <div style={{ marginBottom: 16, padding: "18px 28px", background: "rgba(184,134,11,0.07)", border: "1.5px solid rgba(184,134,11,0.2)", borderRadius: 14, maxWidth: 580, width: "100%", textAlign: "center" }}>
+              <div style={{ marginTop: 32, padding: "18px 28px", background: "rgba(184,134,11,0.07)", border: "1.5px solid rgba(184,134,11,0.2)", borderRadius: 14, maxWidth: 480, width: "100%", textAlign: "center" }}>
                 <div style={{ fontSize: fs(15), color: tc("#5c3d1e","#2a1000"), fontFamily: "'Lato',sans-serif", marginBottom: 12 }}>
-                  Welcome back, <strong>{savedSession.user.firstName}</strong> — your story is waiting for you
+                  Welcome back, <strong>{savedSession.user.firstName}</strong> — your story is waiting
                 </div>
                 <button onClick={() => restoreSession(savedSession)}
-                  style={{ background: "linear-gradient(135deg,#b8860b,#d4a843)", color: "#fdf6ec", border: "none", padding: "14px 32px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(18), cursor: "pointer", minHeight: 52 }}>
+                  style={{ background: "linear-gradient(135deg,#b8860b,#d4a843)", color: "#fdf6ec", border: "none", padding: "13px 28px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(17), cursor: "pointer", marginBottom: 10 }}>
                   Continue My Story →
                 </button>
-                <div style={{ marginTop: 10 }}>
-                  <button onClick={() => setScreen("signin")} style={{ background: "none", border: "none", color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", fontSize: fs(14), cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3, minHeight: 40 }}>
+                <div>
+                  <button onClick={() => setScreen("signin")} style={{ background: "none", border: "none", color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", fontSize: fs(13), cursor: "pointer", textDecoration: "underline", minHeight: 36 }}>
                     Sign in to a different account
                   </button>
                 </div>
               </div>
             )}
             {!savedSession?.user && (
-              <button onClick={() => setScreen("signin")} style={{ background: "none", border: "none", color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", fontSize: fs(15), cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3, minHeight: 48, marginBottom: 8 }}>
+              <button onClick={() => setScreen("signin")} style={{ marginTop: 16, background: "none", border: "none", color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", fontSize: fs(15), cursor: "pointer", textDecoration: "underline", minHeight: 44 }}>
                 Already have an account? Sign in
               </button>
             )}
-            <p style={{ fontSize: fs(15), color: tc("#a89070","#5c3d1e"), fontFamily: "'Lato',sans-serif", lineHeight: 1.7 }}>
-              First section free · no card required · $99 one-time to unlock your full book
-            </p>
-
-            {/* Gift buttons */}
-            <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 32, marginBottom: 10, width: "100%", maxWidth: 520 }}>
-              <div style={{ flex: 1, height: 1, background: "rgba(180,140,80,0.25)" }} />
-              <span style={{ fontSize: fs(13), color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", letterSpacing: "1px", textTransform: "uppercase", whiteSpace: "nowrap" }}>or give a gift</span>
-              <div style={{ flex: 1, height: 1, background: "rgba(180,140,80,0.25)" }} />
-            </div>
-            <button onClick={() => setScreen("giftpurchase")}
-              style={{ marginTop: 10, background: "rgba(184,134,11,0.08)", border: "2px solid rgba(184,134,11,0.35)", color: tc("#7a5c1e","#5c3d00"), fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(20), letterSpacing: 0.5, cursor: "pointer", padding: "16px 44px", borderRadius: 100, minHeight: 60, display: "flex", alignItems: "center", gap: 12, transition: "all 0.2s" }}
-              onMouseEnter={e => { e.currentTarget.style.background = "rgba(184,134,11,0.14)"; e.currentTarget.style.borderColor = "rgba(184,134,11,0.6)"; }}
-              onMouseLeave={e => { e.currentTarget.style.background = "rgba(184,134,11,0.08)"; e.currentTarget.style.borderColor = "rgba(184,134,11,0.35)"; }}>
-              🎁 Give This as a Gift — $99
-            </button>
-            <button onClick={() => setScreen("giftcode")}
-              style={{ marginTop: 14, background: "none", border: "none", color: tc("#b8860b","#7a5c00"), fontFamily: "'Lato',sans-serif", fontSize: fs(16), cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 4, minHeight: 48, padding: "8px 20px", fontWeight: 600 }}>
-              Already have a gift code? Click here to redeem it
-            </button>
           </section>
+
+          {/* ── TRUST BAR ── */}
+          <div style={{ background: "white", borderTop: "1px solid rgba(184,134,11,0.12)", borderBottom: "1px solid rgba(184,134,11,0.12)", padding: "20px 40px", display: "flex", alignItems: "center", justifyContent: "center", gap: 48, flexWrap: "wrap" }}>
+            {[["✦","First section free","no card needed"],["🔒","Private & secure","your story stays yours"],["⏸","Your own pace","come back anytime"],["📖","Beautiful book","PDF or printed"]].map(([icon,title,sub]) => (
+              <div key={title} style={{ display: "flex", alignItems: "center", gap: 10, fontFamily: "'Lato',sans-serif", fontSize: fs(14), color: tc("#8b7355","#5c3d1e") }}>
+                <span style={{ fontSize: 16 }}>{icon}</span>
+                <span><strong style={{ color: tc("#5c3d1e","#2a1000") }}>{title}</strong> — {sub}</span>
+              </div>
+            ))}
+          </div>
 
           {/* ── HOW IT WORKS ── */}
-          <section style={{ background: "white", padding: "80px 8%", textAlign: "center" }}>
-            <p style={{ fontSize: fs(13), letterSpacing: "3px", textTransform: "uppercase", color: "#b8860b", fontFamily: "'Lato',sans-serif", marginBottom: 14 }}>Simple from the very first word</p>
-            <h2 style={{ fontSize: fs(40), fontWeight: 300, color: tc("#3d2b1a","#1a0e00"), fontStyle: "italic", marginBottom: 12 }}>How it works</h2>
-            <p style={{ fontSize: fs(18), color: tc("#6b5540","#3a2510"), fontFamily: "'Lato',sans-serif", lineHeight: 1.7, maxWidth: 680, margin: "0 auto 56px" }}>
-              No writing experience needed. No technical skills required. Just you, your memories, and Grace.
-            </p>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 28, justifyContent: "center", maxWidth: 1100, margin: "0 auto" }}>
-              {[
-                { step: "1", icon: "🕊️", title: "Meet Grace", desc: "Grace is your personal faith-centered guide. She'll introduce herself, learn a little about you, and make you feel completely at ease before you share a single word." },
-                { step: "2", icon: "💬", title: "Tell Your Stories", desc: "Grace asks warm, thoughtful questions — and she really listens. She follows every thread, asks for names, details, and memories until each story is fully told." },
-                { step: "3", icon: "📖", title: "Receive Your Book", desc: "Grace shapes everything you've shared into beautiful memoir prose, enriched with historical context. Download your PDF, share it with family, or order a printed copy." },
-              ].map(({ step, icon, title, desc }) => (
-                <div key={step} style={{ flex: "1 1 280px", maxWidth: 340, textAlign: "center", padding: "36px 28px", background: "#fdf6ec", borderRadius: 18, border: "1px solid rgba(180,140,80,0.15)" }}>
-                  <div style={{ width: 68, height: 68, borderRadius: "50%", background: "linear-gradient(135deg,#5c3d1e,#8b5e34)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, margin: "0 auto 20px" }}>{icon}</div>
-                  <div style={{ fontSize: fs(12), letterSpacing: "2px", textTransform: "uppercase", color: "#b8860b", fontFamily: "'Lato',sans-serif", marginBottom: 10 }}>Step {step}</div>
-                  <h3 style={{ fontSize: fs(22), fontWeight: 600, color: tc("#3d2b1a","#1a0e00"), marginBottom: 12 }}>{title}</h3>
-                  <p style={{ fontSize: fs(16), color: tc("#6b5540","#3a2510"), fontFamily: "'Lato',sans-serif", lineHeight: 1.8 }}>{desc}</p>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          {/* ── FAITH SECTION ── */}
-          <section style={{ background: "linear-gradient(135deg,#5c3d1e,#3d2b1a)", padding: "80px 8%", textAlign: "center" }}>
-            <div style={{ maxWidth: 860, margin: "0 auto" }}>
-              <div style={{ fontSize: 44, marginBottom: 24 }} aria-hidden="true">✝️</div>
-              <p style={{ fontSize: fs(13), letterSpacing: "3px", textTransform: "uppercase", color: "rgba(253,246,236,0.55)", fontFamily: "'Lato',sans-serif", marginBottom: 18 }}>Built for people of faith</p>
-              <h2 style={{ fontSize: fs(40), fontWeight: 300, color: "#fdf6ec", fontStyle: "italic", lineHeight: 1.3, marginBottom: 28 }}>
-                Your story builds faith in others.
-              </h2>
-              <div style={{ background: "rgba(253,246,236,0.08)", border: "1px solid rgba(253,246,236,0.15)", borderRadius: 16, padding: "28px 36px", marginBottom: 28, textAlign: "left" }}>
-                <p style={{ fontSize: fs(13), letterSpacing: "2px", textTransform: "uppercase", color: "#d4a843", fontFamily: "'Lato',sans-serif", marginBottom: 16 }}>2 Timothy 1:5 · King James Version</p>
-                <p style={{ fontSize: fs(20), color: "rgba(253,246,236,0.92)", lineHeight: 1.9, fontStyle: "italic", marginBottom: 18 }}>
-                  "When I call to remembrance the unfeigned faith that is in thee, which dwelt first in thy grandmother Lois, and thy mother Eunice; and I am persuaded that in thee also."
-                </p>
-                <p style={{ fontSize: fs(16), color: "#d4a843", fontFamily: "'Lato',sans-serif", lineHeight: 1.7, margin: 0 }}>
-                  Legacy isn't abstract. It has names, faces, and stories that shape generations. <strong style={{ color: "#fdf6ec" }}>Yours is one of them.</strong>
-                </p>
-              </div>
-              <p style={{ fontSize: fs(17), color: "rgba(253,246,236,0.75)", fontFamily: "'Lato',sans-serif", lineHeight: 1.8, marginBottom: 36 }}>
-                Grace naturally weaves faith, scripture, and spiritual meaning into your story. She'll ask about the moments when you felt God closest, the verses that carried you through hard seasons, and the prayers you want to leave for the generations that follow.
+          <div style={{ background: "linear-gradient(160deg,#faf3e8 0%,#f5ede0 100%)", borderBottom: "1px solid rgba(184,134,11,0.1)", padding: "100px 24px" }}>
+            <div style={{ maxWidth: 1000, margin: "0 auto" }}>
+              <p style={{ fontFamily: "'Lato',sans-serif", fontSize: fs(11), letterSpacing: "3px", textTransform: "uppercase", color: "#b8860b", fontWeight: 700, marginBottom: 16 }}>How it works</p>
+              <h2 style={{ fontSize: fs(46), fontWeight: 300, lineHeight: 1.2, color: tc("#3d2b1a","#1a0e00"), marginBottom: 16 }}>Three steps. <em style={{ fontStyle: "italic" }}>That's really all it is.</em></h2>
+              <p style={{ fontSize: fs(17), color: tc("#8b7355","#5c3d1e"), fontFamily: "'Lato',sans-serif", fontWeight: 300, lineHeight: 1.8, maxWidth: 560, marginBottom: 64 }}>
+                You don't have to be a writer. You don't have to remember everything perfectly. You just have to begin.
               </p>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 14, justifyContent: "center" }}>
-                {["Faith Journey section included", "Scripture & prayer preserved", "Written for your grandchildren", "Nothing preachy — just honest"].map(item => (
-                  <div key={item} style={{ display: "flex", alignItems: "center", gap: 10, background: "rgba(253,246,236,0.1)", border: "1px solid rgba(253,246,236,0.2)", borderRadius: 100, padding: "10px 20px" }}>
-                    <span style={{ color: "#d4a843", fontSize: 14 }}>✦</span>
-                    <span style={{ fontSize: fs(15), color: "rgba(253,246,236,0.85)", fontFamily: "'Lato',sans-serif" }}>{item}</span>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 40 }}>
+                {[
+                  ["1","Grace asks you questions","One warm question at a time. No rushing. No pressure. Grace follows wherever your story leads, and she always knows exactly what to ask next."],
+                  ["2","You answer however feels natural","Type your answers or just speak them. Short answers are fine. Long stories are wonderful. There are no wrong answers, ever."],
+                  ["3","Grace writes your story","She turns your answers into beautifully written memoir prose — your words, your voice, your life. Then you can hold it in your hands."],
+                ].map(([num,title,body]) => (
+                  <div key={num} style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
+                    <div style={{ width: 56, height: 56, borderRadius: "50%", background: "linear-gradient(135deg,#b8860b,#d4a843)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(24), color: "#fdf6ec", marginBottom: 24, boxShadow: "0 4px 16px rgba(184,134,11,0.3)", flexShrink: 0 }}>
+                      {num}
+                    </div>
+                    <h3 style={{ fontSize: fs(20), fontWeight: 500, color: tc("#3d2b1a","#1a0e00"), marginBottom: 10 }}>{title}</h3>
+                    <p style={{ fontFamily: "'Lato',sans-serif", fontSize: fs(15), color: tc("#8b7355","#5c3d1e"), lineHeight: 1.75, fontWeight: 300 }}>{body}</p>
                   </div>
                 ))}
               </div>
             </div>
-          </section>
+          </div>
 
-          {/* ── WHAT'S IN YOUR BOOK ── */}
-          <section style={{ background: "#fdf6ec", padding: "80px 8%", textAlign: "center" }}>
-            <p style={{ fontSize: fs(13), letterSpacing: "3px", textTransform: "uppercase", color: "#b8860b", fontFamily: "'Lato',sans-serif", marginBottom: 14 }}>Five sections. One complete life.</p>
-            <h2 style={{ fontSize: fs(40), fontWeight: 300, color: tc("#3d2b1a","#1a0e00"), fontStyle: "italic", marginBottom: 12 }}>What's in your book</h2>
-            <p style={{ fontSize: fs(18), color: tc("#6b5540","#3a2510"), fontFamily: "'Lato',sans-serif", lineHeight: 1.7, maxWidth: 620, margin: "0 auto 48px" }}>
-              Grace guides you through five sections — each one a deep conversation, each one a chapter your family will return to for generations.
-            </p>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 18, justifyContent: "center", maxWidth: 1100, margin: "0 auto 48px" }}>
-              {[
-                { icon: "🌱", title: "Early Life", desc: "Childhood, family, and where it all began" },
-                { icon: "🌿", title: "Becoming You", desc: "Dreams, turning points, and the person you became" },
-                { icon: "🏡", title: "Family & Love", desc: "Marriage, children, and the people who shaped your heart" },
-                { icon: "✝️", title: "Faith Journey", desc: "Your spiritual story, scripture, and prayers for the next generation" },
-                { icon: "🕊️", title: "Wisdom & Legacy", desc: "Life's lessons and what you hope to be remembered for" },
-              ].map(({ icon, title, desc }) => (
-                <div key={title} style={{ flex: "1 1 180px", maxWidth: 210, padding: "24px 20px", background: "white", borderRadius: 14, border: "1px solid rgba(180,140,80,0.15)", boxShadow: "0 2px 12px rgba(93,61,26,0.06)" }}>
-                  <div style={{ fontSize: 34, marginBottom: 12 }}>{icon}</div>
-                  <div style={{ fontSize: fs(16), fontWeight: 600, color: tc("#3d2b1a","#1a0e00"), marginBottom: 8 }}>{title}</div>
-                  <div style={{ fontSize: fs(14), color: tc("#7a6040","#4a3020"), fontFamily: "'Lato',sans-serif", lineHeight: 1.65 }}>{desc}</div>
+          {/* ── MEET GRACE ── */}
+          <div style={{ padding: "100px 24px", maxWidth: 1000, margin: "0 auto" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 72, alignItems: "center" }}>
+              {/* Video */}
+              <div style={{ position: "relative" }}>
+                <div style={{ borderRadius: 20, overflow: "hidden", boxShadow: "0 24px 80px rgba(93,61,26,0.2)", border: "1px solid rgba(184,134,11,0.2)", background: "#1a0f05", position: "relative", paddingBottom: "75%", height: 0 }}>
+                  <iframe src="https://app.heygen.com/embeds/1c6b4714cfc949a8b94bd542cc88f614" title="Meet Grace" allow="encrypted-media; fullscreen;" allowFullScreen style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }} />
                 </div>
-              ))}
-            </div>
-          </section>
-
-          {/* ── TESTIMONIAL ── */}
-          <section style={{ background: "white", padding: "80px 8%", textAlign: "center" }}>
-            <div style={{ maxWidth: 860, margin: "0 auto" }}>
-              <div style={{ fontSize: 40, color: "#b8860b", marginBottom: 24 }} aria-hidden="true">❝</div>
-              <p style={{ fontSize: fs(26), color: tc("#3d2b1a","#1a0e00"), fontStyle: "italic", lineHeight: 1.85, marginBottom: 28, fontFamily: "'Cormorant Garamond',Georgia,serif" }}>
-                "I never thought I had stories worth telling. Grace proved me wrong in the very first conversation. My daughter cried when she read what I'd written about her grandfather."
-              </p>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 16 }}>
-                <div style={{ width: 54, height: 54, borderRadius: "50%", background: "linear-gradient(135deg,#b8860b,#d4a843)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>🕊️</div>
-                <div style={{ textAlign: "left" }}>
-                  <div style={{ fontSize: fs(17), fontWeight: 600, color: tc("#3d2b1a","#1a0e00"), fontFamily: "'Lato',sans-serif" }}>Margaret, 71</div>
-                  <div style={{ fontSize: fs(14), color: tc("#8b7355","#5c3d1e"), fontFamily: "'Lato',sans-serif" }}>Mason, Ohio</div>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* ── PRICING ── */}
-          <section style={{ background: "linear-gradient(160deg,#fdf6ec,#f5ede0)", padding: "80px 8%", textAlign: "center" }}>
-            <p style={{ fontSize: fs(13), letterSpacing: "3px", textTransform: "uppercase", color: "#b8860b", fontFamily: "'Lato',sans-serif", marginBottom: 14 }}>Simple, honest pricing</p>
-            <h2 style={{ fontSize: fs(40), fontWeight: 300, color: tc("#3d2b1a","#1a0e00"), fontStyle: "italic", marginBottom: 12 }}>One price. Forever yours.</h2>
-            <p style={{ fontSize: fs(18), color: tc("#6b5540","#3a2510"), fontFamily: "'Lato',sans-serif", lineHeight: 1.7, maxWidth: 580, margin: "0 auto 44px" }}>
-              Not a subscription. Not $99 a year. One payment, and your story is preserved forever.
-            </p>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 24, justifyContent: "center", maxWidth: 1000, margin: "0 auto 48px" }}>
-              {[
-                { icon: "🆓", title: "Free to start", desc: "Complete your first section — Early Life — completely free. No credit card required." },
-                { icon: "📄", title: "$99 one-time", desc: "Unlock all sections, your complete PDF book, and keep it forever. No recurring charges." },
-                { icon: "📖", title: "Print from $79", desc: "Add a professionally bound hardcover book, delivered to your door. Ordered any time." },
-              ].map(({ icon, title, desc }) => (
-                <div key={title} style={{ flex: "1 1 240px", maxWidth: 300, padding: "30px 24px", background: "white", borderRadius: 16, border: "1px solid rgba(180,140,80,0.2)", boxShadow: "0 4px 20px rgba(93,61,26,0.07)", textAlign: "center" }}>
-                  <div style={{ fontSize: 36, marginBottom: 16 }}>{icon}</div>
-                  <div style={{ fontSize: fs(18), fontWeight: 600, color: tc("#3d2b1a","#1a0e00"), marginBottom: 10 }}>{title}</div>
-                  <div style={{ fontSize: fs(15), color: tc("#6b5540","#3a2510"), fontFamily: "'Lato',sans-serif", lineHeight: 1.75 }}>{desc}</div>
-                </div>
-              ))}
-            </div>
-
-            {/* Bottom CTA */}
-            <button className="start-btn" onClick={() => setScreen("signup")}
-              style={{ background: "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", padding: "24px 88px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(26), letterSpacing: 1, cursor: "pointer", boxShadow: "0 6px 28px rgba(93,61,26,0.3)", minHeight: 76, marginBottom: 20, transition: "all 0.2s" }}>
-              Begin My Legacy ✦
-            </button>
-            <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 10, width: "100%", maxWidth: 520, margin: "0 auto 10px" }}>
-              <div style={{ flex: 1, height: 1, background: "rgba(180,140,80,0.25)" }} />
-              <span style={{ fontSize: fs(13), color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", letterSpacing: "1px", textTransform: "uppercase", whiteSpace: "nowrap" }}>or give a gift</span>
-              <div style={{ flex: 1, height: 1, background: "rgba(180,140,80,0.25)" }} />
-            </div>
-            <button onClick={() => setScreen("giftpurchase")}
-              style={{ marginTop: 14, background: "rgba(184,134,11,0.08)", border: "2px solid rgba(184,134,11,0.35)", color: tc("#7a5c1e","#5c3d00"), fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(20), letterSpacing: 0.5, cursor: "pointer", padding: "16px 44px", borderRadius: 100, minHeight: 60, display: "inline-flex", alignItems: "center", gap: 12, transition: "all 0.2s" }}
-              onMouseEnter={e => { e.currentTarget.style.background = "rgba(184,134,11,0.14)"; e.currentTarget.style.borderColor = "rgba(184,134,11,0.6)"; }}
-              onMouseLeave={e => { e.currentTarget.style.background = "rgba(184,134,11,0.08)"; e.currentTarget.style.borderColor = "rgba(184,134,11,0.35)"; }}>
-              🎁 Give This as a Gift — $99
-            </button>
-            <br />
-            <button onClick={() => setScreen("giftcode")}
-              style={{ marginTop: 14, background: "none", border: "none", color: tc("#b8860b","#7a5c00"), fontFamily: "'Lato',sans-serif", fontSize: fs(16), cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 4, minHeight: 48, padding: "8px 20px", fontWeight: 600 }}>
-              Already have a gift code? Click here to redeem it
-            </button>
-          </section>
-
-        </main>
-      )}
-
-      {/* ── GIFT PURCHASE ── */}
-      {screen === "giftpurchase" && (
-        <main id="main-content" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "78vh", padding: "40px 24px", animation: "fadeUp 0.4s ease forwards" }}>
-          <div style={{ maxWidth: 720, width: "100%" }}>
-            <div style={{ textAlign: "center", marginBottom: 36 }}>
-              <div style={{ fontSize: 48, marginBottom: 12 }} aria-hidden="true">🎁</div>
-              <h2 style={{ fontSize: fs(34), fontWeight: 300, color: tc("#3d2b1a","#1a0e00"), fontStyle: "italic", marginBottom: 8 }}>Give the Gift of Story</h2>
-              <p style={{ fontSize: fs(16), color: tc("#6b5540","#3a2510"), fontFamily: "'Lato',sans-serif", lineHeight: 1.7 }}>
-                A beautifully guided legacy book — the most meaningful gift you can give someone you love.
-              </p>
-            </div>
-            <div style={{ background: "white", borderRadius: 16, padding: "32px", boxShadow: "0 8px 40px rgba(93,61,26,0.1)", border: "1px solid rgba(180,140,80,0.15)", marginBottom: 20 }}>
-              <div style={{ background: "rgba(184,134,11,0.06)", borderRadius: 10, padding: "16px 18px", marginBottom: 24, border: "1px solid rgba(184,134,11,0.15)" }}>
-                <div style={{ fontSize: fs(12), letterSpacing: "1.5px", textTransform: "uppercase", color: "#b8860b", fontFamily: "'Lato',sans-serif", marginBottom: 10 }}>What they'll receive</div>
-                {[["🕊️","A personal AI guide walks with them through their whole life story"],["📄","A beautifully formatted PDF legacy book — theirs to keep and share"],["💛","Their stories preserved forever for the people they love most"]].map(([icon, text]) => (
-                  <div key={text} style={{ display: "flex", gap: 10, marginBottom: 8, alignItems: "flex-start" }}>
-                    <span style={{ fontSize: 16, flexShrink: 0 }}>{icon}</span>
-                    <span style={{ fontSize: fs(14), color: tc("#5c4a35","#2a1a0a"), fontFamily: "'Lato',sans-serif", lineHeight: 1.6 }}>{text}</span>
+                <div style={{ position: "absolute", bottom: -16, right: -16, background: "white", border: "1px solid rgba(184,134,11,0.2)", borderRadius: 16, padding: "14px 20px", boxShadow: "0 8px 32px rgba(93,61,26,0.12)", display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{ width: 44, height: 44, borderRadius: "50%", background: "linear-gradient(135deg,#5c3d1e,#8b5e34)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>🕊️</div>
+                  <div style={{ fontFamily: "'Lato',sans-serif", fontSize: fs(13), color: tc("#5c3d1e","#2a1000"), lineHeight: 1.4 }}>
+                    <strong style={{ display: "block", fontWeight: 700, fontSize: fs(14), color: tc("#3d2b1a","#1a0e00") }}>Meet Grace</strong>
+                    Your faith-centered writing companion
                   </div>
-                ))}
-              </div>
-              <div style={{ fontSize: fs(13), color: tc("#7a5c3a","#4a3020"), fontFamily: "'Lato',sans-serif", fontWeight: 600, marginBottom: 14, letterSpacing: "0.5px", textTransform: "uppercase" }}>Your information</div>
-              {[["giftBuyerName","Your name","text",giftBuyerName,setGiftBuyerName],["giftBuyerEmail","Your email (we'll send the gift code here)","email",giftBuyerEmail,setGiftBuyerEmail]].map(([id, label, type, val, setter]) => (
-                <div key={id} style={{ marginBottom: 14 }}>
-                  <label htmlFor={id} style={{ display: "block", fontSize: fs(12), color: tc("#7a5c3a","#4a3020"), fontFamily: "'Lato',sans-serif", marginBottom: 6, fontWeight: 600 }}>{label}</label>
-                  <input id={id} type={type} value={val} onChange={e => { setter(e.target.value); setGiftPurchaseError(""); }}
-                    style={{ width: "100%", border: "1.5px solid rgba(180,140,80,0.3)", borderRadius: 8, padding: "11px 14px", fontFamily: "'Lato',sans-serif", fontSize: fs(15), color: tc("#3d2b1a","#1a0e00"), background: "#fffdf5", outline: "none", boxSizing: "border-box", minHeight: 48 }} />
                 </div>
-              ))}
-              <div style={{ fontSize: fs(13), color: tc("#7a5c3a","#4a3020"), fontFamily: "'Lato',sans-serif", fontWeight: 600, marginBottom: 14, marginTop: 20, letterSpacing: "0.5px", textTransform: "uppercase" }}>Who is this gift for?</div>
-              <div style={{ marginBottom: 20 }}>
-                <label htmlFor="giftRecipientName" style={{ display: "block", fontSize: fs(12), color: tc("#7a5c3a","#4a3020"), fontFamily: "'Lato',sans-serif", marginBottom: 6, fontWeight: 600 }}>Their first name</label>
-                <input id="giftRecipientName" type="text" value={giftRecipientName} onChange={e => { setGiftRecipientName(e.target.value); setGiftPurchaseError(""); }}
-                  placeholder="e.g. Mom, Dad, Grandma..."
-                  style={{ width: "100%", border: "1.5px solid rgba(180,140,80,0.3)", borderRadius: 8, padding: "11px 14px", fontFamily: "'Lato',sans-serif", fontSize: fs(15), color: tc("#3d2b1a","#1a0e00"), background: "#fffdf5", outline: "none", boxSizing: "border-box", minHeight: 48 }} />
               </div>
-              <div style={{ marginBottom: 20 }}>
-                <label htmlFor="giftRecipientEmail" style={{ display: "block", fontSize: fs(12), color: tc("#7a5c3a","#4a3020"), fontFamily: "'Lato',sans-serif", marginBottom: 6, fontWeight: 600 }}>
-                  Their email address <span style={{ color: tc("#a89070","#6b5030"), fontWeight: 400 }}>(optional — we'll send them a gift notification)</span>
-                </label>
-                <input id="giftRecipientEmail" type="email" value={giftRecipientEmail} onChange={e => { setGiftRecipientEmail(e.target.value); setGiftPurchaseError(""); }}
-                  placeholder="mom@email.com"
-                  style={{ width: "100%", border: "1.5px solid rgba(180,140,80,0.3)", borderRadius: 8, padding: "11px 14px", fontFamily: "'Lato',sans-serif", fontSize: fs(15), color: tc("#3d2b1a","#1a0e00"), background: "#fffdf5", outline: "none", boxSizing: "border-box", minHeight: 48 }} />
-                <p style={{ fontSize: fs(12), color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", marginTop: 6, fontStyle: "italic" }}>
-                  If provided, we'll send them a beautiful email letting them know a gift is waiting. Leave blank if you'd prefer to share the code yourself.
+              {/* Copy */}
+              <div>
+                <p style={{ fontFamily: "'Lato',sans-serif", fontSize: fs(11), letterSpacing: "3px", textTransform: "uppercase", color: "#b8860b", fontWeight: 700, marginBottom: 16 }}>Your guide</p>
+                <h2 style={{ fontSize: fs(42), fontWeight: 300, lineHeight: 1.2, color: tc("#3d2b1a","#1a0e00"), marginBottom: 16 }}>Grace listens <em style={{ fontStyle: "italic" }}>the way a daughter wishes she had.</em></h2>
+                <p style={{ fontSize: fs(16), color: tc("#8b7355","#5c3d1e"), fontFamily: "'Lato',sans-serif", fontWeight: 300, lineHeight: 1.8, marginBottom: 32 }}>
+                  Grace is warm, patient, and trained to ask exactly the right questions. She remembers everything you share, never judges, and never rushes you.
                 </p>
-              </div>
-
-              {/* Book format choice */}
-              <div style={{ marginBottom: 20 }}>
-                <div style={{ fontSize: fs(13), fontWeight: 600, color: tc("#7a5c3a","#4a3020"), fontFamily: "'Lato',sans-serif", marginBottom: 10, letterSpacing: "0.5px", textTransform: "uppercase" }}>Gift format</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }} role="group" aria-label="Gift format options">
+                <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
                   {[
-                    { id: "pdf", icon: "📄", label: "PDF Book Gift", sub: "They download and share instantly", price: 99 },
-                    { id: "print1", icon: "📖", label: "PDF + Printed Copy", sub: "A physical book delivered to their door", price: 178 },
-                  ].map(opt => (
-                    <button key={opt.id} onClick={() => setGiftBookChoice(opt.id)}
-                      aria-pressed={giftBookChoice === opt.id}
-                      style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 16px", borderRadius: 10, border: `2px solid ${giftBookChoice === opt.id ? "#b8860b" : "rgba(180,140,80,0.22)"}`, background: giftBookChoice === opt.id ? "#fffdf5" : "white", cursor: "pointer", textAlign: "left", minHeight: 58 }}>
-                      <div style={{ width: 30, height: 30, borderRadius: "50%", border: `2px solid ${giftBookChoice === opt.id ? "#b8860b" : "rgba(180,140,80,0.35)"}`, background: giftBookChoice === opt.id ? "#b8860b" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                        {giftBookChoice === opt.id
-                          ? <svg width="11" height="11" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="#fdf6ec" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                          : <span style={{ fontSize: 14 }}>{opt.icon}</span>}
+                    ["💬","One question at a time","Never overwhelming. Never a list. Just a warm conversation, one memory at a time."],
+                    ["✝️","Faith-centered","Grace understands the role faith plays in a life well-lived, and she honors it naturally."],
+                    ["⏸","Always waiting for you","Stop and start whenever you like. Grace remembers exactly where you left off."],
+                    ["🔒","Love something she wrote? Lock it in","Click one button and that passage goes into your book word for word."],
+                  ].map(([icon,title,body]) => (
+                    <div key={title} style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+                      <span style={{ fontSize: 20, flexShrink: 0, marginTop: 2 }}>{icon}</span>
+                      <div style={{ fontFamily: "'Lato',sans-serif", fontSize: fs(14), color: tc("#8b7355","#5c3d1e"), lineHeight: 1.65, fontWeight: 300 }}>
+                        <strong style={{ display: "block", fontSize: fs(15), fontWeight: 600, color: tc("#3d2b1a","#1a0e00"), marginBottom: 2 }}>{title}</strong>
+                        {body}
                       </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: fs(14), fontWeight: 600, color: tc("#3d2b1a","#1a0e00") }}>{opt.label}</div>
-                        <div style={{ fontSize: fs(12), color: tc("#7a6040","#4a3020"), fontFamily: "'Lato',sans-serif", marginTop: 1 }}>{opt.sub}</div>
-                      </div>
-                      <div style={{ fontSize: fs(18), fontWeight: 600, color: giftBookChoice === opt.id ? "#b8860b" : tc("#3d2b1a","#1a0e00"), flexShrink: 0 }}>${opt.price}</div>
-                    </button>
+                    </div>
                   ))}
                 </div>
-                {giftBookChoice === "print1" && (
-                  <p style={{ fontSize: fs(12), color: tc("#8b7355","#5c3d1e"), fontFamily: "'Lato',sans-serif", marginTop: 8, fontStyle: "italic" }}>
-                    We'll collect the shipping address after payment
-                  </p>
-                )}
               </div>
+            </div>
+          </div>
 
-              {giftPurchaseError && <p role="alert" style={{ fontSize: fs(13), color: "#c0392b", fontFamily: "'Lato',sans-serif", marginBottom: 14 }}>{giftPurchaseError}</p>}
-              <button onClick={handleGiftPurchase}
-                style={{ width: "100%", background: "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", padding: "18px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(19), letterSpacing: 0.5, cursor: "pointer", boxShadow: "0 4px 20px rgba(93,61,26,0.25)", minHeight: 58, marginBottom: 12 }}>
-                Continue to Payment — ${giftBookChoice === "pdf" ? 99 : 178} ✦
+          {/* ── PERMISSION ── */}
+          <div style={{ background: "#5c3d1e", padding: "100px 24px" }}>
+            <div style={{ maxWidth: 760, margin: "0 auto", textAlign: "center" }}>
+              <p style={{ fontFamily: "'Lato',sans-serif", fontSize: fs(11), letterSpacing: "3px", textTransform: "uppercase", color: "rgba(212,168,67,0.7)", fontWeight: 700, marginBottom: 20 }}>A word before you begin</p>
+              <blockquote style={{ fontSize: fs(38), fontWeight: 300, lineHeight: 1.45, fontStyle: "italic", marginBottom: 32, color: "#f5ede0" }}>
+                "Nothing interesting ever happened to me."<br/>
+                <em style={{ fontStyle: "normal", color: "#d4a843" }}>That's what everyone says.</em><br/>
+                They're always wrong.
+              </blockquote>
+              <p style={{ fontFamily: "'Lato',sans-serif", fontSize: fs(17), color: "rgba(245,237,224,0.7)", lineHeight: 1.9, fontWeight: 300, maxWidth: 560, margin: "0 auto 16px" }}>
+                The stories that matter most to your family aren't the big moments. They're the ordinary Tuesdays. The smell of your mother's kitchen. The way your father's hands looked. The things you believed. The hard years. The sweet ones.
+              </p>
+              <p style={{ fontFamily: "'Lato',sans-serif", fontSize: fs(17), color: "rgba(245,237,224,0.85)", lineHeight: 1.9, fontWeight: 300, fontStyle: "italic", maxWidth: 500, margin: "0 auto 40px" }}>
+                Your story doesn't need to be extraordinary. It just needs to be yours.
+              </p>
+              <button onClick={() => setScreen("signup")} style={{ background: "linear-gradient(135deg,#b8860b,#d4a843)", color: "#fdf6ec", border: "none", padding: "18px 44px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(20), cursor: "pointer", boxShadow: "0 6px 24px rgba(184,134,11,0.4)", minHeight: 60 }}>
+                Begin My Story — Free ✦
               </button>
-              <p style={{ fontSize: fs(12), color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", textAlign: "center", lineHeight: 1.6 }}>
-                🔒 Secure checkout via Stripe · After payment, your gift code arrives instantly by email
-              </p>
             </div>
-            <button onClick={() => setScreen("welcome")}
-              style={{ display: "block", margin: "0 auto", background: "none", border: "none", color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", fontSize: fs(13), cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3, minHeight: 44, padding: "8px 16px" }}>
-              ← Back
-            </button>
           </div>
-        </main>
-      )}
 
-      {/* ── GIFT SENT CONFIRMATION ── */}
-      {screen === "giftsent" && (
-        <main id="main-content" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "78vh", padding: "40px 24px", animation: "fadeUp 0.5s ease forwards", textAlign: "center" }}>
-          <div style={{ maxWidth: 620, width: "100%" }}>
-            <div style={{ fontSize: 64, marginBottom: 24, animation: "pulse 2s ease-in-out infinite" }} aria-hidden="true">🎁</div>
-            <p style={{ fontSize: fs(12), letterSpacing: "3px", textTransform: "uppercase", color: "#b8860b", fontFamily: "'Lato',sans-serif", marginBottom: 16 }}>Your gift is on its way</p>
-            <h1 style={{ fontSize: fs(40), fontWeight: 300, color: tc("#3d2b1a","#1a0e00"), fontStyle: "italic", lineHeight: 1.2, marginBottom: 20 }}>
-              What a beautiful thing you just did.
-            </h1>
-            <div style={{ background: "white", borderRadius: 16, padding: "28px 32px", border: "1.5px solid rgba(180,140,80,0.2)", boxShadow: "0 4px 24px rgba(93,61,26,0.08)", marginBottom: 28, textAlign: "left" }}>
-              <p style={{ fontSize: fs(17), color: tc("#5c4a35","#2a1a0a"), fontFamily: "'Cormorant Garamond',serif", fontStyle: "italic", lineHeight: 1.9, marginBottom: 16 }}>
-                Your gift code is being sent to your email right now. Share it with your loved one — they'll use it to unlock their full legacy book at no charge.
-              </p>
-              <p style={{ fontSize: fs(15), color: tc("#7a6040","#4a3020"), fontFamily: "'Lato',sans-serif", lineHeight: 1.7, marginBottom: 0 }}>
-                When they redeem it, you'll receive an email letting you know their story has begun. 🕊️
-              </p>
+          {/* ── WHAT'S IN THE BOOK ── */}
+          <div style={{ background: "linear-gradient(160deg,#faf3e8 0%,#f5ede0 100%)", padding: "100px 24px" }}>
+            <div style={{ maxWidth: 1000, margin: "0 auto" }}>
+              <p style={{ fontFamily: "'Lato',sans-serif", fontSize: fs(11), letterSpacing: "3px", textTransform: "uppercase", color: "#b8860b", fontWeight: 700, marginBottom: 16 }}>What you get</p>
+              <h2 style={{ fontSize: fs(46), fontWeight: 300, lineHeight: 1.2, color: tc("#3d2b1a","#1a0e00"), marginBottom: 48 }}>A complete legacy book. <em style={{ fontStyle: "italic" }}>Yours to keep. Theirs to treasure.</em></h2>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 20, marginBottom: 48 }}>
+                {[
+                  ["🌱","Early Life","Where you grew up, your home, your family, your earliest memories — the world that shaped you."],
+                  ["🌿","Becoming You","The turning points, the choices, the first jobs, the person you became."],
+                  ["🏡","Family & Love","How you met your spouse, building your family, the people closest to your heart."],
+                  ["✝️","Faith Journey","Your spiritual story, the moments faith carried you, what you want to pass on."],
+                  ["🕊️","Wisdom & Legacy","What you've learned, what you'd tell your younger self, what you want remembered."],
+                  ["📷","Your Photos","Add up to two cherished photos per section — your stories are the heart, photos are the gift."],
+                ].map(([icon,title,body]) => (
+                  <div key={title} style={{ display: "flex", gap: 16, alignItems: "flex-start", padding: 24, background: "white", borderRadius: 14, border: "1px solid rgba(184,134,11,0.12)", boxShadow: "0 2px 12px rgba(93,61,26,0.05)" }}>
+                    <span style={{ fontSize: 24, flexShrink: 0, marginTop: 2 }}>{icon}</span>
+                    <div>
+                      <div style={{ fontSize: fs(16), fontWeight: 500, color: tc("#3d2b1a","#1a0e00"), marginBottom: 4 }}>{title}</div>
+                      <div style={{ fontFamily: "'Lato',sans-serif", fontSize: fs(14), color: tc("#8b7355","#5c3d1e"), lineHeight: 1.6, fontWeight: 300 }}>{body}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-            <button onClick={() => setScreen("welcome")}
-              style={{ background: "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", padding: "16px 44px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(18), cursor: "pointer", boxShadow: "0 4px 20px rgba(93,61,26,0.2)", minHeight: 54 }}>
-              Back to Home ✦
-            </button>
           </div>
-        </main>
-      )}
 
-      {/* ── GIFT CODE REDEMPTION ── */}
-      {screen === "giftcode" && (
-        <main id="main-content" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "78vh", padding: "40px 24px", animation: "fadeUp 0.4s ease forwards" }}>
-          <div style={{ maxWidth: 580, width: "100%" }}>
-            <div style={{ textAlign: "center", marginBottom: 36 }}>
-              <div style={{ fontSize: 48, marginBottom: 12 }} aria-hidden="true">🎁</div>
-              <h2 style={{ fontSize: fs(32), fontWeight: 300, color: tc("#3d2b1a","#1a0e00"), fontStyle: "italic", marginBottom: 8 }}>You've Received a Gift</h2>
-              <p style={{ fontSize: fs(16), color: tc("#6b5540","#3a2510"), fontFamily: "'Lato',sans-serif", lineHeight: 1.7 }}>
-                Someone who loves you has given you the gift of story. Enter your code below to unlock your full legacy book.
+          {/* ── PRICING ── */}
+          <div style={{ background: "linear-gradient(160deg,#fdf6ec 0%,#f0e8d8 100%)", padding: "100px 24px" }}>
+            <div style={{ maxWidth: 640, margin: "0 auto", textAlign: "center" }}>
+              <p style={{ fontFamily: "'Lato',sans-serif", fontSize: fs(11), letterSpacing: "3px", textTransform: "uppercase", color: "#b8860b", fontWeight: 700, marginBottom: 16 }}>Simple, honest pricing</p>
+              <h2 style={{ fontSize: fs(46), fontWeight: 300, lineHeight: 1.2, color: tc("#3d2b1a","#1a0e00"), marginBottom: 16 }}>Start free. <em style={{ fontStyle: "italic" }}>Pay only if you love it.</em></h2>
+              <p style={{ fontSize: fs(17), color: tc("#8b7355","#5c3d1e"), fontFamily: "'Lato',sans-serif", fontWeight: 300, lineHeight: 1.8, marginBottom: 40 }}>
+                Your first section — Early Life — is completely free. No credit card. No commitment. Start today, see how easy it is, and decide when you're ready.
+              </p>
+              <div style={{ background: "white", borderRadius: 20, padding: "36px 48px", border: "1px solid rgba(184,134,11,0.2)", boxShadow: "0 8px 32px rgba(93,61,26,0.1)", marginBottom: 32, display: "inline-flex", flexDirection: "column", alignItems: "center", width: "100%", maxWidth: 420 }}>
+                <p style={{ fontFamily: "'Lato',sans-serif", fontSize: fs(11), letterSpacing: "2.5px", textTransform: "uppercase", color: "#b8860b", fontWeight: 700, marginBottom: 12 }}>Early Life Section</p>
+                <p style={{ fontSize: fs(54), fontWeight: 300, color: tc("#3d2b1a","#1a0e00"), lineHeight: 1, marginBottom: 8 }}>Free</p>
+                <p style={{ fontFamily: "'Lato',sans-serif", fontSize: fs(14), color: tc("#8b7355","#5c3d1e"), fontWeight: 300 }}>No card required · Start in minutes</p>
+                <div style={{ width: 40, height: 1, background: "rgba(184,134,11,0.3)", margin: "16px 0" }} />
+                <p style={{ fontFamily: "'Lato',sans-serif", fontSize: fs(14), color: tc("#5c3d1e","#2a1000"), fontWeight: 400, textAlign: "center", lineHeight: 1.6 }}>Then unlock your complete book for a single one-time payment of <strong>$99</strong> — no subscription, ever.</p>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 36, textAlign: "left" }}>
+                {["Complete Early Life section — yours to keep, free","All 5 sections unlocked with one $99 payment","Beautiful PDF book — download instantly, share forever","Optional printed hardcover from $79","Your story saved to your account — return anytime"].map(item => (
+                  <div key={item} style={{ display: "flex", alignItems: "center", gap: 12, fontFamily: "'Lato',sans-serif", fontSize: fs(15), color: tc("#5c3d1e","#2a1000") }}>
+                    <div style={{ width: 22, height: 22, borderRadius: "50%", background: "rgba(184,134,11,0.12)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "#b8860b", fontSize: 12 }}>✓</div>
+                    {item}
+                  </div>
+                ))}
+              </div>
+              <button onClick={() => setScreen("signup")} style={{ background: "linear-gradient(135deg,#b8860b,#d4a843)", color: "#fdf6ec", border: "none", padding: "20px 52px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(21), cursor: "pointer", boxShadow: "0 6px 28px rgba(184,134,11,0.4)", minHeight: 64 }}>
+                Start My Story Free ✦
+              </button>
+              <p style={{ marginTop: 14, fontFamily: "'Lato',sans-serif", fontSize: fs(13), color: tc("#a89070","#6b5030") }}>No credit card · No subscription · No pressure</p>
+            </div>
+          </div>
+
+          {/* ── THE PAIN ── */}
+          <div style={{ background: "#1a0e06", padding: "120px 24px" }}>
+            <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center" }}>
+              <p style={{ fontFamily: "'Lato',sans-serif", fontSize: fs(11), letterSpacing: "3px", textTransform: "uppercase", color: "rgba(212,168,67,0.6)", fontWeight: 700, marginBottom: 24 }}>The reason this matters</p>
+              <h2 style={{ fontSize: fs(52), fontWeight: 300, lineHeight: 1.25, color: "#f5ede0", marginBottom: 32 }}>
+                One day someone will ask<br/><em style={{ fontStyle: "italic", color: "#d4a843" }}>what Grandma was like</em><br/>as a little girl.
+              </h2>
+              <p style={{ fontFamily: "'Lato',sans-serif", fontSize: fs(18), color: "rgba(245,237,224,0.65)", lineHeight: 1.9, fontWeight: 300, maxWidth: 560, margin: "0 auto 16px" }}>
+                Not what she accomplished. Not what she owned. What she was <em style={{ color: "rgba(245,237,224,0.9)" }}>like</em>. What made her laugh. What scared her. What she believed when everything was hard. What she called her grandmother. What her childhood home smelled like.
+              </p>
+              <p style={{ fontFamily: "'Lato',sans-serif", fontSize: fs(18), color: "rgba(245,237,224,0.65)", lineHeight: 1.9, fontWeight: 300, maxWidth: 560, margin: "0 auto 16px" }}>
+                Right now, only one person in the world knows the answers to those questions.
+              </p>
+              <p style={{ fontSize: fs(22), color: "rgba(245,237,224,0.9)", fontStyle: "italic", maxWidth: 500, margin: "32px auto 0", lineHeight: 1.6 }}>
+                This is how you make sure the answers don't disappear with you.
               </p>
             </div>
-            <div style={{ background: "white", borderRadius: 16, padding: "28px 28px", border: "1.5px solid rgba(180,140,80,0.2)", boxShadow: "0 4px 24px rgba(93,61,26,0.07)" }}>
-              {[["gift-name","Your first name","text",giftName,setGiftName,"First name",""],["gift-email","Your email","email",giftEmail,setGiftEmail,"your@email.com",""]].map(([id,label,type,val,setter,placeholder]) => (
-                <div key={id} style={{ marginBottom: 16 }}>
-                  <label htmlFor={id} style={{ display: "block", fontSize: fs(13), color: tc("#6b5540","#3a2510"), fontFamily: "'Lato',sans-serif", marginBottom: 6, fontWeight: 600 }}>{label}</label>
-                  <input id={id} type={type} value={val} onChange={e => { setter(e.target.value); setGiftError(""); }}
-                    placeholder={placeholder}
-                    style={{ width: "100%", border: "1.5px solid rgba(180,140,80,0.3)", borderRadius: 8, padding: "11px 14px", fontFamily: "'Lato',sans-serif", fontSize: fs(15), color: tc("#3d2b1a","#1a0e00"), background: "#fffdf5", outline: "none", minHeight: 48, boxSizing: "border-box" }} />
+          </div>
+
+          {/* ── GIFT ── */}
+          <div style={{ padding: "100px 24px" }}>
+            <div style={{ maxWidth: 1000, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 60, alignItems: "center" }}>
+              <div>
+                <p style={{ fontFamily: "'Lato',sans-serif", fontSize: fs(11), letterSpacing: "3px", textTransform: "uppercase", color: "#b8860b", fontWeight: 700, marginBottom: 16 }}>A gift unlike any other</p>
+                <h2 style={{ fontSize: fs(42), fontWeight: 300, lineHeight: 1.2, color: tc("#3d2b1a","#1a0e00"), marginBottom: 16 }}>Give someone <em style={{ fontStyle: "italic" }}>their own story.</em></h2>
+                <p style={{ fontSize: fs(16), color: tc("#8b7355","#5c3d1e"), fontFamily: "'Lato',sans-serif", fontWeight: 300, lineHeight: 1.8, marginBottom: 32 }}>
+                  The most meaningful gift you can give — or receive — isn't something you can wrap. It's knowing that someone's story will never be lost.
+                </p>
+                <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+                  <button onClick={() => setScreen("giftpurchase")} style={{ background: "linear-gradient(135deg,#b8860b,#d4a843)", color: "#fdf6ec", border: "none", padding: "15px 32px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(17), cursor: "pointer", boxShadow: "0 4px 16px rgba(184,134,11,0.3)", minHeight: 52 }}>
+                    Give as a Gift ✦
+                  </button>
+                  <button onClick={() => setScreen("signup")} style={{ background: "transparent", border: "2px solid rgba(93,61,26,0.25)", color: tc("#5c3d1e","#2a1000"), padding: "13px 30px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(17), cursor: "pointer", minHeight: 52 }}>
+                    Start Your Own
+                  </button>
                 </div>
-              ))}
-              <div style={{ marginBottom: 20 }}>
-                <label htmlFor="gift-code" style={{ display: "block", fontSize: fs(13), color: tc("#6b5540","#3a2510"), fontFamily: "'Lato',sans-serif", marginBottom: 6, fontWeight: 600 }}>Gift code</label>
-                <input id="gift-code" value={giftCode} onChange={e => { setGiftCode(e.target.value.toUpperCase()); setGiftError(""); }}
-                  placeholder="XXXX-XXXX-XXXX"
-                  style={{ width: "100%", border: `1.5px solid ${giftError ? "#c0392b" : "rgba(180,140,80,0.3)"}`, borderRadius: 8, padding: "11px 14px", fontFamily: "'Lato',sans-serif", fontSize: fs(18), fontWeight: 700, letterSpacing: 4, color: tc("#3d2b1a","#1a0e00"), background: "#fffdf5", outline: "none", minHeight: 52, boxSizing: "border-box", textTransform: "uppercase" }} />
-                {giftError && <p role="alert" style={{ fontSize: fs(13), color: "#c0392b", fontFamily: "'Lato',sans-serif", marginTop: 6 }}>{giftError}</p>}
               </div>
-              <button onClick={redeemGiftCode} disabled={giftLoading || !giftCode.trim() || !giftEmail.trim() || !giftName.trim()}
-                style={{ width: "100%", background: (giftLoading || !giftCode.trim() || !giftEmail.trim() || !giftName.trim()) ? "rgba(139,94,52,0.3)" : "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", padding: "16px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(19), letterSpacing: 0.5, cursor: (giftLoading || !giftCode.trim() || !giftEmail.trim() || !giftName.trim()) ? "not-allowed" : "pointer", minHeight: 54, transition: "all 0.2s" }}>
-                {giftLoading ? "Unlocking your story..." : "Unlock My Legacy Book ✦"}
-              </button>
+              <div style={{ background: "white", borderRadius: 20, padding: "40px", border: "1px solid rgba(184,134,11,0.2)", boxShadow: "0 12px 48px rgba(93,61,26,0.1)", textAlign: "center" }}>
+                <div style={{ fontSize: 48, marginBottom: 20 }}>🎁</div>
+                <h3 style={{ fontSize: fs(22), fontWeight: 500, color: tc("#3d2b1a","#1a0e00"), marginBottom: 12 }}>Gift a Legacy Book</h3>
+                <p style={{ fontFamily: "'Lato',sans-serif", fontSize: fs(14), color: tc("#8b7355","#5c3d1e"), lineHeight: 1.7, fontWeight: 300, marginBottom: 24 }}>
+                  Purchase a gift code for someone you love. They'll receive a beautiful invitation to begin their story with Grace — at their own pace, whenever they're ready.
+                </p>
+                <button onClick={() => setScreen("giftpurchase")} style={{ background: "linear-gradient(135deg,#b8860b,#d4a843)", color: "#fdf6ec", border: "none", padding: "14px 28px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(17), cursor: "pointer", minHeight: 50 }}>
+                  Send a Gift →
+                </button>
+              </div>
             </div>
-            <button onClick={() => setScreen("welcome")}
-              style={{ display: "block", margin: "16px auto 0", background: "none", border: "none", color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", fontSize: fs(13), cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3, minHeight: 44, padding: "8px 16px" }}>
-              ← Back
-            </button>
           </div>
+
+          {/* ── FINAL CTA ── */}
+          <div style={{ background: "linear-gradient(150deg,#5c3d1e 0%,#3d2b1a 100%)", padding: "120px 24px", textAlign: "center" }}>
+            <div style={{ maxWidth: 640, margin: "0 auto" }}>
+              <h2 style={{ fontSize: fs(56), fontWeight: 300, color: "#f5ede0", lineHeight: 1.2, marginBottom: 20 }}>
+                Your story is worth <em style={{ fontStyle: "italic", color: "#d4a843" }}>telling.</em>
+              </h2>
+              <p style={{ fontFamily: "'Lato',sans-serif", fontSize: fs(17), color: "rgba(245,237,224,0.65)", marginBottom: 48, lineHeight: 1.8, fontWeight: 300 }}>
+                Start with one question. One memory. One moment from a life well-lived. Grace will take it from there.
+              </p>
+              <button onClick={() => setScreen("signup")} style={{ background: "linear-gradient(135deg,#b8860b,#d4a843)", color: "#fdf6ec", border: "none", padding: "22px 60px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(23), cursor: "pointer", boxShadow: "0 8px 36px rgba(184,134,11,0.45)", minHeight: 70 }}>
+                Begin My Story — Free ✦
+              </button>
+              <p style={{ fontFamily: "'Lato',sans-serif", fontSize: fs(13), color: "rgba(245,237,224,0.4)", marginTop: 20 }}>No credit card · No pressure · Start in under 2 minutes</p>
+            </div>
+          </div>
+
         </main>
       )}
 
-      {/* ── BOOK LOCKED ── */}
-      {screen === "booklocked" && (
-        <main id="main-content" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "78vh", textAlign: "center", padding: "40px 24px", animation: "fadeUp 0.5s ease forwards" }}>
-          <div style={{ maxWidth: 640, width: "100%" }}>
-            <div style={{ fontSize: 52, marginBottom: 20 }} aria-hidden="true">📖</div>
-            <p style={{ fontSize: fs(12), letterSpacing: "2.5px", textTransform: "uppercase", color: "#b8860b", fontFamily: "'Lato',sans-serif", marginBottom: 16 }}>Your story is complete</p>
-            <h1 style={{ fontSize: fs(38), fontWeight: 300, color: tc("#3d2b1a","#1a0e00"), fontStyle: "italic", lineHeight: 1.2, marginBottom: 20 }}>
-              This account already has a book.
-            </h1>
-            <div style={{ background: "white", borderRadius: 16, padding: "28px 32px", border: "1.5px solid rgba(180,140,80,0.2)", boxShadow: "0 8px 32px rgba(93,61,26,0.08)", marginBottom: 28, textAlign: "left" }}>
-              <p style={{ fontSize: fs(17), color: tc("#5c4a35","#2a1a0a"), fontFamily: "'Cormorant Garamond',serif", fontStyle: "italic", lineHeight: 1.85, marginBottom: 16 }}>
-                Each MyStory.Family account preserves one person's story — and yours is already complete and saved here.
-              </p>
-              <p style={{ fontSize: fs(15), color: tc("#7a6040","#4a3020"), fontFamily: "'Lato',sans-serif", lineHeight: 1.7, marginBottom: 0 }}>
-                Want to preserve someone else's story — a parent, a spouse, a grandparent? They'll need their own account. Each story deserves its own home. 🕊️
-              </p>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 12, alignItems: "center" }}>
-              <button onClick={() => { setScreen("chat"); setBookComplete(true); }}
-                style={{ background: "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", padding: "16px 44px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(18), cursor: "pointer", boxShadow: "0 4px 20px rgba(93,61,26,0.2)", minHeight: 54 }}>
-                Return to My Book ✦
-              </button>
-              <a href={`mailto:timothy@mystory.family?subject=New story account&body=I'd like to start a new story for another family member.`}
-                style={{ fontSize: fs(14), color: tc("#b8860b","#7a5c00"), fontFamily: "'Lato',sans-serif", textDecoration: "underline", textUnderlineOffset: 3 }}>
-                Contact us to set up a new account for someone else
-              </a>
-            </div>
-          </div>
-        </main>
-      )}
 
       {/* ── SIGNUP ── */}
       {screen === "signup" && (
