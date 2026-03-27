@@ -1473,6 +1473,7 @@ export default function MyStoryFamily() {
   const [sectionMemories, setSectionMemories] = useState([]);
   const [showMobileMemories, setShowMobileMemories] = useState(false);
   const [lockedMessages, setLockedMessages] = useState({}); // {messageIdx: true}
+  const [awaitingName, setAwaitingName] = useState(false);
   const [pendingEditMessage, setPendingEditMessage] = useState(null);
   const [highContrast, setHighContrast] = useState(false);
 
@@ -2143,16 +2144,13 @@ export default function MyStoryFamily() {
       mustInclude: onboardAnswers.mustInclude,
       keepPrivate: onboardAnswers.keepPrivate,
     };
-    // Get first question from framework if available, otherwise fallback
-    const firstChapter = allChapters[0];
-    const framework = CHAPTER_FRAMEWORKS[firstChapter?.id];
-    const frameworkFirstQ = framework
-      ? "Before we dive in — did you grow up mostly in one place, or did your family move around?"
-      : getQuestion(firstChapter.prompts[0]);
-    const baseIntro = persona ? persona.intro(profile) : `Welcome. I'm so glad you're here.\n\nI'm Grace, and I'll guide you through your story one memory at a time.`;
-    const introMsg = baseIntro + "\n\n*" + frameworkFirstQ + "*";
-    setMessages([{ role: "assistant", content: introMsg }]);
-    setCurrentTopicMessages([{ role: "assistant", content: introMsg }]);
+    if (persona) setSystemPrompt(buildSystemPrompt(persona, profile));
+
+    // Grace opens with just the name question — tutorial comes after they answer
+    const nameMsg = { role: "assistant", content: "Before we begin — what's your name? Just type it below." };
+    setMessages([nameMsg]);
+    setCurrentTopicMessages([nameMsg]);
+    setAwaitingName(true);
     initTopicFramework(allChapters[0].id);
     // Show section intro page first
     setSectionIntroChapter({ chapter: allChapters[0], nextC: 0, isFirst: true });
@@ -2228,15 +2226,44 @@ export default function MyStoryFamily() {
     setAnglesUsed(true);
     const isGhostwritten = helpMeWriteJustUsed.current;
     helpMeWriteJustUsed.current = false;
-    const angleNudge = wantNewAngle.current
-      ? "\n\nNOTE FOR THIS RESPONSE ONLY: The person feels ready to explore a different part of this chapter. Warmly acknowledge what they've shared so far, then naturally introduce the next seed topic from your list — as if it occurred to you in the flow of conversation, not as a new question number."
-      : "";
-    wantNewAngle.current = false;
+
     const userMsg = { role: "user", content: text, isGhostwritten };
     const next = [...messages, userMsg];
     setMessages(next);
     setCurrentTopicMessages(prev => [...prev, userMsg]);
     setInput("");
+
+    // ── NAME INTERCEPT: Grace's tutorial response ──────────────────────────
+    if (awaitingName) {
+      setAwaitingName(false);
+      setLoading(true);
+      const firstName = text.trim().split(" ")[0];
+      // Update user first name in state if not already set
+      if (!user?.firstName) setUser(prev => ({ ...prev, firstName }));
+      const tutorialMsg = {
+        role: "assistant",
+        content: "Nice to meet you, " + firstName + "! I'm so glad you're here.\n\n" +
+          "Here's how this works — it's simple, I promise:\n\n" +
+          "I'm going to ask you questions about your life, one at a time. Just answer however feels natural. There's no right or wrong way.\n\n" +
+          "🔒 *Lock button* — If I write something and you love it exactly as is, click the Lock button at the bottom of my message and it goes into your book word for word.\n\n" +
+          "💭 *Do nothing* — If you just want me to hold a thought and weave it into your story, just keep talking. I'll keep everything in memory as we build.\n\n" +
+          "📷 *Photos* — This is a memoir, so your stories are what matter most. But if you'd like to add photos, you can add one or two per section — just tap the camera button below.\n\n" +
+          "⏸️ *Done for the day?* — Click 'I'm done for now' anytime and your story will be right here waiting for you.\n\n" +
+          "That's everything. Let's start with something easy.\n\n" +
+          "*Where were you born?*"
+      };
+      setTimeout(() => {
+        setMessages(prev => [...prev, tutorialMsg]);
+        setCurrentTopicMessages(prev => [...prev, tutorialMsg]);
+        setLoading(false);
+      }, 800);
+      return;
+    }
+
+    const angleNudge = wantNewAngle.current
+      ? "\n\nNOTE FOR THIS RESPONSE ONLY: The person feels ready to explore a different part of this chapter. Warmly acknowledge what they've shared so far, then naturally introduce the next seed topic from your list — as if it occurred to you in the flow of conversation, not as a new question number."
+      : "";
+    wantNewAngle.current = false;
     setLoading(true);
     try {
       const fullSystem = systemPrompt + chapterContext + angleNudge;
@@ -2407,6 +2434,8 @@ export default function MyStoryFamily() {
       setAnglesUsed(false);
       setShowRecapButton(false);
       setSectionMemories([]);
+      setLockedMessages({});
+      setAwaitingName(false);
       const nextChapter = chapters[nextC];
       setChapterContext(buildChapterContext(nextChapter, 0));
       initTopicFramework(nextChapter.id);
