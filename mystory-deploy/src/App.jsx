@@ -1692,8 +1692,9 @@ export default function MyStoryFamily() {
 
     if (fromPayment && s.previewChapter) {
       setPreviewChapter(s.previewChapter);
-      setScreen("chat");
       setShowPaywall(false);
+      setHasPaid(true);
+      setScreen("setup"); // Show custom section offer after payment
     } else if (s.bookComplete) {
       setScreen("chat");
       setBookComplete(true);
@@ -2576,8 +2577,7 @@ export default function MyStoryFamily() {
 
     if (STRIPE_PAYMENT_LINK.includes("REPLACE_WITH_YOUR_LINK")) {
       setHasPaid(true);
-      const nextC = previewChapter ? previewChapter.chapterIndex + 1 : 1;
-      advanceToChapter(nextC);
+      setScreen("setup");
       showToast("✦ Dev mode — payment simulated. Swap in your Stripe link to go live.");
       return;
     }
@@ -3588,43 +3588,40 @@ export default function MyStoryFamily() {
 
           {/* Header */}
           <div style={{ textAlign: "center", marginBottom: 36 }}>
-            <div style={{ width: 56, height: 56, borderRadius: "50%", background: persona ? personaAvatarBg : "linear-gradient(135deg,#5c3d1e,#8b5e34)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, margin: "0 auto 16px" }} aria-hidden="true">
-              {personaAvatar}
-            </div>
-            <p style={{ fontSize: fs(12), letterSpacing: "2.5px", textTransform: "uppercase", color: "#b8860b", fontFamily: "'Lato',sans-serif", marginBottom: 10 }}>Your book is ready to begin</p>
+            <div style={{ fontSize: 44, marginBottom: 12 }}>🎉</div>
+            <p style={{ fontSize: fs(12), letterSpacing: "2.5px", textTransform: "uppercase", color: "#b8860b", fontFamily: "'Lato',sans-serif", marginBottom: 10 }}>Your book is unlocked</p>
             <h1 style={{ fontSize: fs(32), fontWeight: 300, color: tc("#3d2b1a","#1a0e00"), fontStyle: "italic", marginBottom: 10, lineHeight: 1.3 }}>
-              Here's what {persona?.name || "Grace"} will cover with you
+              Now let's make it completely yours
             </h1>
             <p style={{ fontSize: fs(16), color: tc("#6b5540","#3a2510"), fontFamily: "'Lato',sans-serif", lineHeight: 1.7, maxWidth: 480, margin: "0 auto" }}>
-              {persona?.name || "Grace"} will guide you through each section at your own pace — and you can always skip a section when you get there if it doesn't feel right for your story.
+              All five sections are ready for you. And here's a bonus — you can add a section that's uniquely your story. Military service, an immigration story, a family business — {persona?.name || "Grace"} will craft the perfect questions instantly.
             </p>
           </div>
 
-          {/* Begin button — top */}
+          {/* Continue button — top */}
           <div style={{ textAlign: "center", marginBottom: 32 }}>
-            <button className="start-btn" onClick={startChat}
+            <button className="start-btn" onClick={() => advanceToChapter(previewChapter ? previewChapter.chapterIndex + 1 : 1)}
               style={{ background: persona ? personaAvatarBg : "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", padding: "18px 52px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(20), letterSpacing: 1, cursor: "pointer", boxShadow: "0 6px 24px rgba(93,61,26,0.25)", minHeight: 60, transition: "all 0.2s" }}>
-              Begin My Interview with {persona?.name || "Grace"} ✦
+              Continue My Story ✦
             </button>
           </div>
 
-          {/* Section preview list — display only, not interactive */}
+          {/* Section preview list */}
           <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 28 }} aria-label="Your book sections">
             {BASE_CHAPTERS.map((ch, idx) => {
-              // Auto-hide faith if user said "Not really" in onboarding
               const faithAnswer = onboardAnswers.faith || "";
               if (ch.id === "faith" && faithAnswer === "Not really") return null;
+              const isDone = ch.id === "early-life";
               return (
-                <div key={ch.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "16px 20px", background: "white", borderRadius: 12, border: "1px solid rgba(180,140,80,0.18)", boxShadow: "0 2px 8px rgba(93,61,26,0.05)" }}>
-                  <div style={{ width: 34, height: 34, borderRadius: "50%", background: "linear-gradient(135deg,rgba(184,134,11,0.15),rgba(184,134,11,0.08))", border: "1.5px solid rgba(184,134,11,0.25)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: fs(11), fontWeight: 700, color: "#b8860b", fontFamily: "'Lato',sans-serif", flexShrink: 0 }}>
-                    {idx + 1}
+                <div key={ch.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "16px 20px", background: isDone ? "rgba(93,61,26,0.04)" : "white", borderRadius: 12, border: "1px solid rgba(180,140,80,0.18)", boxShadow: "0 2px 8px rgba(93,61,26,0.05)", opacity: isDone ? 0.6 : 1 }}>
+                  <div style={{ width: 34, height: 34, borderRadius: "50%", background: isDone ? "#5c3d1e" : "linear-gradient(135deg,rgba(184,134,11,0.15),rgba(184,134,11,0.08))", border: isDone ? "none" : "1.5px solid rgba(184,134,11,0.25)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: fs(11), fontWeight: 700, color: isDone ? "#fdf6ec" : "#b8860b", fontFamily: "'Lato',sans-serif", flexShrink: 0 }}>
+                    {isDone ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5L20 7" stroke="#fdf6ec" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg> : idx + 1}
                   </div>
                   <div style={{ fontSize: 22, width: 28, textAlign: "center", flexShrink: 0 }} aria-hidden="true">{ch.icon}</div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: fs(15), fontWeight: 600, color: tc("#3d2b1a","#1a0e00") }}>{ch.title}</div>
-                    <div style={{ fontSize: fs(13), color: tc("#7a6040","#4a3020"), fontFamily: "'Lato',sans-serif", marginTop: 2 }}>{ch.description}</div>
+                    <div style={{ fontSize: fs(15), fontWeight: 600, color: tc("#3d2b1a","#1a0e00"), textDecoration: isDone ? "line-through" : "none", textDecorationColor: "rgba(139,94,52,0.4)" }}>{ch.title}</div>
+                    <div style={{ fontSize: fs(13), color: tc("#7a6040","#4a3020"), fontFamily: "'Lato',sans-serif", marginTop: 2 }}>{isDone ? "Complete ✦" : ch.description}</div>
                   </div>
-                  <div style={{ fontSize: fs(11), color: "#b8860b", fontFamily: "'Lato',sans-serif", flexShrink: 0 }}>✦</div>
                 </div>
               );
             })}
@@ -3646,7 +3643,7 @@ export default function MyStoryFamily() {
 
           {/* Add your own section */}
           <div style={{ background: "white", borderRadius: 12, border: `1.5px dashed rgba(180,140,80,0.4)`, padding: "20px 22px", marginBottom: 32 }}>
-            <h2 style={{ fontSize: fs(15), fontWeight: 600, color: tc("#5c3d1e","#2a1000"), marginBottom: 6 }}>✦ Add Your Own Section</h2>
+            <h2 style={{ fontSize: fs(15), fontWeight: 600, color: tc("#5c3d1e","#2a1000"), marginBottom: 6 }}>✦ Add Your Own Section — Optional Bonus</h2>
             <p style={{ fontSize: fs(13), color: tc("#7a6040","#4a3020"), fontFamily: "'Lato',sans-serif", marginBottom: 14, lineHeight: 1.65 }}>
               Have a story that deserves its own section? Name it and {persona?.name || "Grace"} will craft the perfect questions instantly.
             </p>
@@ -3679,11 +3676,11 @@ export default function MyStoryFamily() {
             )}
           </div>
 
-          {/* Begin button — bottom */}
+          {/* Continue button — bottom */}
           <div style={{ textAlign: "center" }}>
-            <button className="start-btn" onClick={startChat}
+            <button className="start-btn" onClick={() => advanceToChapter(previewChapter ? previewChapter.chapterIndex + 1 : 1)}
               style={{ background: persona ? personaAvatarBg : "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", padding: "18px 52px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(20), letterSpacing: 1, cursor: "pointer", boxShadow: "0 6px 24px rgba(93,61,26,0.25)", minHeight: 60, transition: "all 0.2s" }}>
-              Begin My Interview with {persona?.name || "Grace"} ✦
+              Continue My Story ✦
             </button>
             <p style={{ fontSize: fs(13), color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", marginTop: 12, fontStyle: "italic" }}>
               You can skip any section during your conversation with {persona?.name || "Grace"}
