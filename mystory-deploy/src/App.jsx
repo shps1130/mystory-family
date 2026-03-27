@@ -2760,7 +2760,7 @@ export default function MyStoryFamily() {
         <main id="main-content" style={{ width: "100%", overflowX: "hidden" }}>
 
           {/* ── HERO ── */}
-          <section style={{ minHeight: "92vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: "120px 24px 80px", background: "linear-gradient(170deg,#fdf6ec 0%,#f5ede0 50%,#ede4d5 100%)", position: "relative", overflow: "hidden" }}>
+          <section style={{ minHeight: "78vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: "100px 24px 60px", background: "linear-gradient(170deg,#fdf6ec 0%,#f5ede0 50%,#ede4d5 100%)", position: "relative", overflow: "hidden" }}>
             {/* bg glows */}
             <div style={{ position: "absolute", top: "-30%", left: "-15%", width: 500, height: 500, background: "radial-gradient(circle,rgba(184,134,11,0.07) 0%,transparent 70%)", pointerEvents: "none" }} />
             <div style={{ position: "absolute", bottom: "-20%", right: "-10%", width: 400, height: 400, background: "radial-gradient(circle,rgba(93,61,26,0.06) 0%,transparent 70%)", pointerEvents: "none" }} />
@@ -2769,8 +2769,8 @@ export default function MyStoryFamily() {
               Your story. Your words. Their treasure forever.
             </p>
             <h1 style={{ fontSize: fs(58), fontWeight: 300, lineHeight: 1.15, color: tc("#3d2b1a","#1a0e00"), maxWidth: 820, marginBottom: 24, animation: "fadeUp 0.8s 0.1s ease both" }}>
-              Your grandchildren will ask<br/>about your life.<br/>
-              <em style={{ fontStyle: "italic", color: tc("#5c3d1e","#2a1000") }}>Make sure someone can answer.</em>
+              Your grandchildren will want<br/>to know your story.<br/>
+              <em style={{ fontStyle: "italic", color: tc("#5c3d1e","#2a1000") }}>Tell it to them — in your own words.</em>
             </h1>
             <p style={{ fontSize: fs(20), color: tc("#8b7355","#5c3d1e"), maxWidth: 540, marginBottom: 48, lineHeight: 1.7, fontFamily: "'Lato',sans-serif", fontWeight: 300, animation: "fadeUp 0.8s 0.2s ease both" }}>
               Grace asks the questions. You just talk. Your family gets a beautiful book.
@@ -2807,6 +2807,14 @@ export default function MyStoryFamily() {
                 Already have an account? Sign in
               </button>
             )}
+
+            {/* Scroll hint */}
+            <div style={{ marginTop: 40, display: "flex", flexDirection: "column", alignItems: "center", gap: 6, opacity: 0.45 }}>
+              <span style={{ fontFamily: "'Lato',sans-serif", fontSize: fs(11), letterSpacing: "2px", textTransform: "uppercase", color: tc("#5c3d1e","#2a1000") }}>See how it works</span>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ animation: "bounce 2s ease-in-out infinite" }}>
+                <path d="M12 5v14M5 12l7 7 7-7" stroke="#5c3d1e" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
           </section>
 
           {/* ── TRUST BAR ── */}
@@ -2864,7 +2872,7 @@ export default function MyStoryFamily() {
               {/* Copy */}
               <div>
                 <p style={{ fontFamily: "'Lato',sans-serif", fontSize: fs(11), letterSpacing: "3px", textTransform: "uppercase", color: "#b8860b", fontWeight: 700, marginBottom: 16 }}>Your guide</p>
-                <h2 style={{ fontSize: fs(42), fontWeight: 300, lineHeight: 1.2, color: tc("#3d2b1a","#1a0e00"), marginBottom: 16 }}>Grace listens <em style={{ fontStyle: "italic" }}>the way a daughter wishes she had.</em></h2>
+                <h2 style={{ fontSize: fs(42), fontWeight: 300, lineHeight: 1.2, color: tc("#3d2b1a","#1a0e00"), marginBottom: 16 }}>Grace listens. <em style={{ fontStyle: "italic" }}>Really listens.</em> And she never forgets a word.</h2>
                 <p style={{ fontSize: fs(16), color: tc("#8b7355","#5c3d1e"), fontFamily: "'Lato',sans-serif", fontWeight: 300, lineHeight: 1.8, marginBottom: 32 }}>
                   Grace is warm, patient, and trained to ask exactly the right questions. She remembers everything you share, never judges, and never rushes you.
                 </p>
