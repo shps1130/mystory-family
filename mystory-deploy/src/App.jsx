@@ -1731,7 +1731,9 @@ export default function MyStoryFamily() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ firstName: data.user.firstName, email: data.user.email }),
       }).catch(() => {});
-      setScreen("onboarding");
+      // Set Grace as default persona so reveal screen works
+      setPersona(PERSONAS.grace);
+      setScreen("reveal");
     } catch {
       setSignupError("Connection error. Please check your internet and try again.");
     }
@@ -1784,12 +1786,14 @@ export default function MyStoryFamily() {
         if (hasPaidFinal) localStorage.setItem("mystory_paid_" + email.toLowerCase(), "true");
         setUser(data.user);
         setHasPaid(hasPaidFinal);
-        setScreen("onboarding");
+        setPersona(PERSONAS.grace);
+        setScreen("reveal");
       } else {
         if (hasPaidFinal) localStorage.setItem("mystory_paid_" + email.toLowerCase(), "true");
         setUser(data.user);
         setHasPaid(hasPaidFinal);
-        setScreen("onboarding");
+        setPersona(PERSONAS.grace);
+        setScreen("reveal");
       }
     } catch {
       setSigninError("Connection error. Please check your internet and try again.");
@@ -1986,7 +1990,7 @@ export default function MyStoryFamily() {
       };
       setPersona(chosenPersona);
       setSystemPrompt(buildSystemPrompt(chosenPersona, profile));
-      setScreen("reveal");
+      setScreen("setup");
     }
   };
 
@@ -3528,9 +3532,9 @@ export default function MyStoryFamily() {
             <p style={{ fontSize: fs(15), color: tc("#8b7355", "#5c3d1e"), fontFamily: "'Lato',sans-serif", marginBottom: 40, lineHeight: 1.7 }}>
               {persona.tagline}
             </p>
-            <button className="start-btn" onClick={() => setScreen("setup")}
+            <button className="start-btn" onClick={() => setScreen("onboarding")}
               style={{ background: personaAvatarBg, color: "#fdf6ec", border: "none", padding: "18px 52px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(19), letterSpacing: 1, cursor: "pointer", boxShadow: "0 4px 24px rgba(93,61,26,0.25)", minHeight: 58 }}>
-              Continue with {persona.name} ✦
+              Let's Get Started ✦
             </button>
           </div>
         </main>
