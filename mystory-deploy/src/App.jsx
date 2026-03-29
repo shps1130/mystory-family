@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useLayoutEffect } from "react";
 
 // ─── STRIPE CONFIGURATION ─────────────────────────────────────────────────────
 // SETUP INSTRUCTIONS:
@@ -1442,8 +1442,6 @@ export default function MyStoryFamily() {
 
   // ── ACCESSIBILITY STATE ───────────────────────────────────────────────────
   const [textScale, setTextScale] = useState(1.15);
-  const [tutorialStep, setTutorialStep] = useState(null);
-  const [tutorialDone, setTutorialDone] = useState(false);
   const [topicFramework, setTopicFramework] = useState([]);
   const [currentTopicIdx, setCurrentTopicIdx] = useState(0);
   const [currentTopicMessages, setCurrentTopicMessages] = useState([]);
@@ -1481,33 +1479,23 @@ export default function MyStoryFamily() {
     window.scrollTo({ top: 0, behavior: "instant" });
   }, [currentTopicIdx]);
 
-  // Scroll to top on every screen change — instant so it never shows mid-page
-  useEffect(() => { window.scrollTo({ top: 0, behavior: "instant" }); }, [screen]);
+  // Scroll to top on every screen change — useLayoutEffect fires before paint
+  // so the browser never shows a mid-page flash
+  useLayoutEffect(() => {
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }, [screen]);
 
-  // Force top on mount — prevents browser scroll restoration showing mid-page
-  useEffect(() => { window.scrollTo(0, 0); }, []);
+  // Force top on mount
+  useLayoutEffect(() => {
+    window.scrollTo(0, 0);
+    if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+  }, []);
 
   // Scroll to the relevant element when tutorial step changes
-  useEffect(() => {
-    if (!tutorialStep) return;
-    const scrollTargets = {
-      1: () => window.scrollTo({ top: 0, behavior: "smooth" }),
-      2: () => window.scrollTo({ top: 0, behavior: "smooth" }),
-      3: () => document.getElementById("story-input")?.scrollIntoView({ behavior: "smooth", block: "center" }),
-      4: () => document.querySelector(".photo-btn")?.scrollIntoView({ behavior: "smooth", block: "center" }),
-      5: () => document.getElementById("tutorial-step-5")?.scrollIntoView({ behavior: "smooth", block: "center" }),
-    };
-    setTimeout(() => scrollTargets[tutorialStep]?.(), 200);
-  }, [tutorialStep]);
-  useEffect(() => {
-    if (screen === "chat" && !previewChapter && !bookComplete && chapter) {
-      const tutorialKey = "mystory_tutorial_done";
-      const done = localStorage.getItem(tutorialKey) === "true";
-      if (!done && !tutorialDone) {
-        setTimeout(() => setTutorialStep(1), 600);
-      }
-    }
-  }, [screen, previewChapter, bookComplete]);
+
+
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
@@ -1993,7 +1981,7 @@ export default function MyStoryFamily() {
       setAnglesUsed(false);
       setChapterContext(buildChapterContext(allChapters[0]));
       if (chosenPersona) setSystemPrompt(buildSystemPrompt(chosenPersona, profile));
-      const nameMsg = { role: "assistant", content: "Before we begin — what's your name?\n\nJust type it below, then click the gold Send button ✦ in the bottom right corner of the text box." };
+      const nameMsg = { role: "assistant", content: "Before we begin — what's your name?\n\nJust type it below. When you're done, click the gold *Send* button in the bottom right of the text box — it looks like this: [ → Send ]" };
       setMessages([nameMsg]);
       setCurrentTopicMessages([nameMsg]);
       setAwaitingName(true);
@@ -2154,7 +2142,7 @@ export default function MyStoryFamily() {
     if (persona) setSystemPrompt(buildSystemPrompt(persona, profile));
 
     // Grace opens with just the name question — tutorial comes after they answer
-    const nameMsg = { role: "assistant", content: "Before we begin — what's your name?\n\nJust type it below, then click the gold Send button ✦ in the bottom right corner of the text box." };
+    const nameMsg = { role: "assistant", content: "Before we begin — what's your name?\n\nJust type it below. When you're done, click the gold *Send* button in the bottom right of the text box — it looks like this: [ → Send ]" };
     setMessages([nameMsg]);
     setCurrentTopicMessages([nameMsg]);
     setAwaitingName(true);
@@ -2610,25 +2598,8 @@ export default function MyStoryFamily() {
     window.location.href = stripeUrl;
   };
 
-  const advanceTutorial = () => {
-    if (tutorialStep < 5) {
-      setTutorialStep(tutorialStep + 1);
-    } else {
-      setTutorialStep(null);
-      setTutorialDone(true);
-      localStorage.setItem("mystory_tutorial_done", "true");
-    }
-  };
 
-  const skipTutorial = () => {
-    setTutorialStep(null);
-    setTutorialDone(true);
-    localStorage.setItem("mystory_tutorial_done", "true");
-  };
 
-  const replayTutorial = () => {
-    setTutorialStep(1);
-  };
 
   const addMoreToChapter = () => {
     const ch = chapters[previewChapter.chapterIndex];
@@ -4027,10 +3998,6 @@ export default function MyStoryFamily() {
                   <span style={{ fontSize: 22 }}>{chapter.icon}</span>
                   <h2 style={{ fontSize: fs(22), fontWeight: 600, color: tc("#3d2b1a", "#1a0e00") }}>{chapter.title}</h2>
                 </div>
-                <button onClick={replayTutorial} title="Show me how this works"
-                  style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(184,134,11,0.1)", border: "1.5px solid rgba(184,134,11,0.3)", color: "#b8860b", fontFamily: "'Lato',sans-serif", fontSize: 14, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                  ?
-                </button>
               </div>
 
               {/* Book complete celebration video */}
@@ -4212,7 +4179,7 @@ export default function MyStoryFamily() {
 
               {/* Section complete */}
               {!showRecapButton && (
-                <div id="tutorial-step-5" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, marginTop: 10, flexShrink: 0 }}>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, marginTop: 10, flexShrink: 0 }}>
                   <button className="complete-btn" onClick={userMessageCount > 0 ? chapterComplete : undefined}
                     disabled={userMessageCount === 0}
                     style={{ background: userMessageCount > 0 ? "linear-gradient(135deg,#5c3d1e,#8b5e34)" : "rgba(139,94,52,0.2)", color: userMessageCount > 0 ? "#fdf6ec" : "#a89070", border: "none", padding: "12px 30px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(15), cursor: userMessageCount > 0 ? "pointer" : "not-allowed", minHeight: 46, transition: "all 0.3s" }}>
@@ -4317,92 +4284,6 @@ export default function MyStoryFamily() {
       )}
 
       {/* ── TUTORIAL OVERLAY ── */}
-      {tutorialStep && screen === "chat" && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 200, pointerEvents: "none" }}>
-          {/* Dark overlay */}
-          <div style={{ position: "absolute", inset: 0, background: "rgba(30,18,8,0.72)", pointerEvents: "auto" }} onClick={skipTutorial} />
-
-          {/* Tutorial steps */}
-          {(() => {
-            const steps = [
-              {
-                id: 1,
-                title: "Your progress dashboard",
-                body: "This bar shows all your sections. Once you finish a section, click its name to go back and add more anytime.",
-                position: { top: 100, left: "50%", transform: "translateX(-50%)" },
-                arrowEl: (
-                  <div style={{ position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)", width: 0, height: 0, borderLeft: "14px solid transparent", borderRight: "14px solid transparent", borderBottom: "14px solid #1a4a5c" }} />
-                ),
-              },
-              {
-                id: 2,
-                title: "Your conversation with Grace",
-                body: "Grace asks you questions here and your answers appear in this area. Just have a natural conversation — there are no wrong answers.",
-                position: { top: 220, left: "50%", transform: "translateX(-50%)" },
-                arrowEl: (
-                  <div style={{ position: "absolute", top: -14, left: "25%", width: 0, height: 0, borderLeft: "14px solid transparent", borderRight: "14px solid transparent", borderBottom: "14px solid #1a4a5c" }} />
-                ),
-              },
-              {
-                id: 3,
-                title: "This is where you type",
-                body: "Type your answer in this box below, then press the Send button or hit Enter on your keyboard.",
-                position: { top: "38%", left: "50%", transform: "translateX(-50%)" },
-                arrowEl: (
-                  <div style={{ position: "absolute", bottom: -14, left: "50%", transform: "translateX(-50%)", width: 0, height: 0, borderLeft: "14px solid transparent", borderRight: "14px solid transparent", borderTop: "14px solid #1a4a5c" }} />
-                ),
-              },
-              {
-                id: 4,
-                title: "Add photos to your book",
-                body: "Scroll down to find the camera button. Click it to add photos — one or two per section works best and they'll appear in your printed book.",
-                position: { top: "38%", left: "50%", transform: "translateX(-50%)" },
-                arrowEl: (
-                  <div style={{ position: "absolute", bottom: -14, left: "50%", transform: "translateX(-50%)", width: 0, height: 0, borderLeft: "14px solid transparent", borderRight: "14px solid transparent", borderTop: "14px solid #1a4a5c" }} />
-                ),
-              },
-              {
-                id: 5,
-                title: "When you're ready to move on",
-                body: "Scroll down to find this button. When you've shared enough, click it and Grace will show you everything you've written — beautifully shaped into your story.",
-                position: { top: "38%", left: "50%", transform: "translateX(-50%)" },
-                arrowEl: (
-                  <div style={{ position: "absolute", bottom: -14, left: "50%", transform: "translateX(-50%)", width: 0, height: 0, borderLeft: "14px solid transparent", borderRight: "14px solid transparent", borderTop: "14px solid #1a4a5c" }} />
-                ),
-              },
-            ];
-
-            const step = steps[tutorialStep - 1];
-
-            return (
-              <div style={{ position: "absolute", ...step.position, background: "#1a4a5c", borderRadius: 16, padding: "20px 20px", maxWidth: 400, width: "calc(100vw - 32px)", boxSizing: "border-box", boxShadow: "0 20px 60px rgba(0,0,0,0.5)", pointerEvents: "auto", animation: "fadeUp 0.3s ease forwards", border: "2px solid rgba(255,255,255,0.15)" }}>
-                {step.arrowEl}
-
-                {/* Step progress dots */}
-                <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
-                  {[1,2,3,4,5].map(n => (
-                    <div key={n} style={{ width: n === tutorialStep ? 20 : 8, height: 8, borderRadius: 4, background: n === tutorialStep ? "#5bc4e0" : n < tutorialStep ? "rgba(91,196,224,0.4)" : "rgba(255,255,255,0.2)", transition: "all 0.3s" }} />
-                  ))}
-                </div>
-
-                <h3 style={{ fontSize: 20, fontWeight: 700, color: "#ffffff", fontFamily: "'Cormorant Garamond',serif", marginBottom: 10 }}>{step.title}</h3>
-                <p style={{ fontSize: 16, color: "rgba(255,255,255,0.85)", fontFamily: "'Lato',sans-serif", lineHeight: 1.75, marginBottom: 22 }}>{step.body}</p>
-
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <button onClick={skipTutorial}
-                    style={{ background: "none", border: "none", color: "rgba(255,255,255,0.55)", fontFamily: "'Lato',sans-serif", fontSize: 13, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3, padding: "4px 0" }}>
-                    Skip tutorial
-                  </button>
-                  <button onClick={advanceTutorial}
-                    style={{ background: "#5bc4e0", color: "#0d2d38", border: "none", padding: "14px 32px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 18, fontWeight: 700, cursor: "pointer", minHeight: 48, boxShadow: "0 4px 16px rgba(91,196,224,0.4)" }}>
-                    {tutorialStep === 5 ? "Got it ✦" : "Next →"}
-                  </button>
-                </div>
-              </div>
-            );
-          })()}
-        </div>
-      )}
 
       {toast && (
         <div key={toast.key} role="status" style={{ position: "fixed", bottom: 28, left: "50%", transform: "translateX(-50%)", background: highContrast ? "#1a0e00" : "#3d2b1a", color: "#fdf6ec", padding: "12px 28px", borderRadius: 100, fontFamily: "'Lato',sans-serif", fontSize: fs(13), animation: "toast 2.2s ease forwards", pointerEvents: "none", border: highContrast ? "2px solid #b8860b" : "none" }}>
