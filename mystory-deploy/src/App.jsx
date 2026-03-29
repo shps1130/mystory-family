@@ -53,40 +53,16 @@ const ONBOARDING_STEPS = [
   },
   {
     id: "voice_intro",
-    question: "Let's find your voice 🎙️",
-    subtext: "Before Grace starts asking about your life, she wants to get a feel for how YOU talk. The best books sound like the person who lived them — not like a computer wrote them.\n\nSo we're going to ask you 5 fun questions. There are no right answers. Just be yourself. This is going to be fun.",
+    question: "One quick thing before we begin 🎙️",
+    subtext: "Grace writes in YOUR voice — not hers. So before we start, we have two quick questions to help her sound like you. There are no right answers. Just pick what feels natural.",
     type: "intro_only",
     optional: true,
-    buttonLabel: "Let's do it →",
-  },
-  {
-    id: "voice_joke",
-    question: "What's a joke or funny story you've told so many times your family could finish it for you?",
-    subtext: "Why we're asking: The way you tell a joke is exactly how we want your book to sound. Don't worry about being funny — just tell it the way you always do.",
-    type: "text",
-    placeholder: "Go ahead — we'd love to hear it...",
-    optional: true,
-  },
-  {
-    id: "voice_sentence",
-    question: "Here's a boring sentence: \"I had a good childhood.\" How would YOU actually say that to a friend?",
-    subtext: "Why we're asking: We want your words in your book, not ours. There's no wrong answer — just say it however feels natural.",
-    type: "text",
-    placeholder: "In your own words...",
-    optional: true,
-  },
-  {
-    id: "voice_complaint",
-    question: "What's something small that drives you absolutely crazy — something your family would say \"there they go again\" about?",
-    subtext: "Why we're asking: The things that make you laugh or roll your eyes say a lot about who you are. This helps us capture your personality on the page.",
-    type: "text",
-    placeholder: "Could be anything — traffic, the TV remote, how people park...",
-    optional: true,
+    buttonLabel: "Okay, let's do it →",
   },
   {
     id: "voice_pairs",
     question: "Which of these sounds more like you?",
-    subtext: "Why we're asking: This tells us whether your book should feel formal and elegant, or warm and down-to-earth. Pick the one that feels most natural — there's no wrong choice.",
+    subtext: "Just pick the one that feels most natural — this helps Grace match the way you talk.",
     type: "voice_pairs",
     optional: true,
     pairs: [
@@ -98,9 +74,9 @@ const ONBOARDING_STEPS = [
   {
     id: "voice_proud",
     question: "What's something you're quietly proud of that you don't talk about enough?",
-    subtext: "Why we're asking: How you talk about something you're proud of is the real you. We want that voice in your book.",
+    subtext: "It doesn't have to be big. This helps Grace capture the real you on the page — your words, your voice.",
     type: "text",
-    placeholder: "It doesn't have to be big — sometimes the small things matter most...",
+    placeholder: "Just a sentence or two is plenty...",
     optional: true,
   },
   {
@@ -264,7 +240,8 @@ Your users are primarily seniors in their 60s, 70s, and 80s. Many have never use
 - Give them space. Not every silence needs to be filled immediately.
 - The goal is NOT to extract information. The goal is to make them feel their story matters.
 
-WRITER'S MINDSET — THINK WHILE YOU LISTEN:
+KEEPING THE CONVERSATION FRESH:
+After 3-4 exchanges on the same thread, briefly acknowledge what you've captured and move naturally to the next angle. Say something like "I've got all of that — beautiful detail. Now let me ask you about..." This keeps the conversation moving and prevents the page from becoming a long scroll. Never just keep asking the same type of question in a row.
 You are always mentally drafting the memoir paragraph you will write. A vivid memoir paragraph needs: a specific place, at least one sensory detail (smell, sound, texture, feeling), at least one person, and one moment or emotion. After each answer, silently ask yourself: what's missing from the paragraph I'm building? Let that guide your next question — naturally, never mechanically.
 - If you have a place but no sensory detail → ask "What do you remember most about being there?"
 - If you have facts but no feeling → ask "What was that like for you?"
@@ -1393,6 +1370,7 @@ export default function MyStoryFamily() {
   const [giftName, setGiftName] = useState("");
   const [giftError, setGiftError] = useState("");
   const [giftLoading, setGiftLoading] = useState(false);
+  const [showGiftEntry, setShowGiftEntry] = useState(false);
 
   // ── GIFT PURCHASE STATE ───────────────────────────────────────────────────
   const [giftBuyerName, setGiftBuyerName] = useState("");
@@ -1488,11 +1466,20 @@ export default function MyStoryFamily() {
   const textSizeLabels = ["A", "A+", "A++"];
   const textScales = [1, 1.2, 1.4];
 
+  // After each new message scroll the input into view so they can type
   useEffect(() => {
-    if (messagesContainerRef.current) {
-      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+    if (screen !== "chat") return;
+    const input = document.getElementById("story-input");
+    if (input) {
+      setTimeout(() => input.scrollIntoView({ behavior: "smooth", block: "center" }), 100);
     }
   }, [messages]);
+
+  // Scroll to top of page when topic refreshes (currentTopicMessages resets)
+  useEffect(() => {
+    if (screen !== "chat") return;
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, [currentTopicIdx]);
 
   // Scroll to top on every screen change — instant so it never shows mid-page
   useEffect(() => { window.scrollTo({ top: 0, behavior: "instant" }); }, [screen]);
@@ -1903,7 +1890,8 @@ export default function MyStoryFamily() {
       setHasPaid(true);
       localStorage.setItem("mystory_paid_" + giftEmail.toLowerCase(), "true");
       showToast("Gift code redeemed! Welcome to MyStory.Family 🕊️");
-      setScreen("onboarding");
+      setPersona(PERSONAS.grace);
+      setScreen("reveal");
     } catch { setGiftError("Something went wrong. Please try again."); }
     setGiftLoading(false);
   };
@@ -2264,12 +2252,13 @@ export default function MyStoryFamily() {
         content: "Nice to meet you, " + firstName + "! I'm so glad you're here.\n\n" +
           "Here's how this works — it's simple, I promise:\n\n" +
           "I'm going to ask you questions about your life, one at a time. Just answer however feels natural. There's no right or wrong way.\n\n" +
-          "🔒 *Lock button* — If I write something and you love it exactly as is, click the Lock button at the bottom of my message and it goes into your book word for word.\n\n" +
+          "🔒 *Lock button* — Sometimes Grace will write something beautiful. If you love it exactly as she wrote it, click the Lock button at the bottom of her message and it goes into your book word for word, untouched.\n\n" +
           "💭 *Do nothing* — If you just want me to hold a thought and weave it into your story, just keep talking. I'll keep everything in memory as we build.\n\n" +
           "📷 *Photos* — This is a memoir, so your stories are what matter most. But if you'd like to add photos, you can add one or two per section — just tap the camera button below.\n\n" +
           "⏸️ *Done for the day?* — Click 'I'm done for now' anytime and your story will be right here waiting for you.\n\n" +
           "That's everything. Let's start with something easy.\n\n" +
-          "*Where were you born?*"
+          "*Where were you born?*\n\n" +
+          "_When you're ready, click the_ ✦ _Send button to share your answer._"
       };
       setTimeout(() => {
         setMessages(prev => [...prev, tutorialMsg]);
@@ -2326,18 +2315,26 @@ export default function MyStoryFamily() {
         setTopicFramework(prev => prev.map((t, i) =>
           i === currentTopicIdx ? { ...t, complete: true } : t
         ));
-        // The transition message becomes the first message of the new topic
         setCurrentTopicMessages([newMsg]);
         setCurrentTopicIdx(prev => {
           const next = prev + 1;
-          // Update chapter context for new topic
-          if (chapter) {
-            setChapterContext(buildChapterContext(chapter, next));
-          }
+          if (chapter) setChapterContext(buildChapterContext(chapter, next));
           return next;
         });
       } else {
-        setCurrentTopicMessages(prev => [...prev, newMsg]);
+        setCurrentTopicMessages(prev => {
+          const updated = [...prev, newMsg];
+          // After 3 Grace responses (6 total messages), refresh with a summary message
+          const graceCount = updated.filter(m => m.role === "assistant").length;
+          if (graceCount >= 4) {
+            const summaryMsg = {
+              role: "assistant",
+              content: newMsg.content
+            };
+            return [summaryMsg];
+          }
+          return updated;
+        });
       }
 
       announce("New response received.");
@@ -2825,6 +2822,46 @@ export default function MyStoryFamily() {
                 Already have an account? Sign in
               </button>
             )}
+
+            {/* Gift code entry */}
+            <div style={{ marginTop: 16 }}>
+              {!showGiftEntry ? (
+                <button onClick={() => setShowGiftEntry(true)}
+                  style={{ background: "rgba(184,134,11,0.08)", border: "1.5px solid rgba(184,134,11,0.25)", color: tc("#7a5030","#3d2b1a"), fontFamily: "'Lato',sans-serif", fontSize: fs(14), fontWeight: 600, cursor: "pointer", padding: "10px 22px", borderRadius: 100, minHeight: 42, display: "flex", alignItems: "center", gap: 8, transition: "all 0.2s" }}>
+                  🎁 I have a gift code
+                </button>
+              ) : (
+                <div style={{ background: "white", border: "1.5px solid rgba(184,134,11,0.3)", borderRadius: 16, padding: "24px 28px", maxWidth: 440, width: "100%", animation: "fadeUp 0.3s ease forwards", boxShadow: "0 4px 20px rgba(93,61,26,0.08)" }}>
+                  <p style={{ fontSize: fs(16), fontWeight: 500, color: tc("#3d2b1a","#1a0e00"), marginBottom: 4 }}>Redeem your gift 🎁</p>
+                  <p style={{ fontFamily: "'Lato',sans-serif", fontSize: fs(13), color: tc("#7a6040","#4a3020"), marginBottom: 16, lineHeight: 1.6 }}>
+                    Someone gave you the gift of your own story. Enter your code below to get started.
+                  </p>
+                  {[
+                    ["gift-code-input", "Gift Code", "text", giftCode, setGiftCode, "e.g. GRACE-1234"],
+                    ["gift-name-input", "Your First Name", "text", giftName, setGiftName, ""],
+                    ["gift-email-input", "Your Email", "email", giftEmail, setGiftEmail, ""],
+                  ].map(([id, label, type, val, setter, placeholder]) => (
+                    <div key={id} style={{ marginBottom: 12 }}>
+                      <label htmlFor={id} style={{ display: "block", fontFamily: "'Lato',sans-serif", fontSize: fs(12), fontWeight: 600, color: tc("#7a5c3a","#4a3020"), marginBottom: 5, letterSpacing: "0.5px" }}>{label}</label>
+                      <input id={id} type={type} value={val} onChange={e => setter(e.target.value)}
+                        placeholder={placeholder}
+                        style={{ width: "100%", border: "1.5px solid rgba(180,140,80,0.3)", borderRadius: 8, padding: "11px 14px", fontFamily: "'Lato',sans-serif", fontSize: fs(15), color: tc("#3d2b1a","#1a0e00"), background: "#fffdf5", outline: "none", minHeight: 46 }} />
+                    </div>
+                  ))}
+                  {giftError && <p role="alert" style={{ fontSize: fs(13), color: "#c0392b", fontFamily: "'Lato',sans-serif", marginBottom: 12 }}>{giftError}</p>}
+                  <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+                    <button onClick={redeemGiftCode} disabled={!giftCode.trim() || !giftName.trim() || !giftEmail.includes("@") || giftLoading}
+                      style={{ flex: 1, background: "linear-gradient(135deg,#b8860b,#d4a843)", color: "#fdf6ec", border: "none", padding: "13px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(17), cursor: "pointer", opacity: (!giftCode.trim() || !giftName.trim() || !giftEmail.includes("@") || giftLoading) ? 0.45 : 1, minHeight: 48 }}>
+                      {giftLoading ? "Redeeming…" : "Redeem My Gift ✦"}
+                    </button>
+                    <button onClick={() => { setShowGiftEntry(false); setGiftError(""); }}
+                      style={{ background: "none", border: "1.5px solid rgba(180,140,80,0.3)", color: tc("#7a5c3a","#4a3020"), borderRadius: 100, padding: "13px 18px", fontFamily: "'Lato',sans-serif", fontSize: fs(13), cursor: "pointer", minHeight: 48 }}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Scroll hint */}
             <div style={{ marginTop: 40, display: "flex", flexDirection: "column", alignItems: "center", gap: 6, opacity: 0.45 }}>
@@ -4095,9 +4132,9 @@ export default function MyStoryFamily() {
                   <label htmlFor="story-input" style={{ position: "absolute", left: -9999, width: 1 }}>Your story response</label>
                   <textarea id="story-input" ref={textareaRef} value={input}
                     onChange={e => { setInput(e.target.value); if (e.target.value) setAnglesUsed(true); }}
-                    onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-                    placeholder="Share your story here — there's no wrong way to begin..."
-                    aria-label="Type your story here. Press Enter when ready."
+                    onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); } }}
+                    placeholder="Share your story here — press the Send button ✦ when you're done..."
+                    aria-label="Type your story here. Click the Send button when ready."
                     rows={2}
                     style={{ flex: 1, border: "none", outline: "none", resize: "none", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(18), color: tc("#3d2b1a", "#1a0e00"), background: "transparent", lineHeight: 1.7, minHeight: 52, maxHeight: 140, overflowY: "auto" }} />
                   <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
@@ -4117,7 +4154,7 @@ export default function MyStoryFamily() {
                   </div>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 14px 10px", background: "white", borderRadius: "0 0 14px 14px", border: `${highContrast ? 3 : 2}px solid ${highContrast ? "#9a7a50" : "#b8860b"}`, borderTop: "1px solid rgba(180,140,80,0.15)" }}>
-                  <span style={{ fontSize: fs(12), color: tc("#5c3d1e","#2a1000"), fontFamily: "'Lato',sans-serif", fontWeight: 600 }}>Press Enter or click Send when ready</span>
+                  <span style={{ fontSize: fs(12), color: tc("#5c3d1e","#2a1000"), fontFamily: "'Lato',sans-serif", fontWeight: 600 }}>Click ✦ Send when you're done — Enter starts a new line</span>
                   <button onClick={() => { setMessages(prev => [...prev, { role: "assistant", content: "Your story is saved. ✦\n\nEverything you've shared is safe — come back anytime and I'll be right here waiting for you." }]); }}
                     style={{ background: "none", border: "1px solid rgba(180,140,80,0.35)", color: tc("#7a5030","#3d2b1a"), fontFamily: "'Lato',sans-serif", fontSize: fs(12), padding: "6px 14px", borderRadius: 100, cursor: "pointer", whiteSpace: "nowrap", minHeight: 34, marginLeft: 10 }}>
                     I'm done for now
