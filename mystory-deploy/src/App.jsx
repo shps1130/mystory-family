@@ -2096,7 +2096,7 @@ export default function MyStoryFamily() {
         "REMAINING TOPICS AFTER THIS ONE: " + (remainingTopics || "The Little Details (quick round)") + "\n\n" +
         "YOUR JOB FOR EACH TOPIC:\n" +
         "1. Ask 3-5 warm questions that go progressively deeper\n" +
-        "2. After each substantive answer, capture key details with: <DETAIL>brief specific detail</DETAIL> (keep details short — names, places, descriptions)\n" +
+        "2. After each substantive answer, capture key details with: <DETAIL>brief specific detail</DETAIL> (keep details short — names, places, descriptions). Only tag NEW information — never repeat a detail you have already tagged in this conversation.\n" +
         "3. Dig for the meaningful stuff — nicknames, funny phrases, what they called the house, family sayings, sensory memories\n" +
         "4. When the topic feels complete, ask: \"Is there anything else about " + closingQuestion + " you'd like me to capture before we move on?\"\n" +
         "5. Then say a warm transition sentence and include <TOPIC_COMPLETE> at the very end\n\n" +
@@ -2303,9 +2303,19 @@ export default function MyStoryFamily() {
 
       // Add details to current topic in framework
       if (newDetails.length > 0) {
-        setTopicFramework(prev => prev.map((t, i) =>
-          i === currentTopicIdx ? { ...t, details: [...t.details, ...newDetails] } : t
-        ));
+        setTopicFramework(prev => prev.map((t, i) => {
+          if (i !== currentTopicIdx) return t;
+          // Deduplicate — skip if a very similar detail already exists
+          const existing = t.details.map(d => d.toLowerCase().replace(/[^a-z0-9]/g, ""));
+          const unique = newDetails.filter(d => {
+            const normalized = d.toLowerCase().replace(/[^a-z0-9]/g, "");
+            // Skip if existing detail contains most of the same words
+            return !existing.some(e =>
+              e.includes(normalized.slice(0, 12)) || normalized.includes(e.slice(0, 12))
+            );
+          });
+          return unique.length > 0 ? { ...t, details: [...t.details, ...unique] } : t;
+        }));
       }
       if (newMemories.length > 0) setSectionMemories(prev => [...prev, ...newMemories]);
       if (hasRecap) setShowRecapButton(true);
