@@ -1993,7 +1993,7 @@ export default function MyStoryFamily() {
       setAnglesUsed(false);
       setChapterContext(buildChapterContext(allChapters[0]));
       if (chosenPersona) setSystemPrompt(buildSystemPrompt(chosenPersona, profile));
-      const nameMsg = { role: "assistant", content: "Before we begin — what's your name? Just type it below." };
+      const nameMsg = { role: "assistant", content: "Before we begin — what's your name?\n\nJust type it below, then click the gold Send button ✦ in the bottom right corner of the text box." };
       setMessages([nameMsg]);
       setCurrentTopicMessages([nameMsg]);
       setAwaitingName(true);
@@ -2154,7 +2154,7 @@ export default function MyStoryFamily() {
     if (persona) setSystemPrompt(buildSystemPrompt(persona, profile));
 
     // Grace opens with just the name question — tutorial comes after they answer
-    const nameMsg = { role: "assistant", content: "Before we begin — what's your name? Just type it below." };
+    const nameMsg = { role: "assistant", content: "Before we begin — what's your name?\n\nJust type it below, then click the gold Send button ✦ in the bottom right corner of the text box." };
     setMessages([nameMsg]);
     setCurrentTopicMessages([nameMsg]);
     setAwaitingName(true);
@@ -4158,8 +4158,9 @@ export default function MyStoryFamily() {
                       </svg>
                     </button>
                     <button className="send-btn" onClick={() => sendMessage()} disabled={!input.trim() || loading} aria-label="Send your response"
-                      style={{ width: 44, height: 44, borderRadius: "50%", background: input.trim() && !loading ? personaAvatarBg : "rgba(139,94,52,0.2)", border: "none", cursor: input.trim() && !loading ? "pointer" : "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s", opacity: (!input.trim() || loading) ? 0.4 : 1 }}>
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M22 2L11 13" stroke="#fdf6ec" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="#fdf6ec" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      style={{ padding: "0 18px", height: 44, borderRadius: 100, background: input.trim() && !loading ? "linear-gradient(135deg,#b8860b,#d4a843)" : "rgba(139,94,52,0.2)", border: "none", cursor: input.trim() && !loading ? "pointer" : "not-allowed", display: "flex", alignItems: "center", gap: 7, transition: "all 0.2s", opacity: (!input.trim() || loading) ? 0.4 : 1, flexShrink: 0, boxShadow: input.trim() && !loading ? "0 3px 12px rgba(184,134,11,0.35)" : "none" }}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M22 2L11 13" stroke="#fdf6ec" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="#fdf6ec" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      <span style={{ fontFamily: "'Lato',sans-serif", fontSize: fs(14), fontWeight: 700, color: "#fdf6ec", letterSpacing: "0.3px" }}>Send</span>
                     </button>
                   </div>
                 </div>
