@@ -2004,31 +2004,104 @@ export default function MyStoryFamily() {
       { id: "your-family", title: "Your Family", icon: "👨‍👩‍👧", details: [], complete: false },
       { id: "school-friends", title: "School & Friends", icon: "🏫", details: [], complete: false },
       { id: "early-memories", title: "Early Memories", icon: "⭐", details: [], complete: false },
-      { id: "quick-round", title: "The Little Details", icon: "✨", details: [], complete: false, isQuickRound: true },
+      { id: "quick-round", title: "The Little Details", icon: "✨", details: [], complete: false, isQuickRound: true,
+        questions: [
+          "Did you have a nickname as a child? What was it and where did it come from?",
+          "What did you call your grandparents? (Grandma, Nana, Papaw, etc.)",
+          "Did you have a childhood pet? What was its name?",
+          "What was your favorite food growing up?",
+          "What did you want to be when you grew up?",
+          "Was there a saying or phrase your family always used?",
+          "Do you remember your first words, or funny things you said as a little one?",
+          "What was your favorite toy or game as a child?",
+          "What was the walk or ride to school like?",
+          "Was there a smell or sound from childhood that still takes you back?",
+        ]
+      },
     ],
     "becoming-you": [
       { id: "leaving-home", title: "Leaving Home", icon: "🚪", details: [], complete: false },
+      { id: "first-steps", title: "First Steps Out", icon: "👣", details: [], complete: false },
       { id: "work-career", title: "Work & Career", icon: "💼", details: [], complete: false },
-      { id: "who-you-became", title: "Who You Became", icon: "🌿", details: [], complete: false },
       { id: "defining-moments", title: "Defining Moments", icon: "⚡", details: [], complete: false },
+      { id: "who-you-became", title: "Who You Became", icon: "🌿", details: [], complete: false },
+      { id: "quick-round", title: "The Little Details", icon: "✨", details: [], complete: false, isQuickRound: true,
+        questions: [
+          "What was your first car? Do you remember what it cost?",
+          "What was your very first job and what did you earn?",
+          "Who was your closest friend during this time of your life?",
+          "What was the biggest risk you ever took?",
+          "Was there a moment when you felt like you truly became an adult?",
+          "What did you drive, wear, or listen to that takes you back to this time?",
+          "Was there a mentor or teacher who changed the direction of your life?",
+          "What were you most proud of accomplishing before you turned 30?",
+          "What's something you tried that didn't work out — and what did you learn?",
+          "What did a typical Friday night look like for you back then?",
+        ]
+      },
     ],
     "family-love": [
       { id: "meeting-spouse", title: "Meeting Your Spouse", icon: "💛", details: [], complete: false },
-      { id: "building-family", title: "Building Your Family", icon: "🏡", details: [], complete: false },
+      { id: "early-marriage", title: "Early Marriage", icon: "💍", details: [], complete: false },
       { id: "your-children", title: "Your Children", icon: "👶", details: [], complete: false },
+      { id: "building-family", title: "Building Your Home", icon: "🏡", details: [], complete: false },
       { id: "family-traditions", title: "Family Traditions", icon: "🎄", details: [], complete: false },
+      { id: "quick-round", title: "The Little Details", icon: "✨", details: [], complete: false, isQuickRound: true,
+        questions: [
+          "Where did you go on your first date?",
+          "What did you call your in-laws?",
+          "What song do you think of as yours and your spouse's?",
+          "What was the proposal like — or how did you know this was the one?",
+          "Where did you get married and how many people were there?",
+          "What was the hardest year of your marriage — and what got you through it?",
+          "What's a phrase or inside joke only your family would understand?",
+          "What did you call each of your children when they were little — any nicknames?",
+          "What's a holiday or tradition your family had that nobody else did?",
+          "What's the funniest thing one of your children ever said or did?",
+        ]
+      },
     ],
     "faith": [
       { id: "faith-roots", title: "Your Faith Roots", icon: "🌱", details: [], complete: false },
       { id: "faith-journey", title: "Your Faith Journey", icon: "✝️", details: [], complete: false },
       { id: "faith-community", title: "Your Church & Community", icon: "🕊️", details: [], complete: false },
+      { id: "faith-tested", title: "When Faith Was Tested", icon: "🙏", details: [], complete: false },
       { id: "faith-legacy", title: "Faith You Want to Pass On", icon: "📖", details: [], complete: false },
+      { id: "quick-round", title: "The Little Details", icon: "✨", details: [], complete: false, isQuickRound: true,
+        questions: [
+          "What church did you grow up in — do you remember what it looked like inside?",
+          "Is there a hymn or worship song that moves you every time you hear it?",
+          "Is there a Bible verse or scripture that has carried you through hard times?",
+          "Who first taught you to pray — and how did they do it?",
+          "Was there a moment you felt God's presence in an unmistakable way?",
+          "Did you ever doubt your faith — and what brought you back?",
+          "What does your prayer life look like today?",
+          "Is there a pastor, priest, or faith leader who shaped who you are?",
+          "What do you want your grandchildren to know about your relationship with God?",
+          "If you could leave one spiritual truth for your family, what would it be?",
+        ]
+      },
     ],
     "wisdom": [
       { id: "life-lessons", title: "Life's Lessons", icon: "💡", details: [], complete: false },
+      { id: "hard-times", title: "Getting Through Hard Times", icon: "⛰️", details: [], complete: false },
       { id: "what-matters", title: "What Matters Most", icon: "❤️", details: [], complete: false },
       { id: "to-grandchildren", title: "To Your Grandchildren", icon: "🌟", details: [], complete: false },
       { id: "your-legacy", title: "Your Legacy", icon: "🕊️", details: [], complete: false },
+      { id: "quick-round", title: "The Little Details", icon: "✨", details: [], complete: false, isQuickRound: true,
+        questions: [
+          "What's the best advice anyone ever gave you?",
+          "What advice do you wish someone had given you when you were young?",
+          "What's something you believed at 25 that you know now isn't true?",
+          "What's the most important decision you ever made?",
+          "What do you know now that you wish you had known at 30?",
+          "What's something small that brings you genuine joy every day?",
+          "If you could have dinner with anyone from history, who would it be and why?",
+          "What do you want people to say about you at your funeral?",
+          "What's the one thing you hope your grandchildren never forget about you?",
+          "If you could go back and do one thing differently, what would it be?",
+        ]
+      },
     ],
   };
 
@@ -2049,20 +2122,12 @@ export default function MyStoryFamily() {
 
       // ── QUICK ROUND special instructions ──────────────────────────────────
       if (currentTopic?.isQuickRound) {
+        const qList = (currentTopic.questions || []).map(q => "- " + q).join("\n");
         return "\n\nCURRENT SECTION: \"" + ch.title + "\"\n\n" +
           "YOU ARE NOW IN THE QUICK ROUND — The final fill-in stage before writing.\n\n" +
           "IMPORTANT: Review everything shared so far in this conversation. Do NOT ask about anything already mentioned.\n\n" +
           "Your job: Ask 2-3 short-answer questions at a time from this list (skip any already covered):\n" +
-          "- Did you have a nickname as a child? What was it and where did it come from?\n" +
-          "- What did you call your grandparents? (Grandma, Nana, Papaw, etc.)\n" +
-          "- Did you have a childhood pet? What was its name?\n" +
-          "- What was your favorite food growing up?\n" +
-          "- What did you want to be when you grew up?\n" +
-          "- Was there a saying or phrase your family always used?\n" +
-          "- Do you remember your first words, or funny things you said as a little one?\n" +
-          "- What was your favorite toy or game as a child?\n" +
-          "- What was the walk or ride to school like?\n" +
-          "- Was there a smell or sound from childhood that still takes you back?\n\n" +
+          qList + "\n\n" +
           "HOW TO DO IT:\n" +
           "1. Open warmly: \"I have everything I need to start writing your story — it's going to be beautiful. Before I do, just a few quick things that will really bring it to life. There are no wrong answers, just say whatever comes to mind.\"\n" +
           "2. Ask 2-3 questions in one message\n" +
@@ -2073,9 +2138,40 @@ export default function MyStoryFamily() {
       }
 
       // ── Regular topic instructions ─────────────────────────────────────────
-      const topicInstruction = (topicIdx === 0 && ch.id === "early-life")
-        ? 'Start by asking: "Before we dive in — did you grow up mostly in one place, or did your family move around?" Then go deep on their answer.'
-        : "Dive into this topic with 3-5 exchanges, going deeper each time.";
+      const topicOpenings = {
+        // Early Life
+        "where-grew-up": 'Start by asking: "Before we dive in — did you grow up mostly in one place, or did your family move around?" Then go deep on their answer — specific town, neighborhood, what it was known for.',
+        "your-home": "Ask about the physical house — what it looked like, which room they loved most, what it smelled like, what they could hear at night. Go for sensory detail.",
+        "your-family": "Ask who was in the household — parents, siblings, grandparents, anyone who lived nearby. Then go deep on one person at a time. Names, personalities, specific memories.",
+        "school-friends": "Ask about school — what it was like, their favorite teacher, their best friend. Then go deeper — what did they do after school? What were they known for among their peers?",
+        "early-memories": "Ask for their very earliest memory. Then ask for a happy one, then a hard one. Take each one slowly and get the full scene.",
+        // Becoming You
+        "leaving-home": "Ask how and when they left home — college, military, job, marriage? Was it their choice? Were they scared? What did they take with them?",
+        "first-steps": "Ask about their first taste of independence — first apartment, first time cooking for themselves, first time truly on their own. What surprised them?",
+        "work-career": "Ask about their first real job and work forward. What did they do, who did they work with, what were they proud of? Let them tell the arc of their working life.",
+        "defining-moments": "Ask: 'Was there a moment — a decision, a turning point, something that happened — that changed the direction of your life?' Go deep on whatever they name.",
+        "who-you-became": "Ask: 'Looking back on this season of your life — who were you becoming? What mattered to you? What were you learning about yourself?' Reflective and warm.",
+        // Family & Love
+        "meeting-spouse": "Ask how they met their spouse — every detail. Where, when, who else was there, what they were wearing, what they thought when they first saw them. This is a love story.",
+        "early-marriage": "Ask about the early years of marriage — where they lived, what money was like, what they argued about, what they loved about those years. The real texture of newlywed life.",
+        "your-children": "Ask about each child — their birth, their personality, a specific memory with each one. What made each one unique? What are they most proud of in each child?",
+        "building-family": "Ask about the home they built together — literally and figuratively. The house, the neighborhood, the routines, the rhythms of family life.",
+        "family-traditions": "Ask: 'What did your family do that was uniquely yours?' Christmas morning, Sunday dinner, summer vacation — get the specific details that made their family their family.",
+        // Faith
+        "faith-roots": "Ask where faith began — was it the family they were born into, or something they found themselves? What church, what denomination, what did it look, smell, feel like?",
+        "faith-journey": "Ask how their faith has changed over the decades. What deepened it? What challenged it? Where are they now compared to where they started?",
+        "faith-community": "Ask about their church community — specific people, specific moments. Who has walked alongside them in faith? What has that community meant to them?",
+        "faith-tested": "Ask gently: 'Was there a time when faith was hard — when you struggled to believe, or felt God was far away?' Hold whatever they share with care.",
+        "faith-legacy": "Ask: 'What do you want your grandchildren to know about your faith? If you could pass one spiritual truth to the next generation, what would it be?'",
+        // Wisdom
+        "life-lessons": "Ask: 'What has life taught you that you couldn't have learned any other way?' Let them range freely. Celebrate every insight.",
+        "hard-times": "Ask: 'What was the hardest season of your life — and how did you get through it?' Go slowly. This is often where the most meaningful material lives.",
+        "what-matters": "Ask: 'When you look back at everything — the work, the relationships, the choices — what actually mattered? What would you spend more time on?'",
+        "to-grandchildren": "Ask: 'If you could sit with your grandchildren and tell them anything — what you know, what you wish for them — what would you say?' Let them speak directly to the people they love.",
+        "your-legacy": "Ask: 'How do you want to be remembered? Not what you accomplished — but who you were. What do you hope people feel when they think of you?'",
+      };
+
+      const topicInstruction = topicOpenings[currentTopic?.id] || "Dive into this topic with warmth and curiosity. Ask 3-5 questions that go progressively deeper.";
       const closingQuestion = currentTopic?.title?.toLowerCase() || "this";
       return "\n\nCURRENT SECTION: \"" + ch.title + "\"\n" +
         "TOPIC FRAMEWORK — work through these topics in order. You are currently on topic " + (topicIdx + 1) + " of " + framework.length + ".\n\n" +
