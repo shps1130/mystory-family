@@ -1453,7 +1453,9 @@ export default function MyStoryFamily() {
   const [showSidebar, setShowSidebar] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-  const showMicButton = !isIOS && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window);
+  const isAndroid = /Android/.test(navigator.userAgent);
+  // Show mic on desktop and Android — hide on iOS where it hijacks to Gemini/Siri
+  const showMicButton = !isIOS;
   const [pendingEditMessage, setPendingEditMessage] = useState(null);
   const [highContrast, setHighContrast] = useState(false);
 
@@ -2295,7 +2297,10 @@ export default function MyStoryFamily() {
 
   const toggleMic = () => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) return;
+    if (!SpeechRecognition) {
+      showToast("Voice input works best in Chrome. Try typing your answer instead.");
+      return;
+    }
     if (isListening) {
       window._recognition?.stop();
       setIsListening(false);
@@ -2310,7 +2315,10 @@ export default function MyStoryFamily() {
       setInput(prev => prev ? prev + " " + transcript : transcript);
     };
     recognition.onend = () => setIsListening(false);
-    recognition.onerror = () => setIsListening(false);
+    recognition.onerror = () => {
+      setIsListening(false);
+      showToast("Couldn't hear that — please try again or type your answer.");
+    };
     window._recognition = recognition;
     recognition.start();
     setIsListening(true);
