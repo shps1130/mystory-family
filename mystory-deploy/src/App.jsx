@@ -1451,6 +1451,9 @@ export default function MyStoryFamily() {
   const [awaitingName, setAwaitingName] = useState(false);
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 680);
   const [showSidebar, setShowSidebar] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const showMicButton = !isIOS && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window);
   const [pendingEditMessage, setPendingEditMessage] = useState(null);
   const [highContrast, setHighContrast] = useState(false);
 
@@ -2288,6 +2291,29 @@ export default function MyStoryFamily() {
       announce("Paragraph updated.");
     } catch { setRevisingLoading(false); }
     setRevisingLoading(false);
+  };
+
+  const toggleMic = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
+    if (isListening) {
+      window._recognition?.stop();
+      setIsListening(false);
+      return;
+    }
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = "en-US";
+    recognition.onresult = e => {
+      const transcript = e.results[0][0].transcript;
+      setInput(prev => prev ? prev + " " + transcript : transcript);
+    };
+    recognition.onend = () => setIsListening(false);
+    recognition.onerror = () => setIsListening(false);
+    window._recognition = recognition;
+    recognition.start();
+    setIsListening(true);
   };
 
   const sendMessage = async (overrideText) => {
@@ -4251,6 +4277,17 @@ export default function MyStoryFamily() {
                     rows={2}
                     style={{ flex: 1, border: "none", outline: "none", resize: "none", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(18), color: tc("#3d2b1a", "#1a0e00"), background: "transparent", lineHeight: 1.7, minHeight: 52, maxHeight: 140, overflowY: "auto" }} />
                   <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0, justifyContent: "center" }}>
+                    {showMicButton && (
+                      <button onClick={toggleMic} aria-label={isListening ? "Stop listening" : "Speak your answer"}
+                        style={{ width: 44, height: 44, borderRadius: "50%", background: isListening ? "linear-gradient(135deg,#c0392b,#e74c3c)" : "rgba(184,134,11,0.12)", border: `2px solid ${isListening ? "#c0392b" : "rgba(184,134,11,0.3)"}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s", animation: isListening ? "pulse 1.5s ease-in-out infinite" : "none" }}>
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                          <rect x="9" y="2" width="6" height="11" rx="3" fill={isListening ? "white" : "#b8860b"} />
+                          <path d="M5 10a7 7 0 0014 0" stroke={isListening ? "white" : "#b8860b"} strokeWidth="2" strokeLinecap="round" fill="none"/>
+                          <line x1="12" y1="19" x2="12" y2="22" stroke={isListening ? "white" : "#b8860b"} strokeWidth="2" strokeLinecap="round"/>
+                          <line x1="9" y1="22" x2="15" y2="22" stroke={isListening ? "white" : "#b8860b"} strokeWidth="2" strokeLinecap="round"/>
+                        </svg>
+                      </button>
+                    )}
                     <button className="send-btn" onClick={() => sendMessage()} disabled={!input.trim() || loading} aria-label="Send your response"
                       style={{ padding: "0 18px", height: 44, borderRadius: 100, background: input.trim() && !loading ? "linear-gradient(135deg,#b8860b,#d4a843)" : "rgba(139,94,52,0.2)", border: "none", cursor: input.trim() && !loading ? "pointer" : "not-allowed", display: "flex", alignItems: "center", gap: 7, transition: "all 0.2s", opacity: (!input.trim() || loading) ? 0.4 : 1, flexShrink: 0, boxShadow: input.trim() && !loading ? "0 3px 12px rgba(184,134,11,0.35)" : "none" }}>
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M22 2L11 13" stroke="#fdf6ec" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="#fdf6ec" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -4260,9 +4297,11 @@ export default function MyStoryFamily() {
                 </div>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 14px 10px", background: "white", borderRadius: "0 0 14px 14px", border: `${highContrast ? 3 : 2}px solid ${highContrast ? "#9a7a50" : "#b8860b"}`, borderTop: "1px solid rgba(180,140,80,0.15)" }}>
                   <span style={{ fontSize: fs(12), color: tc("#5c3d1e","#2a1000"), fontFamily: "'Lato',sans-serif", fontWeight: 600 }}>
-                    {isMobile
-                      ? "💡 Tap the 🎤 on your keyboard to speak your answer"
-                      : "Click ✦ Send when you're done — Enter starts a new line"
+                    {isListening
+                      ? "🔴 Listening — speak now, then click Send"
+                      : isIOS
+                        ? "💡 Tap the 🎤 on your keyboard to speak your answer"
+                        : "Click ✦ Send when you're done — Enter starts a new line"
                     }
                   </span>
                   <button onClick={() => { setMessages(prev => [...prev, { role: "assistant", content: "Your story is saved. ✦\n\nEverything you've shared is safe — come back anytime and I'll be right here waiting for you." }]); }}
