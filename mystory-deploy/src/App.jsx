@@ -1401,7 +1401,6 @@ export default function MyStoryFamily() {
   const [messages, setMessages] = useState([]);
   const [chapterHistory, setChapterHistory] = useState({});
   const [input, setInput] = useState("");
-  const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef(null);
   const [loading, setLoading] = useState(false);
   const [writingHelp, setWritingHelp] = useState(false);
@@ -1450,6 +1449,8 @@ export default function MyStoryFamily() {
   const [showMobileMemories, setShowMobileMemories] = useState(false);
   const [lockedMessages, setLockedMessages] = useState({}); // {messageIdx: true}
   const [awaitingName, setAwaitingName] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 680);
+  const [showSidebar, setShowSidebar] = useState(false);
   const [pendingEditMessage, setPendingEditMessage] = useState(null);
   const [highContrast, setHighContrast] = useState(false);
 
@@ -1479,7 +1480,12 @@ export default function MyStoryFamily() {
     window.scrollTo({ top: 0, behavior: "instant" });
   }, [currentTopicIdx]);
 
-  // Scroll to top on every screen change — useLayoutEffect fires before paint
+  // Track mobile breakpoint
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 680);
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
   // so the browser never shows a mid-page flash
   useLayoutEffect(() => {
     window.scrollTo(0, 0);
@@ -2263,33 +2269,6 @@ export default function MyStoryFamily() {
     textareaRef.current?.focus();
   };
 
-  const toggleMic = () => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) { showToast("Voice input isn't supported in this browser. Try Chrome or Safari."); return; }
-    if (isListening) {
-      recognitionRef.current?.stop();
-      setIsListening(false);
-      return;
-    }
-    const recognition = new SpeechRecognition();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = "en-US";
-    recognitionRef.current = recognition;
-    let finalTranscript = input;
-    recognition.onstart = () => setIsListening(true);
-    recognition.onresult = (e) => {
-      let interim = "";
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        if (e.results[i].isFinal) finalTranscript += e.results[i][0].transcript + " ";
-        else interim = e.results[i][0].transcript;
-      }
-      setInput(finalTranscript + interim);
-    };
-    recognition.onerror = () => setIsListening(false);
-    recognition.onend = () => { setIsListening(false); setInput(t => t.trim()); };
-    recognition.start();
-  };
 
   const reviseGhostwritten = async (idx, originalText, correctionNote) => {
     if (!correctionNote.trim() || revisingLoading) return;
@@ -2339,6 +2318,7 @@ export default function MyStoryFamily() {
           "🔒 *Lock button* — Sometimes Grace will write something beautiful. If you love it exactly as she wrote it, click the Lock button at the bottom of her message and it goes into your book word for word, untouched.\n\n" +
           "💭 *Do nothing* — If you just want me to hold a thought and weave it into your story, just keep talking. I'll keep everything in memory as we build.\n\n" +
           "📷 *Photos* — This is a memoir, so your stories are what matter most. But if you'd like to add photos, you can add one or two per section — just tap the camera button below.\n\n" +
+          "🎤 *Want to speak instead of type?* — Tap the microphone on your keyboard to dictate your answer right into the text box.\n\n" +
           "⏸️ *Done for the day?* — Click 'I'm done for now' anytime and your story will be right here waiting for you.\n\n" +
           "That's everything. Let's start with something easy.\n\n" +
           "*Where were you born?*\n\n" +
@@ -2777,27 +2757,33 @@ export default function MyStoryFamily() {
         .a11y-btn:hover{background:rgba(93,61,26,0.08)!important;}
 
         /* ── MOBILE RESPONSIVE ── */
-        @media(max-width:640px){
+        @media(max-width:680px){
           /* Header */
           header{padding:10px 14px!important;}
-          /* Chat layout — full width, no horizontal padding */
-          #main-content{padding:16px 14px 12px!important;}
-          /* Nav section bar — scroll horizontally, smaller circles */
-          nav[aria-label="Section navigation"]{padding:10px 12px!important;}
+          /* Chat layout */
+          #main-content{padding:12px 14px 10px!important;}
+          /* Nav section bar */
+          nav[aria-label="Section navigation"]{padding:8px 10px!important;}
           nav[aria-label="Section navigation"] > div{gap:4px!important;}
-          /* Make section circles smaller on mobile */
-          nav[aria-label="Section navigation"] div[style*="width: 44px"]{width:36px!important;height:36px!important;}
-          /* Section title smaller */
-          h2{font-size:22px!important;}
+          /* Section title */
+          h2{font-size:20px!important;}
           /* Chat messages full width */
-          div[style*="maxWidth: \"88%\""]{max-width:95%!important;}
-          /* Input box */
-          textarea{font-size:17px!important;}
-          /* Buttons full width on mobile */
-          button[style*="padding: \"22px 72px\""]{padding:18px 32px!important;font-size:20px!important;}
+          div[style*="maxWidth: \"88%\""]{max-width:96%!important;}
+          /* Input */
+          textarea{font-size:16px!important;}
+          /* Landing page grids — single column */
+          div[style*="grid-template-columns: repeat(3"]{grid-template-columns:1fr!important;}
+          div[style*="grid-template-columns: repeat(2"]{grid-template-columns:1fr!important;}
+          div[style*="grid-template-columns: 1fr 1fr"]{grid-template-columns:1fr!important;}
+          div[style*="grid-template-columns: \"1fr 1fr\""]{grid-template-columns:1fr!important;}
+          /* Landing page text */
+          .hero h1{font-size:36px!important;line-height:1.2!important;}
           /* Footer */
-          footer{padding:12px 14px!important;}
-          footer p{font-size:11px!important;}
+          footer{padding:12px 14px!important;flex-direction:column!important;gap:12px!important;text-align:center!important;}
+          /* Trust bar */
+          div[style*="gap: 48"]{gap:16px!important;padding:14px 16px!important;}
+          /* Buttons on mobile */
+          .btn-gold,.start-btn{padding:16px 32px!important;font-size:18px!important;}
         }
       `}</style>
 
@@ -2860,7 +2846,7 @@ export default function MyStoryFamily() {
             <p style={{ fontFamily: "'Lato',sans-serif", fontSize: fs(11), letterSpacing: "3px", textTransform: "uppercase", color: "#b8860b", fontWeight: 700, marginBottom: 28, animation: "fadeUp 0.8s ease forwards" }}>
               Your story. Your words. Their treasure forever.
             </p>
-            <h1 style={{ fontSize: fs(58), fontWeight: 300, lineHeight: 1.15, color: tc("#3d2b1a","#1a0e00"), maxWidth: 820, marginBottom: 24, animation: "fadeUp 0.8s 0.1s ease both" }}>
+            <h1 style={{ fontSize: isMobile ? fs(36) : fs(58), fontWeight: 300, lineHeight: 1.15, color: tc("#3d2b1a","#1a0e00"), maxWidth: 820, marginBottom: 24, animation: "fadeUp 0.8s 0.1s ease both" }}>
               Your grandchildren will want<br/>to know your story.<br/>
               <em style={{ fontStyle: "italic", color: tc("#5c3d1e","#2a1000") }}>Tell it to them — in your own words.</em>
             </h1>
@@ -4086,15 +4072,69 @@ export default function MyStoryFamily() {
           <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
 
             {/* ── LEFT: Grace conversation ── */}
-            <main id="main-content" style={{ flex: 1, display: "flex", flexDirection: "column", padding: "16px 24px 12px", minWidth: 0 }}>
+            <main id="main-content" style={{ flex: 1, display: "flex", flexDirection: "column", padding: isMobile ? "12px 14px 10px" : "16px 24px 12px", minWidth: 0 }}>
 
-              {/* Section title + ? button */}
+              {/* Section title + sidebar toggle */}
               <div style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 10, justifyContent: "space-between", flexShrink: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ fontSize: 22 }}>{chapter.icon}</span>
-                  <h2 style={{ fontSize: fs(22), fontWeight: 600, color: tc("#3d2b1a", "#1a0e00") }}>{chapter.title}</h2>
+                  <span style={{ fontSize: isMobile ? 18 : 22 }}>{chapter.icon}</span>
+                  <h2 style={{ fontSize: fs(isMobile ? 18 : 22), fontWeight: 600, color: tc("#3d2b1a", "#1a0e00") }}>{chapter.title}</h2>
                 </div>
+                {isMobile ? (
+                  <button onClick={() => setShowSidebar(v => !v)}
+                    style={{ display: "flex", alignItems: "center", gap: 5, background: "rgba(184,134,11,0.1)", border: "1.5px solid rgba(184,134,11,0.3)", borderRadius: 100, padding: "6px 12px", cursor: "pointer", flexShrink: 0 }}>
+                    <span style={{ fontSize: 12 }}>📖</span>
+                    <span style={{ fontFamily: "'Lato',sans-serif", fontSize: 11, fontWeight: 700, color: "#b8860b" }}>
+                      {topicFramework.filter(t => t.complete).length}/{topicFramework.length}
+                    </span>
+                    <span style={{ fontSize: 9, color: "#b8860b" }}>{showSidebar ? "▲" : "▼"}</span>
+                  </button>
+                ) : (
+                  <div style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(184,134,11,0.1)", border: "1.5px solid rgba(184,134,11,0.3)", color: "#b8860b", fontFamily: "'Lato',sans-serif", fontSize: 14, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>?</div>
+                )}
               </div>
+
+              {/* Mobile sidebar — drops down inline */}
+              {isMobile && showSidebar && (
+                <div style={{ background: "white", border: "1px solid rgba(180,140,80,0.2)", borderRadius: 12, padding: "14px", marginBottom: 14, animation: "slideDown 0.25s ease forwards" }}>
+                  <div style={{ fontSize: 10, letterSpacing: "2px", textTransform: "uppercase", color: "#b8860b", fontFamily: "'Lato',sans-serif", marginBottom: 10 }}>📖 {chapter.title}</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {topicFramework.map((topic, i) => {
+                      const isCurrent = i === currentTopicIdx && !topic.complete;
+                      const isDone = topic.complete;
+                      const isQR = topic.isQuickRound;
+                      return (
+                        <div key={topic.id}>
+                          {isQR && <div style={{ borderTop: "1px dashed rgba(184,134,11,0.25)", marginBottom: 8, marginTop: 2 }} />}
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <div style={{ width: 18, height: 18, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: isDone ? "#5c3d1e" : isCurrent ? (isQR ? "linear-gradient(135deg,#6b4c8a,#9b7bc0)" : "linear-gradient(135deg,#b8860b,#d4a843)") : "rgba(180,140,80,0.12)", border: !isDone && !isCurrent ? "1.5px solid rgba(180,140,80,0.25)" : "none" }}>
+                              {isDone ? <svg width="9" height="9" viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5L20 7" stroke="#fdf6ec" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/></svg> : <span style={{ fontSize: 8 }}>{topic.icon}</span>}
+                            </div>
+                            <span style={{ fontSize: 13, fontFamily: "'Lato',sans-serif", fontWeight: isCurrent ? 700 : 400, color: isCurrent ? "#5c3d1e" : isDone ? "#a89070" : "#8b7355", textDecoration: isDone ? "line-through" : "none", opacity: i > currentTopicIdx && !isDone ? 0.5 : 1 }}>{topic.title}</span>
+                            {isCurrent && <span style={{ fontSize: 8, background: "rgba(184,134,11,0.12)", color: "#b8860b", border: "1px solid rgba(184,134,11,0.3)", borderRadius: 100, padding: "1px 5px", fontFamily: "'Lato',sans-serif", fontWeight: 700 }}>NOW</span>}
+                          </div>
+                          {topic.details.length > 0 && (
+                            <div style={{ marginLeft: 26, marginTop: 3 }}>
+                              {topic.details.map((d, di) => (
+                                <div key={di} style={{ display: "flex", gap: 5, alignItems: "flex-start" }}>
+                                  <span style={{ color: "#b8860b", fontSize: 9, marginTop: 3, flexShrink: 0 }}>·</span>
+                                  <span style={{ fontSize: 11, color: "#6b5540", fontFamily: "'Lato',sans-serif", lineHeight: 1.4 }}>{d}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {topicFramework.some(t => t.details.length > 0 || t.complete) && (
+                    <button onClick={() => { setShowSidebar(false); chapterComplete(); }}
+                      style={{ width: "100%", marginTop: 12, background: "linear-gradient(135deg,#b8860b,#d4a843)", color: "#fdf6ec", border: "none", padding: "11px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 15, cursor: "pointer" }}>
+                      See what we've written ✦
+                    </button>
+                  )}
+                </div>
+              )}
 
               {/* Book complete celebration video */}
               {messages.some(m => m.content?.includes("extraordinary")) && (
@@ -4210,16 +4250,7 @@ export default function MyStoryFamily() {
                     aria-label="Type your story here. Click the Send button when ready."
                     rows={2}
                     style={{ flex: 1, border: "none", outline: "none", resize: "none", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(18), color: tc("#3d2b1a", "#1a0e00"), background: "transparent", lineHeight: 1.7, minHeight: 52, maxHeight: 140, overflowY: "auto" }} />
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
-                    <button onClick={toggleMic} aria-label={isListening ? "Stop listening" : "Start voice input"}
-                      style={{ width: 44, height: 44, borderRadius: "50%", background: isListening ? "linear-gradient(135deg,#c0392b,#e74c3c)" : "rgba(184,134,11,0.12)", border: `2px solid ${isListening ? "#c0392b" : "rgba(184,134,11,0.3)"}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s" }}>
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                        <rect x="9" y="2" width="6" height="11" rx="3" fill={isListening ? "white" : "#b8860b"} />
-                        <path d="M5 10a7 7 0 0014 0" stroke={isListening ? "white" : "#b8860b"} strokeWidth="2" strokeLinecap="round" fill="none"/>
-                        <line x1="12" y1="19" x2="12" y2="22" stroke={isListening ? "white" : "#b8860b"} strokeWidth="2" strokeLinecap="round"/>
-                        <line x1="9" y1="22" x2="15" y2="22" stroke={isListening ? "white" : "#b8860b"} strokeWidth="2" strokeLinecap="round"/>
-                      </svg>
-                    </button>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0, justifyContent: "center" }}>
                     <button className="send-btn" onClick={() => sendMessage()} disabled={!input.trim() || loading} aria-label="Send your response"
                       style={{ padding: "0 18px", height: 44, borderRadius: 100, background: input.trim() && !loading ? "linear-gradient(135deg,#b8860b,#d4a843)" : "rgba(139,94,52,0.2)", border: "none", cursor: input.trim() && !loading ? "pointer" : "not-allowed", display: "flex", alignItems: "center", gap: 7, transition: "all 0.2s", opacity: (!input.trim() || loading) ? 0.4 : 1, flexShrink: 0, boxShadow: input.trim() && !loading ? "0 3px 12px rgba(184,134,11,0.35)" : "none" }}>
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M22 2L11 13" stroke="#fdf6ec" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="#fdf6ec" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -4228,7 +4259,12 @@ export default function MyStoryFamily() {
                   </div>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 14px 10px", background: "white", borderRadius: "0 0 14px 14px", border: `${highContrast ? 3 : 2}px solid ${highContrast ? "#9a7a50" : "#b8860b"}`, borderTop: "1px solid rgba(180,140,80,0.15)" }}>
-                  <span style={{ fontSize: fs(12), color: tc("#5c3d1e","#2a1000"), fontFamily: "'Lato',sans-serif", fontWeight: 600 }}>Click ✦ Send when you're done — Enter starts a new line</span>
+                  <span style={{ fontSize: fs(12), color: tc("#5c3d1e","#2a1000"), fontFamily: "'Lato',sans-serif", fontWeight: 600 }}>
+                    {isMobile
+                      ? "💡 Tap the 🎤 on your keyboard to speak your answer"
+                      : "Click ✦ Send when you're done — Enter starts a new line"
+                    }
+                  </span>
                   <button onClick={() => { setMessages(prev => [...prev, { role: "assistant", content: "Your story is saved. ✦\n\nEverything you've shared is safe — come back anytime and I'll be right here waiting for you." }]); }}
                     style={{ background: "none", border: "1px solid rgba(180,140,80,0.35)", color: tc("#7a5030","#3d2b1a"), fontFamily: "'Lato',sans-serif", fontSize: fs(12), padding: "6px 14px", borderRadius: 100, cursor: "pointer", whiteSpace: "nowrap", minHeight: 34, marginLeft: 10 }}>
                     I'm done for now
@@ -4310,7 +4346,8 @@ export default function MyStoryFamily() {
               )}
             </main>
 
-            {/* ── RIGHT: Topic framework checklist ── */}
+            {/* ── RIGHT: Topic framework checklist — desktop only ── */}
+            {!isMobile && (
             <aside style={{ width: 270, flexShrink: 0, borderLeft: "1px solid rgba(180,140,80,0.18)", background: "white", display: "flex", flexDirection: "column", padding: "18px 14px", overflowY: "auto" }}>
               <div style={{ fontSize: fs(11), letterSpacing: "2px", textTransform: "uppercase", color: "#b8860b", fontFamily: "'Lato',sans-serif", marginBottom: 16 }}>
                 📖 {chapter.title}
@@ -4375,6 +4412,7 @@ export default function MyStoryFamily() {
                 )}
               </div>
             </aside>
+            )}
           </div>
         </div>
       )}
