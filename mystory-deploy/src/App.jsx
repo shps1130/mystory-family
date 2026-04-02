@@ -242,6 +242,11 @@ Your users are primarily seniors in their 60s, 70s, and 80s. Many have never use
 
 KEEPING THE CONVERSATION FRESH:
 After 3-4 exchanges on the same thread, briefly acknowledge what you've captured and move naturally to the next angle. Say something like "I've got all of that — beautiful detail. Now let me ask you about..." This keeps the conversation moving and prevents the page from becoming a long scroll. Never just keep asking the same type of question in a row.
+
+OFFERING A PREVIEW:
+After 3-4 substantive exchanges on a topic, you may naturally offer to show them what's been written so far. When you do, end your message with the exact tag: <PEEK_OFFER>
+Example: "You've shared some wonderful memories about your home. Would you like to see what we have written so far? <PEEK_OFFER>"
+Only offer this ONCE per topic. Do not offer it again on the same topic. Do not include it with TOPIC_COMPLETE.
 You are always mentally drafting the memoir paragraph you will write. A vivid memoir paragraph needs: a specific place, at least one sensory detail (smell, sound, texture, feeling), at least one person, and one moment or emotion. After each answer, silently ask yourself: what's missing from the paragraph I'm building? Let that guide your next question — naturally, never mechanically.
 - If you have a place but no sensory detail → ask "What do you remember most about being there?"
 - If you have facts but no feeling → ask "What was that like for you?"
@@ -285,69 +290,43 @@ const WRITING_HELP_PROMPT = `You are a warm ghostwriter helping someone tell the
 const WRITING_HELP_REVISE_PROMPT = `You are a warm ghostwriter helping someone refine a paragraph in their legacy book. They've flagged a correction. Quietly incorporate it into the existing paragraph — keep their voice, always use "I" and "my" (never "she/her" or "he/him"), just fix it and make the whole paragraph flow naturally. Return ONLY the revised paragraph. No preamble, no explanation.`;
 
 // ─── MEMOIR WRITER PROMPT ─────────────────────────────────────────────────────
-const buildMemoirPrompt = (chapterTitle, firstName, conversationTranscript) => `You are a gifted memoir writer with deep knowledge of American history, culture, and everyday life across the 20th and 21st centuries. You have just finished a deep interview conversation with ${firstName || "someone"} about the "${chapterTitle}" chapter of their life story.
+const buildMemoirPrompt = (chapterTitle, firstName, conversationTranscript, lockedPassages) => {
+  const passageList = lockedPassages && Object.keys(lockedPassages).length > 0
+    ? "\n\nLOCKED PASSAGES — USE THESE VERBATIM:\nThe person chose these exact passages for their book. Include each one word-for-word, exactly as written. Build the rest of the chapter around them.\n\n" +
+      Object.entries(lockedPassages).map(([topicId, p]) => `LOCKED (${topicId}):\n"${p.text}"`).join("\n\n")
+    : "";
 
-Your job is to transform this raw conversation into a beautifully written memoir chapter — polished, warm, first-person prose that sounds exactly like them, enriched with the historical world they lived in.
+  return `You are organizing and lightly editing a personal memoir chapter for "${chapterTitle}" based on a conversation with ${firstName || "someone"}.
 
-CRITICAL — VOICE AND PERSON:
-This book is written AS the person, not ABOUT them. Write exactly as if ${firstName || "they"} wrote every word themselves.
-- ALWAYS use "I", "my", "me", "we", "our" — never "she", "her", "he", "him", "they" (referring to the narrator)
-- WRONG: "She grew up in a small house in Kansas City."
-- RIGHT: "I grew up in a small house in Kansas City."
-- WRONG: "Her mother always said..."
-- RIGHT: "My mother always said..."
-The reader should feel like they are holding a letter written directly to them by their grandmother or grandfather.
+YOUR PRIMARY JOB: Preserve their voice completely. This book is for their grandchildren to read — it should sound exactly like them, not like a professional writer.
 
-MEMOIR WRITING RULES:
-- Write 6-10 substantial paragraphs of flowing narrative prose
-- Use FIRST PERSON throughout ("I grew up...", "My mother always said...", "I remember...")
-- Capture every specific detail mentioned: names, places, smells, feelings, years
-- Expand brief answers into full scenes — if they said "I grew up in Ohio", write about Ohio
-- Do NOT invent personal facts — only expand and enrich what's actually in the transcript
-- Write at a 7th grade reading level — warm and accessible, never pretentious
-- Use short paragraphs with natural breaks — this will be printed in a book
-- Begin with the most evocative detail from the conversation — drop the reader right into it
-- Do NOT use headers, bullet points, or any formatting — pure flowing prose only
-- Do NOT start with "I" — vary your opening. Start with a place, a person, a time, a feeling.
-- End with a moment of warmth, gratitude, or quiet reflection
+VOICE AND PERSON:
+- Always use "I", "my", "me", "we" — never "she", "her", "he", "him"
+- Keep their exact phrases and expressions wherever possible
+- If they said "It was real nice" keep "real nice" — do not change to "it was lovely"
+- Write at a conversational level — warm, natural, exactly how they talk
 
-HISTORICAL CONTEXT — THIS IS ESSENTIAL:
-When you can identify a year, decade, or era from the transcript, weave in specific historical facts that bring that moment to life. Use your knowledge to add:
+YOUR ONLY JOBS:
+1. Organize their answers into flowing paragraphs in a natural order
+2. Fix spelling and punctuation quietly
+3. Remove filler words (um, uh, you know) but keep everything else
+4. Connect paragraphs with simple transitions
+5. DO NOT add anything they didn't say — no historical context, no extra details, no enrichment
 
-EVERYDAY PRICES & ECONOMICS: 
-- What common items cost that year (milk, bread, a movie ticket, a new car, a house, a postage stamp, gas)
-- Average wages or what a dollar could buy
-- Example: "In 1952, when Daddy was bringing home $65 a week from the mill, a loaf of bread cost 16 cents and a new Ford cost $1,400."
+FORMAT:
+- 4-8 paragraphs of natural prose
+- Short paragraphs, easy to read
+- No headers, bullets, or formatting
+- First person throughout
+- End warmly
 
-PRESIDENTS & NATIONAL EVENTS:
-- Who was president during key moments in their story
-- Major national events happening in the background of their life
-- Example: "It was the summer Eisenhower was elected, and everybody had an opinion about it."
-
-LOCAL & REGIONAL CONTEXT:
-- If a city or town is mentioned, add population or character of that place in that era
-- Regional culture, industry, or what that place was known for
-- Example: "Decatur in 1948 was a city of 23,000 people, a mill town at heart..."
-
-CULTURAL MOMENT:
-- What people were watching, listening to, wearing, eating
-- What the country was talking about or worried about
-- Example: "That was the year everyone was watching Ed Sullivan on Friday nights, if you were lucky enough to have a television."
-
-WORLD EVENTS AS BACKDROP:
-- Wars, social movements, technological changes happening during key years
-- Use these as backdrop, not foreground — they give the personal story its larger context
-
-RULES FOR HISTORICAL ADDITIONS:
-- Only add facts you are confident are accurate — do not guess
-- Weave them in naturally as part of the narrative voice, never as a list or history lesson
-- 1-2 historical touches per paragraph maximum — the person's story is always the center
-- Historical details should make the reader feel the era, not show off knowledge
-
-Return ONLY the memoir prose. No preamble, no title, no explanation.
+${passageList}
 
 CONVERSATION TRANSCRIPT:
-${conversationTranscript}`;
+${conversationTranscript}
+
+Return ONLY the memoir prose. No preamble, no explanation.`;
+};
 
 
 const PROMPT_GEN_SYSTEM = `You generate warm, open-ended interview questions for a legacy book. Given a chapter title, generate exactly 4 thoughtful personal prompts. Return ONLY a JSON array of 4 strings. No preamble, no markdown.`;
@@ -1448,6 +1427,9 @@ export default function MyStoryFamily() {
   const [sectionMemories, setSectionMemories] = useState([]);
   const [showMobileMemories, setShowMobileMemories] = useState(false);
   const [lockedMessages, setLockedMessages] = useState({}); // {messageIdx: true}
+  const [lockedPassages, setLockedPassages] = useState({}); // {topicId: {text, hasContext}}
+  const [showingPreview, setShowingPreview] = useState(false); // A/B preview loading
+  const [pendingPreview, setPendingPreview] = useState(null); // {topicId, versionA, versionB}
   const [awaitingName, setAwaitingName] = useState(false);
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 680);
   const [showSidebar, setShowSidebar] = useState(false);
@@ -2378,6 +2360,7 @@ export default function MyStoryFamily() {
       const rawText = data.content?.[0]?.text || "I'm here with you. Tell me more.";
       const hasRecap = rawText.includes("<SECTION_RECAP>");
       const hasTopicComplete = rawText.includes("<TOPIC_COMPLETE>");
+      const hasPeekOffer = rawText.includes("<PEEK_OFFER>");
 
       // Extract detail bullets for the topic framework
       const detailMatches = [...rawText.matchAll(/<DETAIL>(.*?)<\/DETAIL>/gs)];
@@ -2391,6 +2374,7 @@ export default function MyStoryFamily() {
       const cleanText = rawText
         .replace(/<SECTION_RECAP>/g, "")
         .replace(/<TOPIC_COMPLETE>/g, "")
+        .replace(/<PEEK_OFFER>/g, "")
         .replace(/<DETAIL>.*?<\/DETAIL>/gs, "")
         .replace(/<MEMORY>.*?<\/MEMORY>/gs, "")
         .trim();
@@ -2445,6 +2429,14 @@ export default function MyStoryFamily() {
         });
       }
 
+      // Trigger A/B preview if Grace offered a peek
+      if (hasPeekOffer) {
+        const currentTopic = topicFramework[currentTopicIdx];
+        if (currentTopic) {
+          setTimeout(() => generatePreview(currentTopic.id, currentTopic.title), 400);
+        }
+      }
+
       announce("New response received.");
     } catch { setMessages([...next, { role: "assistant", content: "I'm here. Take your time." }]); }
     setLoading(false);
@@ -2490,7 +2482,7 @@ export default function MyStoryFamily() {
         body: JSON.stringify({
           model: "claude-sonnet-4-20250514",
           max_tokens: 3000,
-          system: buildMemoirPrompt(ch.title, user?.firstName, transcript + lockedNote),
+          system: buildMemoirPrompt(ch.title, user?.firstName, transcript, lockedPassages),
           messages: [{ role: "user", content: "Please write the memoir chapter now." }],
         }),
       });
@@ -2559,6 +2551,8 @@ export default function MyStoryFamily() {
       setShowRecapButton(false);
       setSectionMemories([]);
       setLockedMessages({});
+      setLockedPassages({});
+      setPendingPreview(null);
       setAwaitingName(false);
       const nextChapter = chapters[nextC];
       setChapterContext(buildChapterContext(nextChapter, 0));
@@ -2721,6 +2715,52 @@ export default function MyStoryFamily() {
     wantNewAngle.current = true;
     // Send a soft invisible prompt — Grace sees the nudge via the system addendum
     sendMessage("I think I've said what I want to say about that. What else should we talk about in this chapter?");
+  };
+
+  const generatePreview = async (topicId, topicTitle) => {
+    setShowingPreview(true);
+    // Get messages for just this topic from full history
+    const topicTranscript = currentTopicMessages
+      .filter(m => m.content?.trim())
+      .map(m => `${m.role === "user" ? (user?.firstName || "You") : "Grace"}: ${m.content}`)
+      .join("\n\n");
+
+    if (!topicTranscript.trim()) { setShowingPreview(false); return; }
+
+    try {
+      // Generate both versions in parallel
+      const [resA, resB] = await Promise.all([
+        fetch("/api/claude", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "claude-sonnet-4-20250514",
+            max_tokens: 600,
+            system: `You are organizing someone's answers into a short memoir passage. Preserve their exact words and voice completely. Fix spelling and punctuation only. Use first person (I, my, me). 2-4 short paragraphs. No additions, no enrichment, no historical context — only what they said. Return ONLY the passage.`,
+            messages: [{ role: "user", content: `Topic: "${topicTitle}"\n\nConversation:\n${topicTranscript}` }],
+          }),
+        }),
+        fetch("/api/claude", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "claude-sonnet-4-20250514",
+            max_tokens: 600,
+            system: `You are enriching someone's memoir passage with historical context. Keep their exact words and voice. Add 1-2 specific historical details (prices, events, cultural moments of the era) that bring the time period to life. Use first person (I, my, me). 2-4 short paragraphs. Return ONLY the passage.`,
+            messages: [{ role: "user", content: `Topic: "${topicTitle}"\n\nConversation:\n${topicTranscript}` }],
+          }),
+        }),
+      ]);
+
+      const [dataA, dataB] = await Promise.all([resA.json(), resB.json()]);
+      const versionA = dataA.content?.[0]?.text?.trim() || "";
+      const versionB = dataB.content?.[0]?.text?.trim() || "";
+
+      if (versionA && versionB) {
+        setPendingPreview({ topicId, topicTitle, versionA, versionB });
+      }
+    } catch { showToast("Couldn't generate preview. Keep going and we'll sort it at the end."); }
+    setShowingPreview(false);
   };
 
   const chapterComplete = () => {
@@ -4267,6 +4307,74 @@ export default function MyStoryFamily() {
                     </div>
                   </div>
                 )}
+                {/* A/B Preview loading */}
+                {showingPreview && (
+                  <div style={{ background: "white", borderRadius: 14, padding: "20px 24px", border: "1.5px solid rgba(184,134,11,0.25)", boxShadow: "0 4px 20px rgba(93,61,26,0.08)", animation: "fadeUp 0.3s ease forwards" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                      <div style={{ display: "flex", gap: 5 }}>
+                        {[0, 0.2, 0.4].map((d, i) => <div key={i} style={{ width: 7, height: 7, background: "#c9a87a", borderRadius: "50%", animation: `bounce 1.2s ${d}s infinite` }} />)}
+                      </div>
+                      <span style={{ fontFamily: "'Lato',sans-serif", fontSize: fs(13), color: tc("#8b7355","#5c3d1e") }}>
+                        Grace is preparing two versions for you to choose from...
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* A/B Preview choice */}
+                {pendingPreview && !showingPreview && (
+                  <div style={{ background: "rgba(184,134,11,0.04)", borderRadius: 16, padding: "20px", border: "1.5px solid rgba(184,134,11,0.2)", animation: "fadeUp 0.4s ease forwards" }}>
+                    <p style={{ fontFamily: "'Lato',sans-serif", fontSize: fs(13), color: tc("#5c3d1e","#2a1000"), fontWeight: 700, marginBottom: 16, textAlign: "center", letterSpacing: "0.3px" }}>
+                      Here's what we have so far — which version would you like in your book?
+                    </p>
+                    <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 14 }}>
+                      {/* Version A — their words */}
+                      <div style={{ flex: 1, background: "white", borderRadius: 12, padding: "16px", border: "1.5px solid rgba(180,140,80,0.25)", display: "flex", flexDirection: "column", gap: 12 }}>
+                        <div style={{ fontFamily: "'Lato',sans-serif", fontSize: fs(11), fontWeight: 700, color: "#b8860b", letterSpacing: "1.5px", textTransform: "uppercase" }}>
+                          📝 Your Words
+                        </div>
+                        <p style={{ fontSize: fs(15), color: tc("#3d2b1a","#1a0e00"), lineHeight: 1.75, fontStyle: "italic", flex: 1 }}>
+                          {pendingPreview.versionA}
+                        </p>
+                        <button onClick={() => {
+                          setLockedPassages(prev => ({ ...prev, [pendingPreview.topicId]: { text: pendingPreview.versionA, hasContext: false } }));
+                          setPendingPreview(null);
+                          const confirmMsg = { role: "assistant", content: "Perfect — I've locked in your words exactly as written. That's going straight into your book. ✦" };
+                          setMessages(prev => [...prev, confirmMsg]);
+                          setCurrentTopicMessages(prev => [...prev, confirmMsg]);
+                        }}
+                          style={{ background: "linear-gradient(135deg,#5c3d1e,#8b5e34)", color: "#fdf6ec", border: "none", padding: "12px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(16), cursor: "pointer", minHeight: 44 }}>
+                          ✦ Use this version
+                        </button>
+                      </div>
+
+                      {/* Version B — with context */}
+                      <div style={{ flex: 1, background: "white", borderRadius: 12, padding: "16px", border: "1.5px solid rgba(180,140,80,0.25)", display: "flex", flexDirection: "column", gap: 12 }}>
+                        <div style={{ fontFamily: "'Lato',sans-serif", fontSize: fs(11), fontWeight: 700, color: "#b8860b", letterSpacing: "1.5px", textTransform: "uppercase" }}>
+                          ✨ Your Words + Context
+                        </div>
+                        <p style={{ fontSize: fs(15), color: tc("#3d2b1a","#1a0e00"), lineHeight: 1.75, fontStyle: "italic", flex: 1 }}>
+                          {pendingPreview.versionB}
+                        </p>
+                        <button onClick={() => {
+                          setLockedPassages(prev => ({ ...prev, [pendingPreview.topicId]: { text: pendingPreview.versionB, hasContext: true } }));
+                          setPendingPreview(null);
+                          const confirmMsg = { role: "assistant", content: "Wonderful — I've locked that in with the added context. It's going into your book exactly as shown. ✦" };
+                          setMessages(prev => [...prev, confirmMsg]);
+                          setCurrentTopicMessages(prev => [...prev, confirmMsg]);
+                        }}
+                          style={{ background: "linear-gradient(135deg,#b8860b,#d4a843)", color: "#fdf6ec", border: "none", padding: "12px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(16), cursor: "pointer", minHeight: 44 }}>
+                          ✦ Use this version
+                        </button>
+                      </div>
+                    </div>
+                    <button onClick={() => setPendingPreview(null)}
+                      style={{ display: "block", margin: "12px auto 0", background: "none", border: "none", fontFamily: "'Lato',sans-serif", fontSize: fs(13), color: tc("#a89070","#6b5030"), cursor: "pointer", textDecoration: "underline" }}>
+                      Keep going — I'll choose at the end
+                    </button>
+                  </div>
+                )}
+
                 <div ref={messagesEndRef} aria-hidden="true" />
               </div>
 
