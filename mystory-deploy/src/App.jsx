@@ -2329,16 +2329,12 @@ export default function MyStoryFamily() {
       const tutorialMsg = {
         role: "assistant",
         content: "Nice to meet you, " + firstName + "! I'm so glad you're here.\n\n" +
-          "Here's how this works — it's simple, I promise:\n\n" +
-          "I'm going to ask you questions about your life, one at a time. Just answer however feels natural. There's no right or wrong way.\n\n" +
-          "🔒 *Lock button* — Sometimes Grace will write something beautiful. If you love it exactly as she wrote it, click the Lock button at the bottom of her message and it goes into your book word for word, untouched.\n\n" +
-          "💭 *Do nothing* — If you just want me to hold a thought and weave it into your story, just keep talking. I'll keep everything in memory as we build.\n\n" +
-          "📷 *Photos* — This is a memoir, so your stories are what matter most. But if you'd like to add photos, you can add one or two per section — just tap the camera button below.\n\n" +
-          "🎤 *Want to speak instead of type?* — Tap the microphone on your keyboard to dictate your answer right into the text box.\n\n" +
-          "⏸️ *Done for the day?* — Click 'I'm done for now' anytime and your story will be right here waiting for you.\n\n" +
-          "That's everything. Let's start with something easy.\n\n" +
-          "*Where were you born?*\n\n" +
-          "_When you're ready, click the_ ✦ _Send button to share your answer._"
+          "Here's all you need to know:\n\n" +
+          "💬 *I'll ask the questions* — one at a time, no rush. Just answer in your own words.\n\n" +
+          "✦ *Click Send when you're done* — that gold button in the corner sends your answer to me.\n\n" +
+          "⏸️ *Done for the day?* — click 'I'm done for now' anytime. Your story will be right here waiting.\n\n" +
+          "That's it! Let's start with something easy.\n\n" +
+          "*Where were you born?*"
       };
       setTimeout(() => {
         setMessages(prev => [...prev, tutorialMsg]);
@@ -3265,8 +3261,12 @@ export default function MyStoryFamily() {
                   <input id={`signup-${key}`} type={type} value={signupFields[key]}
                     onChange={e => { setSignupFields(p => ({ ...p, [key]: e.target.value })); setSignupError(""); }}
                     onKeyDown={e => e.key === "Enter" && handleSignup()}
-                    placeholder={key === "password" ? "8+ chars, 1 capital, 1 number" : ""}
                     style={{ width: "100%", border: `1.5px solid rgba(180,140,80,0.3)`, borderRadius: 8, padding: "12px 14px", fontFamily: "'Lato',sans-serif", fontSize: fs(15), color: tc("#3d2b1a","#1a0e00"), background: "#fffdf5", outline: "none", boxSizing: "border-box", minHeight: 48 }} />
+                  {key === "password" && (
+                    <p style={{ fontSize: fs(12), color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", marginTop: 5, lineHeight: 1.5 }}>
+                      At least 8 characters — include a capital letter and a number
+                    </p>
+                  )}
                 </div>
               ))}
 
@@ -4155,14 +4155,19 @@ export default function MyStoryFamily() {
                   <h2 style={{ fontSize: fs(isMobile ? 18 : 22), fontWeight: 600, color: tc("#3d2b1a", "#1a0e00") }}>{chapter.title}</h2>
                 </div>
                 {isMobile ? (
-                  <button onClick={() => setShowSidebar(v => !v)}
-                    style={{ display: "flex", alignItems: "center", gap: 5, background: "rgba(184,134,11,0.1)", border: "1.5px solid rgba(184,134,11,0.3)", borderRadius: 100, padding: "6px 12px", cursor: "pointer", flexShrink: 0 }}>
-                    <span style={{ fontSize: 12 }}>📖</span>
-                    <span style={{ fontFamily: "'Lato',sans-serif", fontSize: 11, fontWeight: 700, color: "#b8860b" }}>
-                      {topicFramework.filter(t => t.complete).length}/{topicFramework.length}
-                    </span>
-                    <span style={{ fontSize: 9, color: "#b8860b" }}>{showSidebar ? "▲" : "▼"}</span>
-                  </button>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 3 }}>
+                    <button onClick={() => setShowSidebar(v => !v)}
+                      style={{ display: "flex", alignItems: "center", gap: 5, background: "rgba(184,134,11,0.1)", border: "1.5px solid rgba(184,134,11,0.3)", borderRadius: 100, padding: "6px 12px", cursor: "pointer", flexShrink: 0 }}>
+                      <span style={{ fontSize: 12 }}>📖</span>
+                      <span style={{ fontFamily: "'Lato',sans-serif", fontSize: 11, fontWeight: 700, color: "#b8860b" }}>
+                        {topicFramework.filter(t => t.complete).length}/{topicFramework.length}
+                      </span>
+                      <span style={{ fontSize: 9, color: "#b8860b" }}>{showSidebar ? "▲" : "▼"}</span>
+                    </button>
+                    {!showSidebar && topicFramework.filter(t => t.complete).length === 0 && (
+                      <span style={{ fontFamily: "'Lato',sans-serif", fontSize: 10, color: tc("#b8a070","#6b5030"), fontStyle: "italic" }}>tap to see your progress</span>
+                    )}
+                  </div>
                 ) : (
                   <div style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(184,134,11,0.1)", border: "1.5px solid rgba(184,134,11,0.3)", color: "#b8860b", fontFamily: "'Lato',sans-serif", fontSize: 14, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>?</div>
                 )}
