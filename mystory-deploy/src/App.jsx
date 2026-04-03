@@ -4215,8 +4215,8 @@ export default function MyStoryFamily() {
                 </div>
               )}
 
-              {/* Book complete celebration video */}
-              {messages.some(m => m.content?.includes("extraordinary")) && (
+              {/* Book complete celebration video — only when fully done */}
+              {bookComplete && messages.some(m => m.content?.includes("extraordinary")) && (
                 <div style={{ marginBottom: 14, borderRadius: 12, overflow: "hidden", border: "1px solid rgba(180,140,80,0.2)", background: "#000", position: "relative", paddingBottom: "56.25%", height: 0, flexShrink: 0 }}>
                   <iframe src="https://app.heygen.com/embeds/24c71acaec054add8b55ae4053297433" title="Your legacy is complete" frameBorder="0" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowFullScreen style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }} />
                 </div>
