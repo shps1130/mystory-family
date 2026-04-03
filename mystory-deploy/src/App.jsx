@@ -2427,6 +2427,7 @@ export default function MyStoryFamily() {
         setTopicFramework(prev => prev.map((t, i) =>
           i === currentTopicIdx ? { ...t, complete: true } : t
         ));
+        setPendingPreview(null); // reset for next topic
         setCurrentTopicMessages([newMsg]);
         setCurrentTopicIdx(prev => {
           const next = prev + 1;
@@ -2449,11 +2450,17 @@ export default function MyStoryFamily() {
         });
       }
 
-      // Trigger A/B preview if Grace offered a peek
-      if (hasPeekOffer) {
-        const currentTopic = topicFramework[currentTopicIdx];
-        if (currentTopic) {
-          setTimeout(() => generatePreview(currentTopic.id, currentTopic.title), 400);
+      // Trigger A/B preview — automatically after 4 user messages on a topic,
+      // OR if Grace explicitly offered one. Only trigger once per 4-message cycle.
+      if (!pendingPreview && !showingPreview && !hasTopicComplete) {
+        const userMsgCount = next.filter(m => m.role === "user").length;
+        const topicUserCount = currentTopicMessages.filter(m => m.role === "user").length + 1;
+        const shouldAutoTrigger = topicUserCount > 0 && topicUserCount % 4 === 0;
+        if (hasPeekOffer || shouldAutoTrigger) {
+          const currentTopic = topicFramework[currentTopicIdx];
+          if (currentTopic && !currentTopic.isQuickRound) {
+            setTimeout(() => generatePreview(currentTopic.id, currentTopic.title), 400);
+          }
         }
       }
 
