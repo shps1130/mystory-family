@@ -44,13 +44,19 @@ export default async function handler(req, res) {
     }
   );
 
-  // Mark user as paid in mystory_users
+  // Upsert user as paid in mystory_users — creates row if doesn't exist
   await fetch(
-    `${SUPABASE_URL}/rest/v1/mystory_users?email=eq.${encodeURIComponent(normalizedEmail)}`,
+    `${SUPABASE_URL}/rest/v1/mystory_users`,
     {
-      method: "PATCH",
-      headers: { ...headers, "Prefer": "return=minimal" },
-      body: JSON.stringify({ has_paid: true }),
+      method: "POST",
+      headers: { ...headers, "Prefer": "resolution=merge-duplicates,return=minimal" },
+      body: JSON.stringify({
+        email: normalizedEmail,
+        first_name: firstName || "",
+        last_name: "",
+        has_paid: true,
+        created_at: new Date().toISOString(),
+      }),
     }
   );
 
