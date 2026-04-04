@@ -314,11 +314,39 @@ const WRITING_HELP_PROMPT = `You are a warm ghostwriter helping someone tell the
 const WRITING_HELP_REVISE_PROMPT = `You are a warm ghostwriter helping someone refine a paragraph in their legacy book. They've flagged a correction. Quietly incorporate it into the existing paragraph — keep their voice, always use "I" and "my" (never "she/her" or "he/him"), just fix it and make the whole paragraph flow naturally. Return ONLY the revised paragraph. No preamble, no explanation.`;
 
 // ─── MEMOIR WRITER PROMPT ─────────────────────────────────────────────────────
-const buildMemoirPrompt = (chapterTitle, firstName, conversationTranscript, lockedPassages) => {
+const buildMemoirPrompt = (chapterTitle, firstName, conversationTranscript, lockedPassages, approvedBaseline) => {
   const passageList = lockedPassages && Object.keys(lockedPassages).length > 0
     ? "\n\nLOCKED PASSAGES — USE THESE VERBATIM:\nThe person chose these exact passages for their book. Include each one word-for-word, exactly as written. Build the rest of the chapter around them.\n\n" +
       Object.entries(lockedPassages).map(([topicId, p]) => `LOCKED (${topicId}):\n"${p.text}"`).join("\n\n")
     : "";
+
+  // If there's an approved baseline, use it as the foundation
+  if (approvedBaseline) {
+    return `You are updating a memoir chapter for "${chapterTitle}" that ${firstName || "someone"} has already partially approved.
+
+CRITICAL — DO NOT REWRITE:
+The person has already read and approved the draft below. They went back to add more to their story. Your job is to ADD the new material to the existing draft — not rewrite it.
+
+APPROVED DRAFT — KEEP THIS INTACT:
+The following is what they already approved. Preserve every sentence, every paragraph, every phrase exactly as written. Do not change the wording, order, or tone of anything in this draft.
+
+"${approvedBaseline}"
+
+YOUR ONLY JOB:
+1. Read the new conversation below carefully
+2. Find where the new material naturally fits in the existing draft
+3. Weave it in smoothly — add new paragraphs or expand existing ones
+4. Do NOT change any sentence they already approved
+5. Keep first person throughout (I, my, me)
+6. Fix spelling/punctuation in new material only
+
+${passageList}
+
+NEW CONVERSATION TO INCORPORATE:
+${conversationTranscript}
+
+Return ONLY the complete updated memoir prose — the approved draft with new material woven in. No preamble, no explanation.`;
+  }
 
   return `You are organizing and lightly editing a personal memoir chapter for "${chapterTitle}" based on a conversation with ${firstName || "someone"}.
 
@@ -1421,6 +1449,7 @@ export default function MyStoryFamily() {
   const [printShipLoading, setPrintShipLoading] = useState(false);
   const [printShipDone, setPrintShipDone] = useState(false);
   const [chapterNarratives, setChapterNarratives] = useState({}); // { chapterId: "prose..." }
+  const [approvedNarratives, setApprovedNarratives] = useState({}); // baseline draft locked when they go back to add more
   const [generatingNarrative, setGeneratingNarrative] = useState(false);
   const [bookComplete, setBookComplete] = useState(false);
   const [shareUrl, setShareUrl] = useState(null);
@@ -1641,7 +1670,7 @@ export default function MyStoryFamily() {
         onboardAnswers, persona, systemPrompt,
         chapters, activeChapter, chapterHistory,
         messages, hasPaid, enabledChapters, chapterNarratives,
-        previewChapter, bookComplete,
+        approvedNarratives, previewChapter, bookComplete,
         ...overrides,
       };
       // Always save to localStorage for instant restore
@@ -1678,6 +1707,7 @@ export default function MyStoryFamily() {
     setHasPaid(s.hasPaid === true);
     setEnabledChapters(s.enabledChapters || BASE_CHAPTERS.map(c => c.id));
     setChapterNarratives(s.chapterNarratives || {});
+    setApprovedNarratives(s.approvedNarratives || {});
     setBookComplete(s.bookComplete || false);
     // Init topic framework for restored chapter
     if (s.chapters?.length > 0) {
@@ -1877,12 +1907,15 @@ export default function MyStoryFamily() {
     setGiftLoading(true);
     setGiftError("");
     try {
+      // Step 1: Create account (ignore "already exists" errors — they may have an account)
       const signupRes = await fetch("/api/auth-signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ firstName: giftName, lastName: "", email: giftEmail, password: Math.random().toString(36).slice(2) + "Aa1!" }),
       });
       const signupData = await signupRes.json();
+
+      // Step 2: Redeem the gift code
       const redeemRes = await fetch("/api/gift-redeem", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1890,10 +1923,16 @@ export default function MyStoryFamily() {
       });
       const redeemData = await redeemRes.json();
       if (!redeemRes.ok) { setGiftError(redeemData.error || "Could not redeem code. Please try again."); setGiftLoading(false); return; }
+
+      // Step 3: Set up the user — use existing account data if signup failed due to duplicate
       const userData = signupData.user || { firstName: giftName, lastName: "", email: giftEmail };
       setUser(userData);
       setHasPaid(true);
       localStorage.setItem("mystory_paid_" + giftEmail.toLowerCase(), "true");
+
+      // Step 4: Save session so their data persists
+      saveSession({ user: userData, hasPaid: true });
+
       showToast("Gift code redeemed! Welcome to MyStory.Family 🕊️");
       setPersona(PERSONAS.grace);
       setScreen("reveal");
@@ -2509,7 +2548,7 @@ export default function MyStoryFamily() {
         body: JSON.stringify({
           model: "claude-sonnet-4-20250514",
           max_tokens: 3000,
-          system: buildMemoirPrompt(ch.title, user?.firstName, transcript, lockedPassages),
+          system: buildMemoirPrompt(ch.title, user?.firstName, transcript, lockedPassages, approvedNarratives[chKey] || null),
           messages: [{ role: "user", content: "Please write the memoir chapter now." }],
         }),
       });
@@ -2580,6 +2619,7 @@ export default function MyStoryFamily() {
       setLockedMessages({});
       setLockedPassages({});
       setPendingPreview(null);
+      setApprovedNarratives({});
       setAwaitingName(false);
       const nextChapter = chapters[nextC];
       setChapterContext(buildChapterContext(nextChapter, 0));
@@ -2734,7 +2774,14 @@ export default function MyStoryFamily() {
 
   const addMoreToChapter = () => {
     const ch = chapters[previewChapter.chapterIndex];
-    setMessages(chapterHistory[ch.id || ch.title] || []);
+    const chKey = ch.id || ch.title;
+    // Lock the current narrative as the approved baseline — Grace will build on this, not rewrite it
+    const currentNarrative = chapterNarratives[chKey];
+    if (currentNarrative) {
+      setApprovedNarratives(prev => ({ ...prev, [chKey]: currentNarrative }));
+    }
+    setMessages(chapterHistory[chKey] || []);
+    setCurrentTopicMessages(chapterHistory[chKey] || []);
     setPreviewChapter(null);
   };
 
