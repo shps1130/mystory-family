@@ -1,158 +1,200 @@
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-const { createClient } = require('@supabase/supabase-js');
-const { Resend } = require('resend');
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
+const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
+const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
+const APP_URL = process.env.APP_URL || "https://mystory.family";
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
-
-const resend = new Resend(process.env.RESEND_API_KEY);
-
-function generateGiftCode() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let code = '';
-  for (let i = 0; i < 8; i++) {
-    if (i === 4) code += '-';
+function generateCode() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "";
+  for (let i = 0; i < 12; i++) {
+    if (i === 4 || i === 8) code += "-";
     code += chars[Math.floor(Math.random() * chars.length)];
   }
-  return code;
+  return code; // format: XXXX-XXXX-XXXX
 }
 
-function buildEmailHtml({ buyerName, recipientName, code, hardcover, redeemUrl }) {
+function buildGiftEmail({ buyerName, recipientName, code, hardcover }) {
+  const redeemUrl = `${APP_URL}/?redeem=${code}`;
+
   return `
 <!DOCTYPE html>
 <html>
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="margin:0;padding:0;background:#F7F3EC;font-family:'Georgia',serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#F7F3EC;padding:40px 20px;">
-    <tr><td align="center">
-      <table width="100%" style="max-width:560px;background:#1C2B1A;border-radius:16px;overflow:hidden;">
-        
-        <!-- Header -->
-        <tr><td style="padding:40px 48px 32px;text-align:center;border-bottom:1px solid rgba(255,255,255,0.08);">
-          <p style="margin:0 0 8px;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#E8B85A;font-family:sans-serif;">MyStory.Family</p>
-          <h1 style="margin:0;font-size:32px;font-weight:300;color:#F7F3EC;line-height:1.2;">
-            Your gift is ready,<br><em style="color:#E8B85A;">${buyerName}.</em>
-          </h1>
-        </td></tr>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#fdf6ec;font-family:'Georgia',serif;">
+  <div style="max-width:560px;margin:0 auto;padding:48px 24px;">
 
-        <!-- Body -->
-        <tr><td style="padding:40px 48px;">
-          <p style="margin:0 0 20px;font-size:16px;font-weight:300;color:rgba(247,243,236,0.75);line-height:1.7;">
-            You've given ${recipientName} something that will last long after the flowers have faded — the chance to tell her story, in her own words, at her own pace.
-          </p>
-          <p style="margin:0 0 32px;font-size:16px;font-weight:300;color:rgba(247,243,236,0.75);line-height:1.7;">
-            All she needs to do is click the button below. She'll create a password and be welcomed by Grace — no codes to type, no tech headaches.
-          </p>
+    <div style="text-align:center;margin-bottom:40px;">
+      <img src="https://mystory.family/logo.png" alt="MyStory.Family" style="width:72px;height:72px;object-fit:contain;display:block;margin:0 auto 16px;" />
+      <h1 style="font-size:30px;font-weight:300;color:#3d2b1a;font-style:italic;margin:0 0 8px;">
+        Your gift is ready, ${buyerName}.
+      </h1>
+      <p style="font-size:14px;color:#8b7355;letter-spacing:2px;text-transform:uppercase;margin:0;font-family:'Arial',sans-serif;">
+        A Legacy Story for ${recipientName}
+      </p>
+    </div>
 
-          <!-- CTA Button -->
-          <table width="100%" cellpadding="0" cellspacing="0">
-            <tr><td align="center" style="padding-bottom:32px;">
-              <a href="${redeemUrl}" style="display:inline-block;background:#C8973A;color:#ffffff;font-family:sans-serif;font-size:16px;font-weight:500;padding:16px 40px;border-radius:100px;text-decoration:none;letter-spacing:0.02em;">
-                Start Mom's Story →
-              </a>
-            </td></tr>
-          </table>
+    <div style="background:white;border-radius:16px;padding:36px;border:1px solid rgba(180,140,80,0.15);margin-bottom:28px;">
+      <p style="font-size:16px;color:#6b5540;line-height:1.85;margin:0 0 24px;">
+        What a beautiful gift. ${recipientName} will have a personal guide walking alongside her — capturing her memories, her faith, and her wisdom in a story your whole family will treasure.
+      </p>
 
-          <!-- What's included -->
-          <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(255,255,255,0.05);border-radius:12px;margin-bottom:32px;">
-            <tr><td style="padding:24px 28px;">
-              <p style="margin:0 0 16px;font-size:11px;letter-spacing:0.15em;text-transform:uppercase;color:#E8B85A;font-family:sans-serif;">What ${recipientName} receives</p>
-              <p style="margin:0 0 8px;font-size:14px;font-weight:300;color:rgba(247,243,236,0.7);">✦ &nbsp;Guided story sessions with Grace</p>
-              <p style="margin:0 0 8px;font-size:14px;font-weight:300;color:rgba(247,243,236,0.7);">✦ &nbsp;Her own pace — no pressure, no deadline</p>
-              <p style="margin:0 0 8px;font-size:14px;font-weight:300;color:rgba(247,243,236,0.7);">✦ &nbsp;A beautifully formatted keepsake PDF</p>
-              ${hardcover ? `<p style="margin:0;font-size:14px;font-weight:300;color:rgba(247,243,236,0.7);">✦ &nbsp;Printed hardcover book — shipped to you when complete</p>` : ''}
-            </td></tr>
-          </table>
+      <p style="font-size:14px;color:#8b7355;font-family:'Arial',sans-serif;margin:0 0 8px;letter-spacing:1px;text-transform:uppercase;">
+        How to give it:
+      </p>
+      <p style="font-size:15px;color:#6b5540;line-height:1.85;margin:0 0 24px;">
+        Forward this email to ${recipientName} or share the button below. When she clicks it, she'll be welcomed straight into her story — no codes to type, no tech headaches.
+      </p>
 
-          <p style="margin:0;font-size:13px;font-weight:300;color:rgba(247,243,236,0.35);line-height:1.7;text-align:center;">
-            If the button doesn't work, copy this link into her browser:<br>
-            <span style="color:rgba(247,243,236,0.5);">${redeemUrl}</span>
-          </p>
-        </td></tr>
+      <div style="text-align:center;margin-bottom:28px;">
+        <a href="${redeemUrl}" style="display:inline-block;background:#8b5e34;color:#fdf6ec;text-decoration:none;padding:16px 40px;border-radius:100px;font-size:17px;font-family:'Georgia',serif;letter-spacing:0.5px;">
+          Start ${recipientName}'s Story ✦
+        </a>
+      </div>
 
-        <!-- Footer -->
-        <tr><td style="padding:24px 48px;border-top:1px solid rgba(255,255,255,0.08);text-align:center;">
-          <p style="margin:0;font-size:12px;font-weight:300;color:rgba(247,243,236,0.25);font-family:sans-serif;">
-            MyStory.Family · Preserving stories that matter.<br>
-            Questions? Reply to this email.
-          </p>
-        </td></tr>
+      ${hardcover ? `
+      <div style="background:#fdf6ec;border-radius:12px;padding:18px 20px;border:1px solid rgba(180,140,80,0.2);margin-bottom:24px;">
+        <p style="font-size:13px;color:#8b7355;font-family:'Arial',sans-serif;margin:0 0 6px;letter-spacing:1px;text-transform:uppercase;">Hardcover Book Included</p>
+        <p style="font-size:14px;color:#6b5540;line-height:1.7;margin:0;">
+          When ${recipientName} finishes her story, we'll print and ship a beautiful hardcover edition to you. We'll be in touch with details when she's ready.
+        </p>
+      </div>` : ""}
 
-      </table>
-    </td></tr>
-  </table>
+      <p style="font-size:13px;color:#a89070;line-height:1.7;font-family:'Arial',sans-serif;margin:0;">
+        If the button doesn't work, copy this link into her browser:<br>
+        <span style="color:#8b5e34;">${redeemUrl}</span>
+      </p>
+    </div>
+
+    <p style="font-size:13px;color:#a89070;text-align:center;line-height:1.7;font-family:'Arial',sans-serif;">
+      Questions? Reply to this email — we're here to help.<br>
+      <a href="https://mystory.family" style="color:#a89070;">mystory.family</a>
+    </p>
+
+  </div>
 </body>
 </html>`;
 }
 
-module.exports = async (req, res) => {
-  if (req.method !== 'POST') return res.status(405).end();
+export default async function handler(req, res) {
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const sig = req.headers['stripe-signature'];
+  const sig = req.headers["stripe-signature"];
+  const rawBody = await getRawBody(req);
+
   let event;
-
   try {
-    event = stripe.webhooks.constructEvent(
-      req.body,
-      sig,
-      process.env.STRIPE_WEBHOOK_SECRET
-    );
+    event = await verifyStripeWebhook(rawBody, sig, STRIPE_WEBHOOK_SECRET);
   } catch (err) {
-    console.error('Webhook signature error:', err.message);
-    return res.status(400).send(`Webhook Error: ${err.message}`);
+    console.error("Webhook signature error:", err.message);
+    return res.status(400).json({ error: `Webhook error: ${err.message}` });
   }
 
-  if (event.type === 'checkout.session.completed') {
-    const session = event.data.object;
-    const { buyerName, buyerEmail, recipientName, hardcover } = session.metadata;
+  if (event.type !== "checkout.session.completed") {
+    return res.status(200).json({ received: true });
+  }
 
-    const code = generateGiftCode();
-    const redeemUrl = `${process.env.APP_URL}/redeem?code=${code}`;
+  const session = event.data.object;
+  const { buyerName, buyerEmail, recipientName, hardcover } = session.metadata;
 
-    try {
-      // Save to Supabase
-      const { error: dbError } = await supabase.from('gift_codes').insert({
-        code,
-        buyer_name: buyerName,
-        buyer_email: buyerEmail,
-        recipient_name: recipientName,
-        hardcover: hardcover === 'true',
-        stripe_session_id: session.id,
-        redeemed: false,
-      });
+  const code = generateCode();
 
-      if (dbError) throw dbError;
+  const supabaseHeaders = {
+    "Content-Type": "application/json",
+    "apikey": SUPABASE_SERVICE_KEY,
+    "Authorization": `Bearer ${SUPABASE_SERVICE_KEY}`,
+  };
 
-      // Send gift email to buyer
-      await resend.emails.send({
-        from: 'Grace at MyStory.Family <grace@mystory.family>',
-        to: buyerEmail,
-        subject: `🌸 ${recipientName}'s story is waiting — your Mother's Day gift is ready`,
-        html: buildEmailHtml({
+  // Save gift code to Supabase
+  const dbRes = await fetch(`${SUPABASE_URL}/rest/v1/gift_codes`, {
+    method: "POST",
+    headers: supabaseHeaders,
+    body: JSON.stringify({
+      code,
+      buyer_name: buyerName,
+      buyer_email: buyerEmail,
+      recipient_name: recipientName || null,
+      hardcover: hardcover === "true",
+      stripe_session_id: session.id,
+      redeemed: false,
+    }),
+  });
+
+  if (!dbRes.ok) {
+    const err = await dbRes.text();
+    console.error("Supabase insert error:", err);
+    return res.status(500).json({ error: "Could not save gift code" });
+  }
+
+  // Send gift email to buyer
+  try {
+    const emailRes = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${RESEND_API_KEY}`,
+      },
+      body: JSON.stringify({
+        from: "Grace at MyStory.Family <grace@mystory.family>",
+        to: [buyerEmail],
+        subject: `${recipientName}'s story is waiting — your Mother's Day gift is ready 🌸`,
+        html: buildGiftEmail({
           buyerName,
           recipientName,
           code,
-          hardcover: hardcover === 'true',
-          redeemUrl,
+          hardcover: hardcover === "true",
         }),
-      });
+      }),
+    });
 
-      console.log(`Gift code ${code} created for ${recipientName}, sent to ${buyerEmail}`);
-    } catch (err) {
-      console.error('Post-payment error:', err);
-      return res.status(500).json({ error: err.message });
+    if (!emailRes.ok) {
+      const err = await emailRes.json();
+      console.error("Resend error:", err);
     }
+  } catch (e) {
+    console.error("Email error:", e);
   }
 
-  res.json({ received: true });
-};
+  console.log(`Gift code ${code} created for ${recipientName}, sent to ${buyerEmail}`);
+  return res.status(200).json({ received: true });
+}
 
-// Required for Stripe webhook signature verification - disable body parsing
-module.exports.config = {
+async function getRawBody(req) {
+  return new Promise((resolve, reject) => {
+    let data = "";
+    req.on("data", chunk => (data += chunk));
+    req.on("end", () => resolve(data));
+    req.on("error", reject);
+  });
+}
+
+async function verifyStripeWebhook(rawBody, sig, secret) {
+  const crypto = await import("crypto");
+  const parts = sig.split(",").reduce((acc, part) => {
+    const [key, val] = part.split("=");
+    acc[key] = val;
+    return acc;
+  }, {});
+
+  const timestamp = parts["t"];
+  const signature = parts["v1"];
+  const signedPayload = `${timestamp}.${rawBody}`;
+  const expectedSig = crypto
+    .default.createHmac("sha256", secret)
+    .update(signedPayload, "utf8")
+    .digest("hex");
+
+  if (expectedSig !== signature) throw new Error("Signature mismatch");
+
+  const tolerance = 300;
+  if (Math.floor(Date.now() / 1000) - parseInt(timestamp) > tolerance) {
+    throw new Error("Webhook timestamp too old");
+  }
+
+  return JSON.parse(rawBody);
+}
+
+export const config = {
   api: { bodyParser: false },
 };
