@@ -21,6 +21,8 @@
     { "source": "/terms", "destination": "/terms.html" },
     { "source": "/cookies", "destination": "/cookies.html" },
     { "source": "/partners", "destination": "/partners.html" },
+    { "source": "/mothersday", "destination": "/mystory-mothersday.html" },
+    { "source": "/gift", "destination": "/gift.html" },
     { "source": "/((?!api|book).*)", "destination": "/index.html" }
   ],
   "crons": [
