@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>The Conversation Most Families Never Have — Until It's Too Late | MyStory.Family Blog</title>
+  <meta name="description" content="If you have an aging parent still with you, you have something precious and finite: the opportunity to ask what matters before it's too late." />
+  <meta property="og:title" content="The Conversation Most Families Never Have — Until It's Too Late" />
+  <meta property="og:description" content="If you have an aging parent still with you, you have something precious and finite: the opportunity to ask what matters before it's too late." />
+  <meta property="og:site_name" content="MyStory.Family" />
+  <link rel="icon" href="/logo.png" />
+  <style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: Georgia, 'Times New Roman', serif;
+    background: #f7f2ea;
+    color: #2c2416;
+    line-height: 1.8;
+  }
+  /* NAV */
+  nav {
+    background: #f7f2ea;
+    border-bottom: 1px solid #e2d9cc;
+    padding: 0 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 64px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .nav-brand {
+    display: flex;
+    flex-direction: column;
+    text-decoration: none;
+  }
+  .nav-brand .logo-name {
+    font-family: Georgia, serif;
+    font-size: 1.05rem;
+    font-weight: bold;
+    color: #2c2416;
+    letter-spacing: -0.2px;
+  }
+  .nav-brand .logo-tagline {
+    font-family: Arial, sans-serif;
+    font-size: 0.62rem;
+    color: #8a7a65;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+  }
+  .nav-cta {
+    background: #b8963e;
+    color: #fff;
+    text-decoration: none;
+    padding: 9px 22px;
+    border-radius: 28px;
+    font-family: Arial, sans-serif;
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: background 0.2s;
+  }
+  .nav-cta:hover { background: #9e7c2e; }
+
+  /* HERO */
+  .blog-hero {
+    background: #f7f2ea;
+    padding: 72px 24px 60px;
+    text-align: center;
+    border-bottom: 1px solid #e2d9cc;
+  }
+  .eyebrow {
+    font-family: Arial, sans-serif;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: #b8963e;
+    margin-bottom: 18px;
+  }
+  .blog-hero h1 {
+    font-size: clamp(2rem, 5vw, 3rem);
+    color: #2c2416;
+    font-weight: bold;
+    line-height: 1.2;
+    margin-bottom: 18px;
+    max-width: 640px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .blog-hero p {
+    font-size: 1.1rem;
+    color: #4a3f30;
+    max-width: 520px;
+    margin: 0 auto;
+    line-height: 1.7;
+  }
+
+  /* CONTAINER */
+  .container {
+    max-width: 740px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  /* BLOG INDEX CARDS */
+  .posts-grid {
+    padding: 56px 0 80px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+  .post-card {
+    background: #fff;
+    border: 1px solid #e2d9cc;
+    border-radius: 12px;
+    padding: 32px;
+    transition: box-shadow 0.2s, border-color 0.2s;
+    text-decoration: none;
+    display: block;
+  }
+  .post-card:hover {
+    box-shadow: 0 6px 24px rgba(44,36,22,0.08);
+    border-color: #b8963e;
+  }
+  .tag {
+    display: inline-block;
+    background: #f0e9dc;
+    color: #b8963e;
+    font-family: Arial, sans-serif;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 14px;
+  }
+  .post-card h2 {
+    font-size: 1.3rem;
+    color: #2c2416;
+    margin-bottom: 10px;
+    line-height: 1.3;
+  }
+  .post-card p {
+    font-size: 0.98rem;
+    color: #4a3f30;
+    line-height: 1.65;
+    margin-bottom: 16px;
+  }
+  .read-more {
+    font-family: Arial, sans-serif;
+    font-size: 0.85rem;
+    color: #b8963e;
+    font-weight: 600;
+  }
+
+  /* POST META */
+  .post-meta {
+    padding: 32px 0 0;
+    border-bottom: 1px solid #e2d9cc;
+    margin-bottom: 0;
+  }
+  .post-meta h1 {
+    font-size: clamp(1.7rem, 4vw, 2.5rem);
+    color: #2c2416;
+    line-height: 1.25;
+    margin-bottom: 16px;
+    margin-top: 12px;
+  }
+  .meta-line {
+    font-family: Arial, sans-serif;
+    font-size: 0.82rem;
+    color: #8a7a65;
+    padding-bottom: 28px;
+  }
+
+  /* BACK LINK */
+  .back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: Arial, sans-serif;
+    font-size: 0.82rem;
+    color: #b8963e;
+    text-decoration: none;
+    padding: 20px 0 0;
+    font-weight: 600;
+  }
+  .back-link:hover { text-decoration: underline; }
+
+  /* POST BODY */
+  .post-body {
+    padding: 48px 0 80px;
+  }
+  .post-body p {
+    font-size: 1.08rem;
+    color: #4a3f30;
+    margin-bottom: 1.4rem;
+    line-height: 1.85;
+  }
+  .post-body h2 {
+    font-size: 1.45rem;
+    color: #2c2416;
+    margin: 2.8rem 0 1rem;
+    font-weight: bold;
+    line-height: 1.3;
+  }
+  .post-body ol {
+    margin: 1rem 0 1.5rem 1.5rem;
+  }
+  .post-body ol li {
+    font-size: 1.05rem;
+    color: #4a3f30;
+    margin-bottom: 1rem;
+    line-height: 1.7;
+    padding-left: 0.5rem;
+  }
+  .post-body ol li strong { color: #2c2416; }
+  .post-body em { font-style: italic; color: #2c2416; }
+
+  /* CTA BOX */
+  .cta-box {
+    background: #fff;
+    border: 1px solid #e2d9cc;
+    border-left: 5px solid #b8963e;
+    border-radius: 0 12px 12px 0;
+    padding: 28px 32px;
+    margin: 3rem 0;
+  }
+  .cta-box p {
+    font-size: 1.05rem;
+    color: #2c2416;
+    font-style: italic;
+    margin-bottom: 1.1rem !important;
+    line-height: 1.7;
+  }
+  .cta-box a {
+    display: inline-block;
+    background: #b8963e;
+    color: #fff;
+    text-decoration: none;
+    padding: 11px 28px;
+    border-radius: 28px;
+    font-family: Arial, sans-serif;
+    font-size: 0.88rem;
+    font-weight: 600;
+  }
+  .cta-box a:hover { background: #9e7c2e; }
+
+  /* FOOTER */
+  footer {
+    background: #1c1710;
+    color: #a89880;
+    text-align: center;
+    padding: 48px 24px;
+    font-family: Arial, sans-serif;
+    font-size: 0.85rem;
+  }
+  .footer-logo {
+    font-family: Georgia, serif;
+    font-size: 1.15rem;
+    color: #f7f2ea;
+    font-weight: bold;
+    display: block;
+    margin-bottom: 8px;
+  }
+  footer a { color: #c9a96e; text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-brand" href="/">
+    <span class="logo-name">MyStory.Family</span>
+    <span class="logo-tagline">Preserve your story for the people who matter most</span>
+  </a>
+  <a class="nav-cta" href="/">Start My Story — It's Free ✦</a>
+</nav>
+<div class="container">
+  <a class="back-link" href="/blog">← Back to Blog</a>
+  <div class="post-meta">
+    <span class="tag">For Adult Children</span>
+    <h1>The Conversation Most Families Never Have — Until It's Too Late</h1>
+    <div class="meta-line">By MyStory.Family · April 2025 · 5 min read</div>
+  </div>
+  <div class="post-body">
+    <p>There's a conversation most families never have.</p>
+    <p>Not because they don't love each other. Not because they don't mean to. But because there's always another Sunday. Another holiday. Another chance.</p>
+    <p>And then one day there isn't.</p>
+    <p>If you have an aging parent still with you today, you have something precious and finite: the opportunity to ask the questions that matter before it's too late. This post is about how to have that conversation — and why it matters more than most of us realize.</p>
+    <h2>Why we don't ask</h2>
+    <p>Most adult children don't avoid these conversations because they don't care. They avoid them because they don't know how to start. Asking your parent to tell you about their life can feel presumptuous, sentimental, or even morbid — like you're acknowledging that time is running out.</p>
+    <p>But here's what's true: your parent has a lifetime of experience, wisdom, faith, and memory that exists nowhere else in the world. And most of them are waiting — hoping, even — to be asked.</p>
+    <p>They just need someone to open the door.</p>
+    <h2>What you're really asking for</h2>
+    <p>When you ask your parent to share their story, you're not just collecting memories. You're telling them something profound: that their life mattered. That the things they endured and believed and built were worth something. That the next generation wants to know.</p>
+    <p>For many seniors, that affirmation is one of the greatest gifts they can receive.</p>
+    <h2>How to open the conversation</h2>
+    <p>You don't need a formal occasion. You don't need a recorder or a notebook or a special plan. You just need a question. Here are a few that open doors rather than closing them:</p>
+    <ol>
+      <li><strong>"Tell me about the house you grew up in."</strong> Not "tell me about your childhood" — that's too big. A specific place unlocks specific memories.</li>
+      <li><strong>"What was the hardest year of your life?"</strong> Most parents won't bring this up unless you ask. But they want to tell you.</li>
+      <li><strong>"Was there a moment when your faith became real to you?"</strong> For a person of faith, this is often the story they most want to tell and least know how to bring up.</li>
+      <li><strong>"What do you want your grandchildren to know about you — the real you?"</strong> This one often produces tears. And truth.</li>
+      <li><strong>"What are you most proud of that nobody knows about?"</strong> Give them a chance to name it themselves.</li>
+    </ol>
+    <h2>What to do when they say "my life isn't that interesting"</h2>
+    <p>They will say this. Almost every parent does.</p>
+    <p>The right response is not to argue — it's to ask anyway. "I know you think that, but I really want to know. Tell me about..." and then ask something specific.</p>
+    <p>Once they start talking, they almost never stop. The stories are there. They just need permission to come out.</p>
+    <h2>What to do with the answers</h2>
+    <p>Write things down. Record the conversation on your phone — most people forget it's there within five minutes. Take notes afterward while the details are fresh.</p>
+    <p>And consider giving your parent a way to continue telling their story on their own time, at their own pace. That's exactly what MyStory.Family was built for — a warm, guided experience where your parent can share their memories in their own words, with no pressure and no blank pages.</p>
+    <div class="cta-box">
+      <p>Give your parent the gift of their own story. Gift codes are available at MyStory.Family — delivered instantly, used at their own pace. The first section is always free.</p>
+      <a href="/">Give the Gift of Their Story ✦</a>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <span class="footer-logo">MyStory.Family</span>
+  <p>Preserving the stories that matter most.</p>
+  <p style="margin-top:14px;">
+    <a href="/">Home</a> &nbsp;·&nbsp;
+    <a href="/blog">Blog</a> &nbsp;·&nbsp;
+    <a href="/privacy.html">Privacy</a> &nbsp;·&nbsp;
+    <a href="/terms.html">Terms</a>
+  </p>
+  <p style="margin-top:16px;color:#5a4e3a;">© 2025 MyStory.Family · All rights reserved.</p>
+</footer>
+</body>
+</html>

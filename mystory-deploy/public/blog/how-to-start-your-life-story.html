@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>How to Start Your Life Story When You Don't Know Where to Begin | MyStory.Family Blog</title>
+  <meta name="description" content="The blank page stops most people before they start. Here's a practical, low-pressure guide to beginning your life story." />
+  <meta property="og:title" content="How to Start Your Life Story When You Don't Know Where to Begin" />
+  <meta property="og:description" content="The blank page stops most people before they start. Here's a practical, low-pressure guide to beginning your life story." />
+  <meta property="og:site_name" content="MyStory.Family" />
+  <link rel="icon" href="/logo.png" />
+  <style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: Georgia, 'Times New Roman', serif;
+    background: #f7f2ea;
+    color: #2c2416;
+    line-height: 1.8;
+  }
+  /* NAV */
+  nav {
+    background: #f7f2ea;
+    border-bottom: 1px solid #e2d9cc;
+    padding: 0 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 64px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .nav-brand {
+    display: flex;
+    flex-direction: column;
+    text-decoration: none;
+  }
+  .nav-brand .logo-name {
+    font-family: Georgia, serif;
+    font-size: 1.05rem;
+    font-weight: bold;
+    color: #2c2416;
+    letter-spacing: -0.2px;
+  }
+  .nav-brand .logo-tagline {
+    font-family: Arial, sans-serif;
+    font-size: 0.62rem;
+    color: #8a7a65;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+  }
+  .nav-cta {
+    background: #b8963e;
+    color: #fff;
+    text-decoration: none;
+    padding: 9px 22px;
+    border-radius: 28px;
+    font-family: Arial, sans-serif;
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: background 0.2s;
+  }
+  .nav-cta:hover { background: #9e7c2e; }
+
+  /* HERO */
+  .blog-hero {
+    background: #f7f2ea;
+    padding: 72px 24px 60px;
+    text-align: center;
+    border-bottom: 1px solid #e2d9cc;
+  }
+  .eyebrow {
+    font-family: Arial, sans-serif;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: #b8963e;
+    margin-bottom: 18px;
+  }
+  .blog-hero h1 {
+    font-size: clamp(2rem, 5vw, 3rem);
+    color: #2c2416;
+    font-weight: bold;
+    line-height: 1.2;
+    margin-bottom: 18px;
+    max-width: 640px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .blog-hero p {
+    font-size: 1.1rem;
+    color: #4a3f30;
+    max-width: 520px;
+    margin: 0 auto;
+    line-height: 1.7;
+  }
+
+  /* CONTAINER */
+  .container {
+    max-width: 740px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  /* BLOG INDEX CARDS */
+  .posts-grid {
+    padding: 56px 0 80px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+  .post-card {
+    background: #fff;
+    border: 1px solid #e2d9cc;
+    border-radius: 12px;
+    padding: 32px;
+    transition: box-shadow 0.2s, border-color 0.2s;
+    text-decoration: none;
+    display: block;
+  }
+  .post-card:hover {
+    box-shadow: 0 6px 24px rgba(44,36,22,0.08);
+    border-color: #b8963e;
+  }
+  .tag {
+    display: inline-block;
+    background: #f0e9dc;
+    color: #b8963e;
+    font-family: Arial, sans-serif;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 14px;
+  }
+  .post-card h2 {
+    font-size: 1.3rem;
+    color: #2c2416;
+    margin-bottom: 10px;
+    line-height: 1.3;
+  }
+  .post-card p {
+    font-size: 0.98rem;
+    color: #4a3f30;
+    line-height: 1.65;
+    margin-bottom: 16px;
+  }
+  .read-more {
+    font-family: Arial, sans-serif;
+    font-size: 0.85rem;
+    color: #b8963e;
+    font-weight: 600;
+  }
+
+  /* POST META */
+  .post-meta {
+    padding: 32px 0 0;
+    border-bottom: 1px solid #e2d9cc;
+    margin-bottom: 0;
+  }
+  .post-meta h1 {
+    font-size: clamp(1.7rem, 4vw, 2.5rem);
+    color: #2c2416;
+    line-height: 1.25;
+    margin-bottom: 16px;
+    margin-top: 12px;
+  }
+  .meta-line {
+    font-family: Arial, sans-serif;
+    font-size: 0.82rem;
+    color: #8a7a65;
+    padding-bottom: 28px;
+  }
+
+  /* BACK LINK */
+  .back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: Arial, sans-serif;
+    font-size: 0.82rem;
+    color: #b8963e;
+    text-decoration: none;
+    padding: 20px 0 0;
+    font-weight: 600;
+  }
+  .back-link:hover { text-decoration: underline; }
+
+  /* POST BODY */
+  .post-body {
+    padding: 48px 0 80px;
+  }
+  .post-body p {
+    font-size: 1.08rem;
+    color: #4a3f30;
+    margin-bottom: 1.4rem;
+    line-height: 1.85;
+  }
+  .post-body h2 {
+    font-size: 1.45rem;
+    color: #2c2416;
+    margin: 2.8rem 0 1rem;
+    font-weight: bold;
+    line-height: 1.3;
+  }
+  .post-body ol {
+    margin: 1rem 0 1.5rem 1.5rem;
+  }
+  .post-body ol li {
+    font-size: 1.05rem;
+    color: #4a3f30;
+    margin-bottom: 1rem;
+    line-height: 1.7;
+    padding-left: 0.5rem;
+  }
+  .post-body ol li strong { color: #2c2416; }
+  .post-body em { font-style: italic; color: #2c2416; }
+
+  /* CTA BOX */
+  .cta-box {
+    background: #fff;
+    border: 1px solid #e2d9cc;
+    border-left: 5px solid #b8963e;
+    border-radius: 0 12px 12px 0;
+    padding: 28px 32px;
+    margin: 3rem 0;
+  }
+  .cta-box p {
+    font-size: 1.05rem;
+    color: #2c2416;
+    font-style: italic;
+    margin-bottom: 1.1rem !important;
+    line-height: 1.7;
+  }
+  .cta-box a {
+    display: inline-block;
+    background: #b8963e;
+    color: #fff;
+    text-decoration: none;
+    padding: 11px 28px;
+    border-radius: 28px;
+    font-family: Arial, sans-serif;
+    font-size: 0.88rem;
+    font-weight: 600;
+  }
+  .cta-box a:hover { background: #9e7c2e; }
+
+  /* FOOTER */
+  footer {
+    background: #1c1710;
+    color: #a89880;
+    text-align: center;
+    padding: 48px 24px;
+    font-family: Arial, sans-serif;
+    font-size: 0.85rem;
+  }
+  .footer-logo {
+    font-family: Georgia, serif;
+    font-size: 1.15rem;
+    color: #f7f2ea;
+    font-weight: bold;
+    display: block;
+    margin-bottom: 8px;
+  }
+  footer a { color: #c9a96e; text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-brand" href="/">
+    <span class="logo-name">MyStory.Family</span>
+    <span class="logo-tagline">Preserve your story for the people who matter most</span>
+  </a>
+  <a class="nav-cta" href="/">Start My Story — It's Free ✦</a>
+</nav>
+<div class="container">
+  <a class="back-link" href="/blog">← Back to Blog</a>
+  <div class="post-meta">
+    <span class="tag">Getting Started</span>
+    <h1>How to Start Your Life Story When You Don't Know Where to Begin</h1>
+    <div class="meta-line">By MyStory.Family · April 2025 · 5 min read</div>
+  </div>
+  <div class="post-body">
+    <p>The blank page is one of the most intimidating things in the world.</p>
+    <p>You sit down with the intention of writing your life story, and suddenly the whole enormous weight of it lands on you at once. Where do you start? The beginning? What counts as the beginning? Do you write about childhood first? What if you skip something important?</p>
+    <p>Most people don't fail to preserve their story because they don't want to. They fail because they don't know how to begin — and the not-knowing is enough to stop them before they start.</p>
+    <p>We want to change that. Here's how to start your life story even when you have no idea where to begin.</p>
+    <h2>First: Give yourself permission to start in the middle</h2>
+    <p>Nobody says your life story has to start at birth and end today. In fact, the most compelling stories rarely do.</p>
+    <p>Start with the memory that comes to mind most easily. Not the most important one. Not the one you think you should start with. The one that's already close to the surface — the one that comes when you close your eyes and think about your life.</p>
+    <p>That memory is a door. Start there. Everything else will follow.</p>
+    <h2>Second: Think in seasons, not chapters</h2>
+    <p>The word "chapter" can feel heavy. It implies a beginning and an end, a complete arc, a formal structure.</p>
+    <p>Try thinking in seasons instead. The season of your childhood. The season you became an adult. The season when faith became real to you. The season you built a family. The season of loss. The season of wisdom.</p>
+    <p>Seasons are gentler. They overlap. They don't require perfection. And they reflect how life actually works — not in neat chapters, but in shifting weather.</p>
+    <h2>Third: Start with what you know best — the details</h2>
+    <p>Don't start by trying to summarize your life. Start with a detail.</p>
+    <p>What did your childhood home smell like? What did your mother's hands look like? What was the name of the street where you grew up, and what could you see from your bedroom window?</p>
+    <p>Details are the way into memory. They unlock things you didn't know you still remembered. And they make your story feel real to the person reading it — because they make them feel like they were there.</p>
+    <h2>Fourth: Let someone else ask the questions</h2>
+    <p>One of the hardest things about writing your own story is that you're too close to it. You don't know which parts are interesting because you lived them — they all feel ordinary to you.</p>
+    <p>A good interviewer changes everything. When someone asks you the right question, you don't have to decide what's worth saying. You just answer. And in the answering, the story comes out.</p>
+    <p>That's the philosophy behind Grace, the personal guide at MyStory.Family. Grace doesn't give you a blank page. She gives you a question — a warm, thoughtful question about your life. You answer it in your own words, at your own pace. And your story takes shape, section by section, without you ever having to face the terror of the blank page.</p>
+    <h2>Fifth: Do less than you think you should</h2>
+    <p>One of the most common mistakes people make when they start a life story is trying to do too much at once.</p>
+    <p>They want to write everything. They want it to be complete. And so they wait until they have enough time, enough energy, enough clarity — and they never begin.</p>
+    <p>Start with fifteen minutes. Start with one memory. Start with one answer to one question. Give yourself permission to do less than feels like enough, and trust that enough will come.</p>
+    <p>A story told one section at a time is still a story. And a small story that exists is infinitely more valuable than a complete story that was never written.</p>
+    <div class="cta-box">
+      <p>At MyStory.Family, Grace asks the first question. You just have to show up. Start your first section free — no blank pages, no pressure, no deadline. Just your story, in your words.</p>
+      <a href="/">Start Your First Section — Free ✦</a>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <span class="footer-logo">MyStory.Family</span>
+  <p>Preserving the stories that matter most.</p>
+  <p style="margin-top:14px;">
+    <a href="/">Home</a> &nbsp;·&nbsp;
+    <a href="/blog">Blog</a> &nbsp;·&nbsp;
+    <a href="/privacy.html">Privacy</a> &nbsp;·&nbsp;
+    <a href="/terms.html">Terms</a>
+  </p>
+  <p style="margin-top:16px;color:#5a4e3a;">© 2025 MyStory.Family · All rights reserved.</p>
+</footer>
+</body>
+</html>
