@@ -330,6 +330,21 @@
 <a href="https://mystory.family" class="back-link">← Back to MyStory.Family</a>
 
 <script>
+  // Show success screen if returning from Stripe payment
+  if (new URLSearchParams(window.location.search).get('success') === 'true') {
+    window.history.replaceState({}, '', window.location.pathname);
+    document.querySelector('.card').innerHTML = `
+      <div style="padding: 56px 40px; text-align: center;">
+        <div style="font-size: 56px; margin-bottom: 20px;">🌸</div>
+        <div style="font-family: 'Cormorant Garamond', Georgia, serif; font-size: 13px; letter-spacing: 0.18em; text-transform: uppercase; color: #E8B85A; margin-bottom: 12px;">Gift confirmed</div>
+        <h2 style="font-family: 'Cormorant Garamond', Georgia, serif; font-size: 30px; font-weight: 300; color: #F7F3EC; margin-bottom: 16px; line-height: 1.2;">Your gift is on its way.</h2>
+        <p style="font-size: 15px; font-weight: 300; color: rgba(247,243,236,0.7); line-height: 1.7; margin-bottom: 32px;">Check your email — we've sent you a link to share with Mom. When she clicks it, she'll be welcomed straight into her story.</p>
+        <a href="https://mystory.family" style="display: inline-block; background: #C8973A; color: #fff; font-family: 'Outfit', sans-serif; font-size: 16px; font-weight: 500; padding: 16px 36px; border-radius: 100px; text-decoration: none;">Back to MyStory.Family</a>
+      </div>
+    `;
+    document.querySelector('.card').style.background = '#2D4329';
+  }
+
   let hardcoverSelected = false;
 
   const hardcoverBox = document.getElementById('hardcoverBox');
