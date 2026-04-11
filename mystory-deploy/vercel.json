@@ -22,8 +22,8 @@
     { "source": "/partners", "destination": "/partners.html" },
     { "source": "/mothersday", "destination": "/mystory-mothersday.html" },
     { "source": "/gift", "destination": "/gift.html" },
-    { "source": "/blog", "destination": "/blog/index.html" },
-    { "source": "/blog/:post", "destination": "/blog/:post.html" },
+    { "source": "/blog", "destination": "/Blog/index.html" },
+    { "source": "/blog/:post", "destination": "/Blog/:post.html" },
     { "source": "/((?!api|book).*)", "destination": "/index.html" }
   ],
   "crons": [
