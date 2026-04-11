@@ -1556,10 +1556,19 @@ export default function MyStoryFamily() {
       const paymentSuccess = params.get("payment_success") === "true";
       const paymentCancelled = params.get("payment_cancelled") === "true";
       const giftSuccess = params.get("gift_success") === "true";
+      const redeemParam = params.get("redeem");
       const paidEmail = params.get("paid_email") || localStorage.getItem("mystory_pending_email");
 
       if (paymentSuccess || paymentCancelled || giftSuccess) {
         window.history.replaceState({}, "", window.location.pathname);
+      }
+
+      // Gift link redemption — code is embedded in the URL
+      if (redeemParam) {
+        window.history.replaceState({}, "", window.location.pathname);
+        setGiftCode(redeemParam.trim().toUpperCase());
+        setShowGiftEntry(true);
+        return;
       }
 
       // Handle gift purchase return
@@ -3042,13 +3051,34 @@ export default function MyStoryFamily() {
                   🎁 I have a gift code
                 </button>
               ) : (
-                <div style={{ background: "white", border: "1.5px solid rgba(184,134,11,0.3)", borderRadius: 16, padding: "24px 28px", maxWidth: 440, width: "100%", animation: "fadeUp 0.3s ease forwards", boxShadow: "0 4px 20px rgba(93,61,26,0.08)" }}>
-                  <p style={{ fontSize: fs(16), fontWeight: 500, color: tc("#3d2b1a","#1a0e00"), marginBottom: 4 }}>Redeem your gift 🎁</p>
-                  <p style={{ fontFamily: "'Lato',sans-serif", fontSize: fs(13), color: tc("#7a6040","#4a3020"), marginBottom: 16, lineHeight: 1.6 }}>
-                    Someone gave you the gift of your own story. Enter your code below to get started.
-                  </p>
+                <div style={{ background: "white", border: "1.5px solid rgba(184,134,11,0.3)", borderRadius: 16, padding: "28px 28px", maxWidth: 440, width: "100%", animation: "fadeUp 0.3s ease forwards", boxShadow: "0 4px 20px rgba(93,61,26,0.08)" }}>
+                  {giftCode ? (
+                    <div style={{ textAlign: "center", marginBottom: 20 }}>
+                      <div style={{ fontSize: 40, marginBottom: 10 }}>🌸</div>
+                      <p style={{ fontSize: fs(18), fontWeight: 400, color: tc("#3d2b1a","#1a0e00"), marginBottom: 6, lineHeight: 1.3 }}>
+                        Someone gave you a beautiful gift.
+                      </p>
+                      <p style={{ fontFamily: "'Lato',sans-serif", fontSize: fs(13), color: tc("#7a6040","#4a3020"), lineHeight: 1.6 }}>
+                        Just enter your name and email below — your story is waiting for you.
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <p style={{ fontSize: fs(16), fontWeight: 500, color: tc("#3d2b1a","#1a0e00"), marginBottom: 4 }}>Redeem your gift 🎁</p>
+                      <p style={{ fontFamily: "'Lato',sans-serif", fontSize: fs(13), color: tc("#7a6040","#4a3020"), marginBottom: 16, lineHeight: 1.6 }}>
+                        Someone gave you the gift of your own story. Enter your code below to get started.
+                      </p>
+                    </>
+                  )}
+                  {!giftCode && (
+                    <div style={{ marginBottom: 12 }}>
+                      <label htmlFor="gift-code-input" style={{ display: "block", fontFamily: "'Lato',sans-serif", fontSize: fs(12), fontWeight: 600, color: tc("#7a5c3a","#4a3020"), marginBottom: 5, letterSpacing: "0.5px" }}>Gift Code</label>
+                      <input id="gift-code-input" type="text" value={giftCode} onChange={e => setGiftCode(e.target.value)}
+                        placeholder="e.g. ABCD-EFGH-WXYZ"
+                        style={{ width: "100%", border: "1.5px solid rgba(180,140,80,0.3)", borderRadius: 8, padding: "11px 14px", fontFamily: "'Lato',sans-serif", fontSize: fs(15), color: tc("#3d2b1a","#1a0e00"), background: "#fffdf5", outline: "none", minHeight: 46 }} />
+                    </div>
+                  )}
                   {[
-                    ["gift-code-input", "Gift Code", "text", giftCode, setGiftCode, "e.g. GRACE-1234"],
                     ["gift-name-input", "Your First Name", "text", giftName, setGiftName, ""],
                     ["gift-email-input", "Your Email", "email", giftEmail, setGiftEmail, ""],
                   ].map(([id, label, type, val, setter, placeholder]) => (
@@ -3056,6 +3086,7 @@ export default function MyStoryFamily() {
                       <label htmlFor={id} style={{ display: "block", fontFamily: "'Lato',sans-serif", fontSize: fs(12), fontWeight: 600, color: tc("#7a5c3a","#4a3020"), marginBottom: 5, letterSpacing: "0.5px" }}>{label}</label>
                       <input id={id} type={type} value={val} onChange={e => setter(e.target.value)}
                         placeholder={placeholder}
+                        autoFocus={id === "gift-name-input" && !!giftCode}
                         style={{ width: "100%", border: "1.5px solid rgba(180,140,80,0.3)", borderRadius: 8, padding: "11px 14px", fontFamily: "'Lato',sans-serif", fontSize: fs(15), color: tc("#3d2b1a","#1a0e00"), background: "#fffdf5", outline: "none", minHeight: 46 }} />
                     </div>
                   ))}
@@ -3063,9 +3094,9 @@ export default function MyStoryFamily() {
                   <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
                     <button onClick={redeemGiftCode} disabled={!giftCode.trim() || !giftName.trim() || !giftEmail.includes("@") || giftLoading}
                       style={{ flex: 1, background: "linear-gradient(135deg,#b8860b,#d4a843)", color: "#fdf6ec", border: "none", padding: "13px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(17), cursor: "pointer", opacity: (!giftCode.trim() || !giftName.trim() || !giftEmail.includes("@") || giftLoading) ? 0.45 : 1, minHeight: 48 }}>
-                      {giftLoading ? "Redeeming…" : "Redeem My Gift ✦"}
+                      {giftLoading ? "Setting up your story…" : "Begin My Story ✦"}
                     </button>
-                    <button onClick={() => { setShowGiftEntry(false); setGiftError(""); }}
+                    <button onClick={() => { setShowGiftEntry(false); setGiftError(""); setGiftCode(""); }}
                       style={{ background: "none", border: "1.5px solid rgba(180,140,80,0.3)", color: tc("#7a5c3a","#4a3020"), borderRadius: 100, padding: "13px 18px", fontFamily: "'Lato',sans-serif", fontSize: fs(13), cursor: "pointer", minHeight: 48 }}>
                       Cancel
                     </button>
