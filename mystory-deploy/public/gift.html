@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Give the Gift of Her Story | MyStory.Family</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Outfit:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --forest: #1C2B1A;
+    --forest-mid: #2D4329;
+    --sage: #6B8F5E;
+    --cream: #F7F3EC;
+    --ivory: #FDFAF5;
+    --gold: #C8973A;
+    --gold-light: #E8B85A;
+    --blush: #E8D5C4;
+    --text-dark: #1A1A1A;
+    --text-mid: #4A4A4A;
+    --text-muted: #7A7A7A;
+    --serif: 'Cormorant Garamond', Georgia, serif;
+    --sans: 'Outfit', system-ui, sans-serif;
+    --error: #C0392B;
+  }
+  body {
+    font-family: var(--sans);
+    background: var(--forest);
+    color: var(--cream);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+  }
+
+  /* Logo */
+  .logo {
+    font-family: var(--serif);
+    font-size: 20px; font-weight: 600;
+    color: var(--cream);
+    margin-bottom: 40px;
+    text-align: center;
+    text-decoration: none;
+    display: block;
+  }
+  .logo span { color: var(--gold-light); }
+
+  /* Card */
+  .card {
+    background: var(--ivory);
+    border-radius: 24px;
+    width: 100%;
+    max-width: 520px;
+    overflow: hidden;
+    color: var(--text-dark);
+  }
+
+  .card-header {
+    background: var(--forest-mid);
+    padding: 36px 40px;
+    text-align: center;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .card-header .eyebrow {
+    font-size: 11px; font-weight: 500;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--gold-light);
+    margin-bottom: 10px;
+  }
+  .card-header h1 {
+    font-family: var(--serif);
+    font-size: 30px; font-weight: 300;
+    color: var(--cream);
+    line-height: 1.2;
+  }
+  .card-header h1 em { font-style: italic; color: var(--gold-light); }
+
+  .card-body { padding: 36px 40px; }
+
+  /* Form */
+  .field { margin-bottom: 20px; }
+  label {
+    display: block;
+    font-size: 12px; font-weight: 500;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+  }
+  input[type="text"],
+  input[type="email"] {
+    width: 100%;
+    padding: 14px 16px;
+    border: 1.5px solid rgba(0,0,0,0.12);
+    border-radius: 10px;
+    font-family: var(--sans);
+    font-size: 16px; font-weight: 300;
+    color: var(--text-dark);
+    background: #fff;
+    outline: none;
+    transition: border-color 0.2s;
+    -webkit-appearance: none;
+  }
+  input[type="text"]:focus,
+  input[type="email"]:focus {
+    border-color: var(--sage);
+  }
+  input::placeholder { color: #bbb; }
+  .field-error {
+    font-size: 12px; color: var(--error);
+    margin-top: 6px; display: none;
+  }
+
+  /* Hardcover toggle */
+  .hardcover-box {
+    background: var(--cream);
+    border: 1.5px solid rgba(107,143,94,0.25);
+    border-radius: 12px;
+    padding: 18px 20px;
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    cursor: pointer;
+    margin-bottom: 28px;
+    transition: border-color 0.2s, background 0.2s;
+    user-select: none;
+  }
+  .hardcover-box:hover { border-color: var(--sage); }
+  .hardcover-box.selected {
+    border-color: var(--sage);
+    background: #EEF4EB;
+  }
+  .hardcover-checkbox {
+    width: 22px; height: 22px;
+    border: 2px solid rgba(107,143,94,0.4);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+    transition: all 0.2s;
+    background: #fff;
+  }
+  .hardcover-box.selected .hardcover-checkbox {
+    background: var(--sage);
+    border-color: var(--sage);
+  }
+  .check-mark {
+    color: #fff; font-size: 13px; display: none;
+  }
+  .hardcover-box.selected .check-mark { display: block; }
+  .hardcover-text {}
+  .hardcover-text strong {
+    display: block;
+    font-size: 15px; font-weight: 500;
+    color: var(--text-dark);
+    margin-bottom: 3px;
+  }
+  .hardcover-text span {
+    font-size: 13px; font-weight: 300;
+    color: var(--text-muted);
+    line-height: 1.5;
+  }
+  .hardcover-price {
+    margin-left: auto;
+    font-size: 15px; font-weight: 500;
+    color: var(--sage);
+    white-space: nowrap;
+    padding-left: 12px;
+  }
+
+  /* Order summary */
+  .summary {
+    background: var(--forest);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 24px;
+  }
+  .summary-row {
+    display: flex; justify-content: space-between;
+    font-size: 14px; font-weight: 300;
+    color: rgba(247,243,236,0.65);
+    padding: 6px 0;
+  }
+  .summary-row.total {
+    border-top: 1px solid rgba(255,255,255,0.1);
+    margin-top: 8px; padding-top: 14px;
+    font-size: 18px; font-weight: 500;
+    color: var(--cream);
+  }
+  .summary-row.total span:last-child { color: var(--gold-light); }
+  .hardcover-row { display: none; }
+  .hardcover-row.visible { display: flex; }
+
+  /* Button */
+  .btn-pay {
+    width: 100%;
+    background: var(--gold);
+    color: #fff;
+    font-family: var(--sans);
+    font-size: 17px; font-weight: 500;
+    padding: 18px;
+    border: none;
+    border-radius: 100px;
+    cursor: pointer;
+    letter-spacing: 0.02em;
+    transition: all 0.2s;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    box-shadow: 0 4px 20px rgba(200,151,58,0.35);
+  }
+  .btn-pay:hover:not(:disabled) { background: var(--gold-light); transform: translateY(-1px); }
+  .btn-pay:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+  .secure-note {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    font-size: 12px; font-weight: 300; color: var(--text-muted);
+    margin-top: 14px; text-align: center;
+  }
+
+  /* Error banner */
+  .error-banner {
+    background: #FDECEA;
+    border: 1px solid #F5C6C2;
+    border-radius: 10px;
+    padding: 14px 16px;
+    font-size: 14px; color: var(--error);
+    margin-bottom: 20px;
+    display: none;
+  }
+
+  /* Loading spinner */
+  .spinner {
+    width: 18px; height: 18px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: none;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Back link */
+  .back-link {
+    display: block; text-align: center;
+    margin-top: 24px;
+    font-size: 13px; font-weight: 300;
+    color: rgba(247,243,236,0.35);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+  .back-link:hover { color: rgba(247,243,236,0.6); }
+
+  @media (max-width: 560px) {
+    .card-header { padding: 28px 24px; }
+    .card-body { padding: 28px 24px; }
+    .card-header h1 { font-size: 26px; }
+  }
+</style>
+</head>
+<body>
+
+<a href="https://mystory.family" class="logo">MyStory<span>.Family</span></a>
+
+<div class="card">
+  <div class="card-header">
+    <div class="eyebrow">Mother's Day Gift</div>
+    <h1>Give her the gift<br>of <em>her story.</em></h1>
+  </div>
+
+  <div class="card-body">
+    <div class="error-banner" id="errorBanner"></div>
+
+    <div class="field">
+      <label>Your name</label>
+      <input type="text" id="buyerName" placeholder="Sarah" autocomplete="given-name">
+      <div class="field-error" id="buyerNameError">Please enter your name</div>
+    </div>
+
+    <div class="field">
+      <label>Your email — we'll send the gift here</label>
+      <input type="email" id="buyerEmail" placeholder="sarah@example.com" autocomplete="email">
+      <div class="field-error" id="buyerEmailError">Please enter a valid email</div>
+    </div>
+
+    <div class="field">
+      <label>Mom's name</label>
+      <input type="text" id="recipientName" placeholder="Dorothy" autocomplete="off">
+      <div class="field-error" id="recipientNameError">Please enter Mom's name</div>
+    </div>
+
+    <!-- Hardcover add-on -->
+    <div class="hardcover-box" id="hardcoverBox">
+      <div class="hardcover-checkbox">
+        <span class="check-mark">✓</span>
+      </div>
+      <div class="hardcover-text">
+        <strong>Add a printed hardcover book</strong>
+        <span>When her story is complete, we'll print and ship a beautiful hardcover edition your family can hold forever.</span>
+      </div>
+      <div class="hardcover-price">+$79</div>
+    </div>
+
+    <!-- Order summary -->
+    <div class="summary">
+      <div class="summary-row">
+        <span>MyStory.Family Gift</span>
+        <span>$99</span>
+      </div>
+      <div class="summary-row hardcover-row" id="hardcoverRow">
+        <span>Hardcover Book</span>
+        <span>$79</span>
+      </div>
+      <div class="summary-row total">
+        <span>Total</span>
+        <span id="totalAmount">$99</span>
+      </div>
+    </div>
+
+    <button class="btn-pay" id="payBtn">
+      <span id="btnText">Complete Gift — $99</span>
+      <div class="spinner" id="spinner"></div>
+    </button>
+
+    <div class="secure-note">
+      🔒 Secured by Stripe · Your payment info never touches our servers
+    </div>
+  </div>
+</div>
+
+<a href="https://mystory.family" class="back-link">← Back to MyStory.Family</a>
+
+<script>
+  let hardcoverSelected = false;
+
+  const hardcoverBox = document.getElementById('hardcoverBox');
+  const hardcoverRow = document.getElementById('hardcoverRow');
+  const totalAmount = document.getElementById('totalAmount');
+  const btnText = document.getElementById('btnText');
+
+  hardcoverBox.addEventListener('click', () => {
+    hardcoverSelected = !hardcoverSelected;
+    hardcoverBox.classList.toggle('selected', hardcoverSelected);
+    hardcoverRow.classList.toggle('visible', hardcoverSelected);
+    const total = hardcoverSelected ? 178 : 99;
+    totalAmount.textContent = `$${total}`;
+    btnText.textContent = `Complete Gift — $${total}`;
+  });
+
+  function validate() {
+    let valid = true;
+    const fields = [
+      { id: 'buyerName', errId: 'buyerNameError', check: v => v.trim().length > 0 },
+      { id: 'buyerEmail', errId: 'buyerEmailError', check: v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) },
+      { id: 'recipientName', errId: 'recipientNameError', check: v => v.trim().length > 0 },
+    ];
+    fields.forEach(({ id, errId, check }) => {
+      const val = document.getElementById(id).value;
+      const err = document.getElementById(errId);
+      const ok = check(val);
+      err.style.display = ok ? 'none' : 'block';
+      document.getElementById(id).style.borderColor = ok ? '' : '#C0392B';
+      if (!ok) valid = false;
+    });
+    return valid;
+  }
+
+  document.getElementById('payBtn').addEventListener('click', async () => {
+    if (!validate()) return;
+
+    const btn = document.getElementById('payBtn');
+    const spinner = document.getElementById('spinner');
+    const errorBanner = document.getElementById('errorBanner');
+
+    btn.disabled = true;
+    btnText.textContent = 'Redirecting to payment...';
+    spinner.style.display = 'block';
+    errorBanner.style.display = 'none';
+
+    try {
+      const res = await fetch('/api/create-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          buyerName: document.getElementById('buyerName').value.trim(),
+          buyerEmail: document.getElementById('buyerEmail').value.trim(),
+          recipientName: document.getElementById('recipientName').value.trim(),
+          hardcover: hardcoverSelected,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error(data.error || 'Something went wrong');
+      }
+    } catch (err) {
+      errorBanner.textContent = 'Something went wrong — please try again or email us at grace@mystory.family';
+      errorBanner.style.display = 'block';
+      btn.disabled = false;
+      btnText.textContent = `Complete Gift — ${hardcoverSelected ? '$178' : '$99'}`;
+      spinner.style.display = 'none';
+    }
+  });
+
+  // Clear field errors on input
+  ['buyerName', 'buyerEmail', 'recipientName'].forEach(id => {
+    document.getElementById(id).addEventListener('input', () => {
+      document.getElementById(id).style.borderColor = '';
+    });
+  });
+</script>
+</body>
+</html>
