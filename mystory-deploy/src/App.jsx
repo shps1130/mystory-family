@@ -2343,6 +2343,14 @@ export default function MyStoryFamily() {
         res = await fetch("/api/claude", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 1000, system: fullSystem, messages: next.map(m => ({ role: m.role, content: m.content })) }) });
         attempts++;
       } while (res.status === 529 && attempts < 3);
+
+      // If still overloaded after retries, show warm resting message
+      if (res.status === 529) {
+        setMessages([...next, { role: "assistant", content: "Grace is taking a short rest right now — this happens occasionally when many people are sharing their stories at the same time.\n\nYour story is completely safe. Please try again in a few minutes and she'll be right here waiting for you. ✦" }]);
+        setLoading(false);
+        return;
+      }
+
       const data = await res.json();
       const rawText = data.content?.[0]?.text || "I'm here with you. Tell me more.";
       const hasRecap = rawText.includes("<SECTION_RECAP>");
@@ -2431,7 +2439,7 @@ export default function MyStoryFamily() {
       announce("New response received.");
     } catch (err) {
       console.error("Grace API error:", err);
-      setMessages([...next, { role: "assistant", content: "I'm here — let's keep going. Something didn't connect just now. Try sending your answer again." }]);
+      setMessages([...next, { role: "assistant", content: "Grace is taking a short rest right now — this happens occasionally.\n\nYour story is completely safe. Please try again in a few minutes and she'll be right here waiting for you. ✦" }]);
     }
     setLoading(false);
   };
