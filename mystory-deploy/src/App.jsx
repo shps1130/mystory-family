@@ -2336,7 +2336,13 @@ export default function MyStoryFamily() {
     setLoading(true);
     try {
       const fullSystem = systemPrompt + chapterContext + angleNudge;
-      const res = await fetch("/api/claude", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 1000, system: fullSystem, messages: next.map(m => ({ role: m.role, content: m.content })) }) });
+      // Retry up to 2 times on 529 (API overloaded)
+      let res, attempts = 0;
+      do {
+        if (attempts > 0) await new Promise(r => setTimeout(r, 1500));
+        res = await fetch("/api/claude", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 1000, system: fullSystem, messages: next.map(m => ({ role: m.role, content: m.content })) }) });
+        attempts++;
+      } while (res.status === 529 && attempts < 3);
       const data = await res.json();
       const rawText = data.content?.[0]?.text || "I'm here with you. Tell me more.";
       const hasRecap = rawText.includes("<SECTION_RECAP>");
