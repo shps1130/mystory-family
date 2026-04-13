@@ -2311,11 +2311,14 @@ export default function MyStoryFamily() {
       const tutorialMsg = {
         role: "assistant",
         content: "Nice to meet you, " + firstName + "! I'm so glad you're here.\n\n" +
-          "Here's all you need to know:\n\n" +
-          "💬 *I'll guide you through 7 steps* — one at a time, no rush. The first few are easy. Step 4 is where your stories live — I'll slow way down there and give you all the time you need.\n\n" +
-          "✦ *Click Send when you're done* — that gold button in the corner sends your answer to me.\n\n" +
-          "⏸️ *Done for the day?* — click 'I'm done for now' anytime. Your story will be right here waiting.\n\n" +
-          "Let's start with something easy.\n\n" +
+          "We're going to build your Early Life story together in 7 steps. The first three are quick — just a few sentences each. They set the scene: where you were, who was there, what life felt like. We need those so that when we get to Step 4 — your real stories — I can write them in a way that puts your grandchildren right there with you.\n\n" +
+          "Step 4 is where you'll slow down and really tell it.\n\n" +
+          "✦ *When you're ready to send an answer, click the gold Send button* — it looks like this:\n\n" +
+          "[SEND_BUTTON_PREVIEW]\n\n" +
+          "⏸️ *Done for the day?* — click the button below that looks like this:\n\n" +
+          "[DONE_BUTTON_PREVIEW]\n\n" +
+          "Your story will be right here waiting whenever you come back.\n\n" +
+          "Ready? Let's start easy.\n\n" +
           "*Where were you born?*"
       };
       setTimeout(() => {
@@ -2773,9 +2776,24 @@ export default function MyStoryFamily() {
   const personaAvatar = persona?.avatar || "🌿";
   const personaAvatarBg = persona?.avatarBg || "linear-gradient(135deg,#5c3d1e,#8b5e34)";
 
-  const renderText = (text) => text.split("\n").map((line, i, arr) => (
-    <span key={i}>{line.startsWith("*") && line.endsWith("*") ? <em style={{ fontStyle: "italic", color: tc("#7a5c3a", "#4a2e0a"), opacity: 0.95 }}>{line.slice(1, -1)}</em> : line}{i < arr.length - 1 && <br />}</span>
-  ));
+  const renderText = (text) => text.split("\n").map((line, i, arr) => {
+    // Render send button preview
+    if (line.trim() === "[SEND_BUTTON_PREVIEW]") return (
+      <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 7, background: "linear-gradient(135deg,#b8860b,#d4a843)", color: "#fdf6ec", padding: "8px 18px", borderRadius: 100, fontFamily: "'Lato',sans-serif", fontSize: 14, fontWeight: 700, pointerEvents: "none", userSelect: "none", margin: "4px 0", boxShadow: "0 3px 12px rgba(184,134,11,0.35)" }}>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M22 2L11 13" stroke="#fdf6ec" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="#fdf6ec" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        Send
+      </span>
+    );
+    // Render done button preview
+    if (line.trim() === "[DONE_BUTTON_PREVIEW]") return (
+      <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "none", border: "1px solid rgba(180,140,80,0.4)", color: tc("#7a5030","#3d2b1a"), padding: "7px 16px", borderRadius: 100, fontFamily: "'Lato',sans-serif", fontSize: 13, pointerEvents: "none", userSelect: "none", margin: "4px 0" }}>
+        ⏸ I'm done for now
+      </span>
+    );
+    return (
+      <span key={i}>{line.startsWith("*") && line.endsWith("*") ? <em style={{ fontStyle: "italic", color: tc("#7a5c3a", "#4a2e0a"), opacity: 0.95 }}>{line.slice(1, -1)}</em> : line}{i < arr.length - 1 && <br />}</span>
+    );
+  });
 
   const bg = highContrast ? "#fff" : "linear-gradient(160deg,#fdf6ec 0%,#f5ede0 45%,#ede4d5 100%)";
   const headerBg = highContrast ? "#fff" : "rgba(253,246,236,0.97)";
@@ -4410,7 +4428,7 @@ export default function MyStoryFamily() {
                   <label htmlFor="story-input" style={{ position: "absolute", left: -9999, width: 1 }}>Your story response</label>
                   <textarea id="story-input" ref={textareaRef} value={input}
                     onChange={e => { setInput(e.target.value); if (e.target.value) setAnglesUsed(true); }}
-                    onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); } }}
+                    onKeyDown={e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); sendMessage(); } }}
                     placeholder="Share your story here — press the Send button ✦ when you're done..."
                     aria-label="Type your story here. Click the Send button when ready."
                     rows={2}
@@ -4440,7 +4458,7 @@ export default function MyStoryFamily() {
                       ? "🔴 Listening — speak now, then click Send"
                       : isIOS
                         ? "💡 Tap the 🎤 on your keyboard to speak your answer"
-                        : "Click ✦ Send when you're done — Enter starts a new line"
+                        : "Enter starts a new paragraph — click ✦ Send when you're done"
                     }
                   </span>
                   <button onClick={() => { setMessages(prev => [...prev, { role: "assistant", content: "Your story is saved. ✦\n\nEverything you've shared is safe — come back anytime and I'll be right here waiting for you." }]); }}
