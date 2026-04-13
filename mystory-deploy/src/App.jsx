@@ -265,12 +265,24 @@ Your users are primarily seniors in their 60s, 70s, and 80s. Many have never use
 - The goal is NOT to extract information. The goal is to make them feel their story matters.
 
 KEEPING THE CONVERSATION FRESH:
-After 3-4 exchanges on the same thread, briefly acknowledge what you've captured and move naturally to the next angle. Say something like "I've got all of that — beautiful detail. Now let me ask you about..." This keeps the conversation moving and prevents the page from becoming a long scroll. Never just keep asking the same type of question in a row.
+After 3-4 exchanges on the same thread, briefly acknowledge what you've captured and move naturally forward. Say something like "I've got that — beautiful. Let me ask you about..." Never ask the same type of question repeatedly.
 
-OFFERING A PREVIEW:
-After 3-4 substantive exchanges on a topic, you may naturally offer to show them what's been written so far. When you do, end your message with the exact tag: <PEEK_OFFER>
-Example: "You've shared some wonderful memories about your home. Would you like to see what we have written so far? <PEEK_OFFER>"
-Only offer this ONCE per topic. Do not offer it again on the same topic. Do not include it with TOPIC_COMPLETE.
+THE 7-STEP FRAMEWORK — THIS IS HOW YOU WORK:
+Every section follows 7 steps. You know which step you're on from the context below. Your behavior changes by step:
+
+Steps 1, 2, 3, 7 — LIGHTER STEPS: Short to medium answers are perfect. Affirm warmly and move forward efficiently.
+
+Step 4 — YOUR STORIES (⭐ KEY MOMENT): SLOW DOWN COMPLETELY. Get full scenes, not summaries. If they give a short answer, ask for more. Collect multiple stories — when one is complete, ask "Is there another?" Keep going until they feel done.
+
+Steps 5, 6 — DEPTH STEPS: Encourage reflection. Medium-length answers welcome.
+
+SECTION OPENING — SAY THIS AT THE START OF EVERY NEW SECTION:
+"We're going to build your [section name] story together — just the two of us, one piece at a time. There are 7 steps and none of them are hard. Steps 1 through 3 just set the stage — a sentence or two is perfect. Step 4 is where your stories live, and I'll let you know when we get there. Ready? Let's start somewhere easy."
+
+OFFERING A PREVIEW (Step 4 only):
+After Step 4 feels complete — when they've shared at least one full story — offer to show them what you're writing. End your message with <PEEK_OFFER>.
+Say: "You've shared some beautiful stories. Would you like to see what I'm putting together so far?"
+Only offer this ONCE in Step 4. Do not offer during other steps. Do not include it with TOPIC_COMPLETE.
 You are always mentally drafting the memoir paragraph you will write. A vivid memoir paragraph needs: a specific place, at least one sensory detail (smell, sound, texture, feeling), at least one person, and one moment or emotion. After each answer, silently ask yourself: what's missing from the paragraph I'm building? Let that guide your next question — naturally, never mechanically.
 - If you have a place but no sensory detail → ask "What do you remember most about being there?"
 - If you have facts but no feeling → ask "What was that like for you?"
@@ -2044,7 +2056,7 @@ export default function MyStoryFamily() {
       const allChapters = customChapter ? [...selected, customChapter] : selected;
       setChapters(allChapters);
       setAnglesUsed(false);
-      setChapterContext(buildChapterContext(allChapters[0]));
+      setChapterContext(buildChapterContext(allChapters[0], 0));
       if (chosenPersona) setSystemPrompt(buildSystemPrompt(chosenPersona, profile));
       const nameMsg = { role: "assistant", content: "Before we begin — what's your name?\n\nJust type it below. When you're done, click the gold *Send* button in the bottom right of the text box — it looks like this: [ → Send ]" };
       setMessages([nameMsg]);
@@ -2062,214 +2074,112 @@ export default function MyStoryFamily() {
 
   // ── CHAT LOGIC ────────────────────────────────────────────────────────────
   // ── CHAPTER TOPIC FRAMEWORKS ────────────────────────────────────────────────
-  const CHAPTER_FRAMEWORKS = {
-    "early-life": [
-      { id: "where-grew-up", title: "Where You Grew Up", icon: "📍", details: [], complete: false },
-      { id: "your-home", title: "Your Home", icon: "🏠", details: [], complete: false },
-      { id: "your-family", title: "Your Family", icon: "👨‍👩‍👧", details: [], complete: false },
-      { id: "school-friends", title: "School & Friends", icon: "🏫", details: [], complete: false },
-      { id: "early-memories", title: "Early Memories", icon: "⭐", details: [], complete: false },
-      { id: "quick-round", title: "The Little Details", icon: "✨", details: [], complete: false, isQuickRound: true,
-        questions: [
-          "Did you have a nickname as a child? What was it and where did it come from?",
-          "What did you call your grandparents? (Grandma, Nana, Papaw, etc.)",
-          "Did you have a childhood pet? What was its name?",
-          "What was your favorite food growing up?",
-          "What did you want to be when you grew up?",
-          "Was there a saying or phrase your family always used?",
-          "Do you remember your first words, or funny things you said as a little one?",
-          "What was your favorite toy or game as a child?",
-          "What was the walk or ride to school like?",
-          "Was there a smell or sound from childhood that still takes you back?",
-        ]
-      },
-    ],
-    "becoming-you": [
-      { id: "leaving-home", title: "Leaving Home", icon: "🚪", details: [], complete: false },
-      { id: "first-steps", title: "First Steps Out", icon: "👣", details: [], complete: false },
-      { id: "work-career", title: "Work & Career", icon: "💼", details: [], complete: false },
-      { id: "defining-moments", title: "Defining Moments", icon: "⚡", details: [], complete: false },
-      { id: "who-you-became", title: "Who You Became", icon: "🌿", details: [], complete: false },
-      { id: "quick-round", title: "The Little Details", icon: "✨", details: [], complete: false, isQuickRound: true,
-        questions: [
-          "What was your first car? Do you remember what it cost?",
-          "What was your very first job and what did you earn?",
-          "Who was your closest friend during this time of your life?",
-          "What was the biggest risk you ever took?",
-          "Was there a moment when you felt like you truly became an adult?",
-          "What did you drive, wear, or listen to that takes you back to this time?",
-          "Was there a mentor or teacher who changed the direction of your life?",
-          "What were you most proud of accomplishing before you turned 30?",
-          "What's something you tried that didn't work out — and what did you learn?",
-          "What did a typical Friday night look like for you back then?",
-        ]
-      },
-    ],
-    "family-love": [
-      { id: "meeting-spouse", title: "Meeting Your Spouse", icon: "💛", details: [], complete: false },
-      { id: "early-marriage", title: "Early Marriage", icon: "💍", details: [], complete: false },
-      { id: "your-children", title: "Your Children", icon: "👶", details: [], complete: false },
-      { id: "building-family", title: "Building Your Home", icon: "🏡", details: [], complete: false },
-      { id: "family-traditions", title: "Family Traditions", icon: "🎄", details: [], complete: false },
-      { id: "quick-round", title: "The Little Details", icon: "✨", details: [], complete: false, isQuickRound: true,
-        questions: [
-          "Where did you go on your first date?",
-          "What did you call your in-laws?",
-          "What song do you think of as yours and your spouse's?",
-          "What was the proposal like — or how did you know this was the one?",
-          "Where did you get married and how many people were there?",
-          "What was the hardest year of your marriage — and what got you through it?",
-          "What's a phrase or inside joke only your family would understand?",
-          "What did you call each of your children when they were little — any nicknames?",
-          "What's a holiday or tradition your family had that nobody else did?",
-          "What's the funniest thing one of your children ever said or did?",
-        ]
-      },
-    ],
-    "faith": [
-      { id: "faith-roots", title: "Your Faith Roots", icon: "🌱", details: [], complete: false },
-      { id: "faith-journey", title: "Your Faith Journey", icon: "✝️", details: [], complete: false },
-      { id: "faith-community", title: "Your Church & Community", icon: "🕊️", details: [], complete: false },
-      { id: "faith-tested", title: "When Faith Was Tested", icon: "🙏", details: [], complete: false },
-      { id: "faith-legacy", title: "Faith You Want to Pass On", icon: "📖", details: [], complete: false },
-      { id: "quick-round", title: "The Little Details", icon: "✨", details: [], complete: false, isQuickRound: true,
-        questions: [
-          "What church did you grow up in — do you remember what it looked like inside?",
-          "Is there a hymn or worship song that moves you every time you hear it?",
-          "Is there a Bible verse or scripture that has carried you through hard times?",
-          "Who first taught you to pray — and how did they do it?",
-          "Was there a moment you felt God's presence in an unmistakable way?",
-          "Did you ever doubt your faith — and what brought you back?",
-          "What does your prayer life look like today?",
-          "Is there a pastor, priest, or faith leader who shaped who you are?",
-          "What do you want your grandchildren to know about your relationship with God?",
-          "If you could leave one spiritual truth for your family, what would it be?",
-        ]
-      },
-    ],
-    "wisdom": [
-      { id: "life-lessons", title: "Life's Lessons", icon: "💡", details: [], complete: false },
-      { id: "hard-times", title: "Getting Through Hard Times", icon: "⛰️", details: [], complete: false },
-      { id: "what-matters", title: "What Matters Most", icon: "❤️", details: [], complete: false },
-      { id: "to-grandchildren", title: "To Your Grandchildren", icon: "🌟", details: [], complete: false },
-      { id: "your-legacy", title: "Your Legacy", icon: "🕊️", details: [], complete: false },
-      { id: "quick-round", title: "The Little Details", icon: "✨", details: [], complete: false, isQuickRound: true,
-        questions: [
-          "What's the best advice anyone ever gave you?",
-          "What advice do you wish someone had given you when you were young?",
-          "What's something you believed at 25 that you know now isn't true?",
-          "What's the most important decision you ever made?",
-          "What do you know now that you wish you had known at 30?",
-          "What's something small that brings you genuine joy every day?",
-          "If you could have dinner with anyone from history, who would it be and why?",
-          "What do you want people to say about you at your funeral?",
-          "What's the one thing you hope your grandchildren never forget about you?",
-          "If you could go back and do one thing differently, what would it be?",
-        ]
-      },
-    ],
+  // ── 7-STEP STORY FRAMEWORK ────────────────────────────────────────────────
+  const STORY_STEPS = [
+    { id: "set-the-scene", number: 1, title: "Set the Scene", icon: "🌍", opening: "Before we get to the stories — and there are good ones coming — let's paint the picture first. Just a sentence or two is perfect here.", coachingNote: "Short answers are great here. We're just setting the stage.", isKeyMoment: false, details: [], stories: [], complete: false },
+    { id: "the-people", number: 2, title: "The People", icon: "👥", opening: "Now let's bring in the people. Every great story has characters. Who were the ones that filled your world during this time?", coachingNote: "Names and personalities — the more specific the better.", isKeyMoment: false, details: [], stories: [], complete: false },
+    { id: "everyday-life", number: 3, title: "Everyday Life", icon: "☀️", opening: "One more piece of the picture before we get to the good stuff — what did ordinary life actually feel like? What was a normal day like for you?", coachingNote: "A few sentences is plenty. Just capturing what normal looked like.", isKeyMoment: false, details: [], stories: [], complete: false },
+    { id: "your-stories", number: 4, title: "Your Stories", icon: "⭐", opening: "Okay. Now we get to the good part — this is what all of that was building toward. Tell me a story. The funny ones, the hard ones, the ones you've told a hundred times. We have room for all of them.", coachingNote: "This is the important one. Take your time. Tell it like you're telling it to someone you love.", isKeyMoment: true, details: [], stories: [], complete: false },
+    { id: "what-it-felt-like", number: 5, title: "What It Felt Like", icon: "💛", opening: "Now I want to understand what it all felt like on the inside. Not just what happened — but what it meant to you at the time.", coachingNote: "There's no wrong answer here. Just honest feelings.", isKeyMoment: false, details: [], stories: [], complete: false },
+    { id: "what-i-know-now", number: 6, title: "What I Know Now", icon: "🌿", opening: "Now we bring in the wisdom. Looking back on this time in your life with everything you know today — what do you see differently?", coachingNote: "This is the part your grandchildren will read when they need it most.", isKeyMoment: false, details: [], stories: [], complete: false },
+    { id: "looking-forward", number: 7, title: "Looking Forward", icon: "🔗", opening: "Last question for this chapter — how did this season of your life lead into the next one? What changed because of everything you've just shared?", coachingNote: "Just a sentence or two. This is the bridge to your next chapter.", isKeyMoment: false, details: [], stories: [], complete: false },
+  ];
+
+  const STEP_GUIDANCE = {
+    "early-life": {
+      "set-the-scene": "Ask where they grew up — one place or many moves? Specific town, neighborhood, what the street looked and felt like. Sensory details welcome.",
+      "the-people": "Ask about both parents — mother AND father — and siblings. One person at a time. Names, personalities, physical description. If someone was absent or difficult, hold that with care.",
+      "everyday-life": "Ask what a typical day looked like as a child — morning, school, after school, dinner, bedtime. What was always the same? What did they enjoy or dread?",
+      "your-stories": "Ask for a specific memory — funny, hard, surprising, or tender. When they finish one story ask: 'Is there another memory from this time that deserves to be in your book? Maybe something that felt very different from that one?' Keep going until they feel done.",
+      "what-it-felt-like": "Ask how childhood felt on the inside — safe? uncertain? full of joy? lonely? What did they worry about? What made them feel most loved?",
+      "what-i-know-now": "Ask what they understand about their childhood now that they couldn't see then. Do they see their parents differently as an adult?",
+      "looking-forward": "Ask how their childhood shaped the person they became. What did they carry into adulthood from this time?",
+    },
+    "becoming-you": {
+      "set-the-scene": "Ask when and how they left home — college, military, marriage, job? Where did they land first? Paint the picture of that first independent chapter.",
+      "the-people": "Ask who the important people were in this season — friends, mentors, colleagues, a first love. Who shaped who they were becoming?",
+      "everyday-life": "Ask what daily life looked like as a young adult — work, money, routines, what they drove, wore, listened to.",
+      "your-stories": "Ask for a defining story — a risk they took, a failure they survived, a moment they'll never forget. Get the full scene. Then ask if there are others.",
+      "what-it-felt-like": "Ask what it felt like to be finding their way — excited? overwhelmed? free? What were they most scared of? Most proud of?",
+      "what-i-know-now": "Ask what they'd tell their younger self. What did they get right? What do they wish they'd known?",
+      "looking-forward": "Ask how this season led into the next — how did who they became shape what came after?",
+    },
+    "family-love": {
+      "set-the-scene": "Ask when and how the family chapter began — meeting their spouse, early marriage, where they settled.",
+      "the-people": "Ask about their spouse — how they met, what drew them together. Then each child — personality, birth order, what made each one unique.",
+      "everyday-life": "Ask what family life looked like day to day — routines, meals, weekends, the rhythms that made their home theirs.",
+      "your-stories": "Ask for stories from family life — funny, tender, hard. The proposal. A child's birth. A hard year. Get each one fully before asking if there's another.",
+      "what-it-felt-like": "Ask what it felt like to build a family — what they'd hoped for, what surprised them, what was harder than expected.",
+      "what-i-know-now": "Ask what they know now about marriage and family that they wish they'd understood earlier.",
+      "looking-forward": "Ask how this family chapter shaped everything that came after — who they are now because of the family they built.",
+    },
+    "faith": {
+      "set-the-scene": "Ask where faith began — the family they were born into, a specific church, a person who first showed them God.",
+      "the-people": "Ask who the important people in their faith life have been — a pastor, a parent, a friend, a mentor.",
+      "everyday-life": "Ask what faith looks like in ordinary life — prayer, scripture, church community, how God shows up in the everyday.",
+      "your-stories": "Ask for a specific faith story — a moment they felt God unmistakably, a season when faith was hard. Get the full story before asking if there's another.",
+      "what-it-felt-like": "Ask what faith has felt like over the years — the seasons of certainty, the seasons of doubt.",
+      "what-i-know-now": "Ask what they know about God and faith now that they didn't understand earlier.",
+      "looking-forward": "Ask what faith they want to pass to the next generation — what do they most want their grandchildren to know?",
+    },
+    "wisdom": {
+      "set-the-scene": "Ask them to look back over the whole arc of their life. What season comes to mind first when they think about wisdom earned?",
+      "the-people": "Ask who the wisest people in their life have been — who taught them the most? Who modeled something they've tried to carry forward?",
+      "everyday-life": "Ask what daily life looks like now — what brings joy, what they've let go of, what a good day looks like.",
+      "your-stories": "Ask for a story about a hard lesson — something that cost them something but taught them everything. Then ask if there's another.",
+      "what-it-felt-like": "Ask what it feels like to be in this season of life — what they've made peace with, what still surprises them about getting older.",
+      "what-i-know-now": "Ask what they'd tell their younger self. What matters more than they thought? Less?",
+      "looking-forward": "Ask what they most hope for — for themselves, for their family. What's the legacy they most want to leave?",
+    },
   };
 
   const initTopicFramework = (chId) => {
-    const framework = CHAPTER_FRAMEWORKS[chId];
-    if (framework) {
-      setTopicFramework(framework.map(t => ({ ...t, details: [], complete: false })));
-      setCurrentTopicIdx(0);
-      setCurrentTopicMessages([]);
-    }
+    setTopicFramework(STORY_STEPS.map(s => ({ ...s, details: [], stories: [], complete: false })));
+    setCurrentTopicIdx(0);
+    setCurrentTopicMessages([]);
   };
 
-  const buildChapterContext = (ch, topicIdx = 0) => {
-    const framework = CHAPTER_FRAMEWORKS[ch.id];
-    if (framework) {
-      const currentTopic = framework[topicIdx];
-      const remainingTopics = framework.slice(topicIdx + 1).filter(t => !t.isQuickRound).map(t => t.title).join(", ");
+  const buildChapterContext = (ch, stepIdx = 0) => {
+    const step = STORY_STEPS[stepIdx];
+    if (!step) return "";
+    const sectionGuidance = STEP_GUIDANCE[ch.id] || STEP_GUIDANCE["early-life"];
+    const stepGuidance = sectionGuidance[step.id] || "";
+    const remaining = STORY_STEPS.slice(stepIdx + 1).map(s => s.title).join(", ");
 
-      // ── QUICK ROUND special instructions ──────────────────────────────────
-      if (currentTopic?.isQuickRound) {
-        const qList = (currentTopic.questions || []).map(q => "- " + q).join("\n");
-        return "\n\nCURRENT SECTION: \"" + ch.title + "\"\n\n" +
-          "YOU ARE NOW IN THE QUICK ROUND — The final fill-in stage before writing.\n\n" +
-          "IMPORTANT: Review everything shared so far in this conversation. Do NOT ask about anything already mentioned.\n\n" +
-          "Your job: Ask 2-3 short-answer questions at a time from this list (skip any already covered):\n" +
-          qList + "\n\n" +
-          "HOW TO DO IT:\n" +
-          "1. Open warmly: \"I have everything I need to start writing your story — it's going to be beautiful. Before I do, just a few quick things that will really bring it to life. There are no wrong answers, just say whatever comes to mind.\"\n" +
-          "2. Ask 2-3 questions in one message\n" +
-          "3. After they answer, capture each detail with <DETAIL>detail here</DETAIL>\n" +
-          "4. Ask 2-3 more from the remaining list\n" +
-          "5. After 2-3 rounds, wrap up warmly and include <TOPIC_COMPLETE> to signal you're ready to write\n\n" +
-          "KEEP IT LIGHT AND FUN — this should feel like a friendly rapid-fire game, not a form.";
-      }
-
-      // ── Regular topic instructions ─────────────────────────────────────────
-      const topicOpenings = {
-        // Early Life
-        "where-grew-up": 'Start by asking: "Before we dive in — did you grow up mostly in one place, or did your family move around?" Then go deep on their answer — specific town, neighborhood, what it was known for.',
-        "your-home": "Ask about the physical house — what it looked like, which room they loved most, what it smelled like, what they could hear at night. Go for sensory detail.",
-        "your-family": "Ask who was in the household — parents, siblings, grandparents, anyone who lived nearby. Make sure you ask about BOTH parents — mother AND father. Then go deep on one person at a time. Names, personalities, what they looked like, a specific memory with each. If a parent was absent, ill, or difficult, hold that with warmth and ask if they'd like to include it.",
-        "school-friends": "Ask about school — what it was like, their favorite teacher, their best friend. Then go deeper — what did they do after school? What were they known for among their peers?",
-        "early-memories": "Ask for their very earliest memory. Then ask for a happy one, then a hard one. Take each one slowly and get the full scene.",
-        // Becoming You
-        "leaving-home": "Ask how and when they left home — college, military, job, marriage? Was it their choice? Were they scared? What did they take with them?",
-        "first-steps": "Ask about their first taste of independence — first apartment, first time cooking for themselves, first time truly on their own. What surprised them?",
-        "work-career": "Ask about their first real job and work forward. What did they do, who did they work with, what were they proud of? Let them tell the arc of their working life.",
-        "defining-moments": "Ask: 'Was there a moment — a decision, a turning point, something that happened — that changed the direction of your life?' Go deep on whatever they name.",
-        "who-you-became": "Ask: 'Looking back on this season of your life — who were you becoming? What mattered to you? What were you learning about yourself?' Reflective and warm.",
-        // Family & Love
-        "meeting-spouse": "Ask how they met their spouse — every detail. Where, when, who else was there, what they were wearing, what they thought when they first saw them. This is a love story.",
-        "early-marriage": "Ask about the early years of marriage — where they lived, what money was like, what they argued about, what they loved about those years. The real texture of newlywed life.",
-        "your-children": "Ask about each child — their birth, their personality, a specific memory with each one. What made each one unique? What are they most proud of in each child?",
-        "building-family": "Ask about the home they built together — literally and figuratively. The house, the neighborhood, the routines, the rhythms of family life.",
-        "family-traditions": "Ask: 'What did your family do that was uniquely yours?' Christmas morning, Sunday dinner, summer vacation — get the specific details that made their family their family.",
-        // Faith
-        "faith-roots": "Ask where faith began — was it the family they were born into, or something they found themselves? What church, what denomination, what did it look, smell, feel like?",
-        "faith-journey": "Ask how their faith has changed over the decades. What deepened it? What challenged it? Where are they now compared to where they started?",
-        "faith-community": "Ask about their church community — specific people, specific moments. Who has walked alongside them in faith? What has that community meant to them?",
-        "faith-tested": "Ask gently: 'Was there a time when faith was hard — when you struggled to believe, or felt God was far away?' Hold whatever they share with care.",
-        "faith-legacy": "Ask: 'What do you want your grandchildren to know about your faith? If you could pass one spiritual truth to the next generation, what would it be?'",
-        // Wisdom
-        "life-lessons": "Ask: 'What has life taught you that you couldn't have learned any other way?' Let them range freely. Celebrate every insight.",
-        "hard-times": "Ask: 'What was the hardest season of your life — and how did you get through it?' Go slowly. This is often where the most meaningful material lives.",
-        "what-matters": "Ask: 'When you look back at everything — the work, the relationships, the choices — what actually mattered? What would you spend more time on?'",
-        "to-grandchildren": "Ask: 'If you could sit with your grandchildren and tell them anything — what you know, what you wish for them — what would you say?' Let them speak directly to the people they love.",
-        "your-legacy": "Ask: 'How do you want to be remembered? Not what you accomplished — but who you were. What do you hope people feel when they think of you?'",
-      };
-
-      const topicInstruction = topicOpenings[currentTopic?.id] || "Dive into this topic with warmth and curiosity. Ask 3-5 questions that go progressively deeper.";
-      const closingQuestion = currentTopic?.title?.toLowerCase() || "this";
+    if (step.isKeyMoment) {
       return "\n\nCURRENT SECTION: \"" + ch.title + "\"\n" +
-        "TOPIC FRAMEWORK — work through these topics in order. You are currently on topic " + (topicIdx + 1) + " of " + framework.length + ".\n\n" +
-        "CURRENT TOPIC: \"" + (currentTopic?.title || "") + "\"\n" +
-        topicInstruction + "\n\n" +
-        "REMAINING TOPICS AFTER THIS ONE: " + (remainingTopics || "The Little Details (quick round)") + "\n\n" +
-        "YOUR JOB FOR EACH TOPIC:\n" +
-        "1. Ask 3-5 warm questions that go progressively deeper\n" +
-        "2. After each substantive answer, capture key details with: <DETAIL>brief specific detail</DETAIL> (keep details short — names, places, descriptions). Only tag NEW information — never repeat a detail you have already tagged in this conversation.\n" +
-        "3. Dig for the meaningful stuff — nicknames, funny phrases, what they called the house, family sayings, sensory memories\n" +
-        "4. When the topic feels complete, ask: \"Is there anything else about " + closingQuestion + " you'd like me to capture before we move on?\"\n" +
-        "5. Then say a warm transition sentence and include <TOPIC_COMPLETE> at the very end\n\n" +
-        "TRANSITION EXAMPLE:\n" +
-        "\"I've got everything about your home beautifully captured. Now let's talk about your family. Who were the people that filled that house with life? <TOPIC_COMPLETE>\"\n\n" +
-        "DETAIL EXAMPLES:\n" +
-        "<DETAIL>Kansas City, Missouri</DETAIL>\n" +
-        "<DETAIL>Raytown neighborhood</DETAIL>\n" +
-        "<DETAIL>Called the house the green house on the corner</DETAIL>\n" +
-        "<DETAIL>Mom's nickname was Mama Jo</DETAIL>";
+        "CURRENT STEP: Step 4 of 7 — YOUR STORIES (⭐ This is the most important step)\n\n" +
+        "THIS IS THE KEY MOMENT STEP. Slow down completely. This is where the book comes alive.\n\n" +
+        "YOUR OPENING LINE:\n\"" + step.opening + "\"\n\n" +
+        "WHAT TO DO:\n" +
+        "1. Ask for one specific story — not a summary, a real scene\n" +
+        "2. Go deep: who was there, what happened, what was said, what they felt\n" +
+        "3. If their answer is short, do NOT move on. Ask: 'Tell me more — where were you when it happened?'\n" +
+        "4. When a story feels complete, capture a headline: <DETAIL>Story: [one-line title]</DETAIL>\n" +
+        "5. Then ask: 'Is there another story from this time that belongs in your book? Maybe something very different?'\n" +
+        "6. Keep collecting stories until they feel done — there is no limit\n" +
+        "7. If a story belongs in ANOTHER section, say: 'That story belongs beautifully in your [Section] chapter — I've made a note.' Then: <DETAIL>Save for [section]: [brief note]</DETAIL> and redirect\n" +
+        "8. When done, offer a peek: 'You've shared some beautiful stories. Would you like to see what I'm putting together?' <PEEK_OFFER>\n\n" +
+        "SECTION GUIDANCE:\n" + stepGuidance + "\n\n" +
+        "SHORT ANSWER COACHING: 'That's a great start — tell me more. Where were you when this happened?'\n" +
+        "STUCK COACHING: 'Imagine telling this to your grandchild. Start with where you were standing.'\n\n" +
+        "REMAINING STEPS: " + remaining;
     }
 
-    // Fallback for chapters without a framework
-    const sectionScope = {
-      "becoming-you": "This section is ONLY about early adulthood — school, first jobs, the turning points and choices that shaped who they became.",
-      "family-love": "This section is ONLY about love, marriage, and children — how they met their spouse, building a family, their home life.",
-      "faith": "This section is ONLY about spiritual life — church, prayer, scripture, the moments they felt God closest.",
-      "wisdom": "This section is about life's lessons and legacy — what they've learned, what they'd tell their younger self.",
-    };
+    const lengthGuidance = stepIdx <= 2 || stepIdx === 6
+      ? "SHORT ANSWERS ARE PERFECT — a few sentences is all we need. Affirm warmly and move forward."
+      : "ENCOURAGE DEPTH — this is where feelings and meaning live. Ask follow-up questions.";
+
     return "\n\nCURRENT SECTION: \"" + ch.title + "\"\n" +
-      "SCOPE: " + (sectionScope[ch.id] || "") + "\n" +
-      "Story territory to cover:\n" +
-      ch.prompts.map((p, i) => (i + 1) + ". " + getQuestion(p)).join("\n") + "\n" +
-      "Start with topic 1. Only introduce topic 2 when topic 1 feels fully explored.";
+      "CURRENT STEP: Step " + (stepIdx + 1) + " of 7 — " + step.title.toUpperCase() + "\n\n" +
+      "YOUR OPENING LINE:\n\"" + step.opening + "\"\n\n" +
+      "COACHING NOTE: \"" + step.coachingNote + "\"\n\n" +
+      "SECTION GUIDANCE:\n" + stepGuidance + "\n\n" +
+      lengthGuidance + "\n\n" +
+      "WHEN STEP IS COMPLETE: Say a warm transition and include <TOPIC_COMPLETE> at the very end.\n" +
+      "Example: 'I've got a beautiful picture of that. " + (STORY_STEPS[stepIdx + 1] ? STORY_STEPS[stepIdx + 1].opening : "We're nearly done.") + " <TOPIC_COMPLETE>'\n\n" +
+      "CAPTURE KEY DETAILS: <DETAIL>brief detail</DETAIL> after each substantive answer. Never repeat a detail already tagged.\n\n" +
+      "REMAINING STEPS: " + (remaining || "This is the final step.");
   };
 
   const generateCustomPrompts = async (title) => {
@@ -2292,7 +2202,7 @@ export default function MyStoryFamily() {
     const allChapters = customChapter ? [...selected, customChapter] : selected;
     setChapters(allChapters);
     setAnglesUsed(false);
-    setChapterContext(buildChapterContext(allChapters[0]));
+    setChapterContext(buildChapterContext(allChapters[0], 0));
     const profile = {
       audience: onboardAnswers.audience,
       faithScale: onboardAnswers.faith || 1,
@@ -2402,10 +2312,10 @@ export default function MyStoryFamily() {
         role: "assistant",
         content: "Nice to meet you, " + firstName + "! I'm so glad you're here.\n\n" +
           "Here's all you need to know:\n\n" +
-          "💬 *I'll ask the questions* — one at a time, no rush. Just answer in your own words.\n\n" +
+          "💬 *I'll guide you through 7 steps* — one at a time, no rush. The first few are easy. Step 4 is where your stories live — I'll slow way down there and give you all the time you need.\n\n" +
           "✦ *Click Send when you're done* — that gold button in the corner sends your answer to me.\n\n" +
           "⏸️ *Done for the day?* — click 'I'm done for now' anytime. Your story will be right here waiting.\n\n" +
-          "That's it! Let's start with something easy.\n\n" +
+          "Let's start with something easy.\n\n" +
           "*Where were you born?*"
       };
       setTimeout(() => {
@@ -2501,14 +2411,11 @@ export default function MyStoryFamily() {
       // Trigger A/B preview — automatically after 4 user messages on a topic,
       // OR if Grace explicitly offered one. Only trigger once per 4-message cycle.
       if (!pendingPreview && !showingPreview && !hasTopicComplete) {
-        const userMsgCount = next.filter(m => m.role === "user").length;
+        const currentTopic = topicFramework[currentTopicIdx];
         const topicUserCount = currentTopicMessages.filter(m => m.role === "user").length + 1;
-        const shouldAutoTrigger = topicUserCount > 0 && topicUserCount % 4 === 0;
-        if (hasPeekOffer || shouldAutoTrigger) {
-          const currentTopic = topicFramework[currentTopicIdx];
-          if (currentTopic && !currentTopic.isQuickRound) {
-            setTimeout(() => generatePreview(currentTopic.id, currentTopic.title), 400);
-          }
+        const shouldAutoTrigger = currentTopic?.isKeyMoment && topicUserCount > 0 && topicUserCount % 4 === 0;
+        if ((hasPeekOffer || shouldAutoTrigger) && currentTopic) {
+          setTimeout(() => generatePreview(currentTopic.id, currentTopic.title), 400);
         }
       }
 
@@ -4282,35 +4189,37 @@ export default function MyStoryFamily() {
                 )}
               </div>
 
-              {/* Mobile sidebar — drops down inline */}
+              {/* Mobile sidebar — 7 steps */}
               {isMobile && showSidebar && (
                 <div style={{ background: "white", border: "1px solid rgba(180,140,80,0.2)", borderRadius: 12, padding: "14px", marginBottom: 14, animation: "slideDown 0.25s ease forwards" }}>
                   <div style={{ fontSize: 10, letterSpacing: "2px", textTransform: "uppercase", color: "#b8860b", fontFamily: "'Lato',sans-serif", marginBottom: 10 }}>📖 {chapter.title}</div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    {topicFramework.map((topic, i) => {
-                      const isCurrent = i === currentTopicIdx && !topic.complete;
-                      const isDone = topic.complete;
-                      const isQR = topic.isQuickRound;
+                    {topicFramework.map((step, i) => {
+                      const isCurrent = i === currentTopicIdx && !step.complete;
+                      const isDone = step.complete;
+                      const isKey = step.isKeyMoment;
                       return (
-                        <div key={topic.id}>
-                          {isQR && <div style={{ borderTop: "1px dashed rgba(184,134,11,0.25)", marginBottom: 8, marginTop: 2 }} />}
+                        <div key={step.id}>
+                          {isKey && <div style={{ borderTop: "1px dashed rgba(184,134,11,0.25)", marginBottom: 8, marginTop: 2 }} />}
                           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <div style={{ width: 18, height: 18, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: isDone ? "#5c3d1e" : isCurrent ? (isQR ? "linear-gradient(135deg,#6b4c8a,#9b7bc0)" : "linear-gradient(135deg,#b8860b,#d4a843)") : "rgba(180,140,80,0.12)", border: !isDone && !isCurrent ? "1.5px solid rgba(180,140,80,0.25)" : "none" }}>
-                              {isDone ? <svg width="9" height="9" viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5L20 7" stroke="#fdf6ec" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/></svg> : <span style={{ fontSize: 8 }}>{topic.icon}</span>}
+                            <div style={{ width: 18, height: 18, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: isDone ? "#5c3d1e" : isCurrent ? "linear-gradient(135deg,#b8860b,#d4a843)" : "rgba(180,140,80,0.12)", border: !isDone && !isCurrent ? "1.5px solid rgba(180,140,80,0.25)" : "none", boxShadow: isCurrent && isKey ? "0 0 0 2px rgba(184,134,11,0.25)" : "none" }}>
+                              {isDone ? <svg width="9" height="9" viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5L20 7" stroke="#fdf6ec" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/></svg> : <span style={{ fontSize: 8 }}>{isKey ? "⭐" : step.icon}</span>}
                             </div>
-                            <span style={{ fontSize: 13, fontFamily: "'Lato',sans-serif", fontWeight: isCurrent ? 700 : 400, color: isCurrent ? "#5c3d1e" : isDone ? "#a89070" : "#8b7355", textDecoration: isDone ? "line-through" : "none", opacity: i > currentTopicIdx && !isDone ? 0.5 : 1 }}>{topic.title}</span>
-                            {isCurrent && <span style={{ fontSize: 8, background: "rgba(184,134,11,0.12)", color: "#b8860b", border: "1px solid rgba(184,134,11,0.3)", borderRadius: 100, padding: "1px 5px", fontFamily: "'Lato',sans-serif", fontWeight: 700 }}>NOW</span>}
+                            <span style={{ fontSize: 13, fontFamily: "'Lato',sans-serif", fontWeight: isCurrent ? 700 : 400, color: isCurrent ? "#5c3d1e" : isDone ? "#a89070" : "#8b7355", textDecoration: isDone ? "line-through" : "none", opacity: i > currentTopicIdx && !isDone ? 0.5 : 1 }}>{step.title}</span>
+                            {isCurrent && <span style={{ fontSize: 8, background: "rgba(184,134,11,0.12)", color: "#b8860b", border: "1px solid rgba(184,134,11,0.3)", borderRadius: 100, padding: "1px 5px", fontFamily: "'Lato',sans-serif", fontWeight: 700 }}>{isKey ? "⭐ NOW" : "NOW"}</span>}
                           </div>
-                          {topic.details.length > 0 && (
-                            <div style={{ marginLeft: 26, marginTop: 3 }}>
-                              {topic.details.map((d, di) => (
-                                <div key={di} style={{ display: "flex", gap: 5, alignItems: "flex-start" }}>
-                                  <span style={{ color: "#b8860b", fontSize: 9, marginTop: 3, flexShrink: 0 }}>·</span>
-                                  <span style={{ fontSize: 11, color: "#6b5540", fontFamily: "'Lato',sans-serif", lineHeight: 1.4 }}>{d}</span>
-                                </div>
-                              ))}
+                          {step.details.filter(d => d.startsWith("Story:")).map((s, si) => (
+                            <div key={si} style={{ display: "flex", gap: 4, alignItems: "flex-start", marginLeft: 26, marginTop: 2 }}>
+                              <span style={{ fontSize: 9, marginTop: 2 }}>📖</span>
+                              <span style={{ fontSize: 11, color: "#5c3d1e", fontFamily: "'Lato',sans-serif", lineHeight: 1.4, fontWeight: 500 }}>{s.replace("Story:", "").trim()}</span>
                             </div>
-                          )}
+                          ))}
+                          {step.details.filter(d => !d.startsWith("Story:") && !d.startsWith("Save for")).map((d, di) => (
+                            <div key={di} style={{ display: "flex", gap: 5, alignItems: "flex-start", marginLeft: 26, marginTop: 2 }}>
+                              <span style={{ color: "#b8860b", fontSize: 9, marginTop: 3, flexShrink: 0 }}>·</span>
+                              <span style={{ fontSize: 11, color: "#6b5540", fontFamily: "'Lato',sans-serif", lineHeight: 1.4 }}>{d}</span>
+                            </div>
+                          ))}
                         </div>
                       );
                     })}
@@ -4622,45 +4531,52 @@ export default function MyStoryFamily() {
                 📖 {chapter.title}
               </div>
 
-              {/* Topic list */}
+              {/* 7-Step Story Framework */}
               {topicFramework.length > 0 ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                  {topicFramework.map((topic, i) => {
-                    const isCurrent = i === currentTopicIdx && !topic.complete;
-                    const isDone = topic.complete;
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {topicFramework.map((step, i) => {
+                    const isCurrent = i === currentTopicIdx && !step.complete;
+                    const isDone = step.complete;
                     const isUpcoming = i > currentTopicIdx;
-                    const isQuickRound = topic.isQuickRound;
+                    const isKey = step.isKeyMoment;
                     return (
-                      <div key={topic.id} style={{ animation: "fadeUp 0.3s ease forwards" }}>
-                        {/* Divider before Quick Round */}
-                        {isQuickRound && (
-                          <div style={{ borderTop: "1px dashed rgba(184,134,11,0.25)", marginBottom: 12, marginTop: 2 }} />
-                        )}
-                        {/* Topic header */}
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: topic.details.length > 0 ? 6 : 0 }}>
-                          <div style={{ width: 22, height: 22, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: isDone ? "#5c3d1e" : isCurrent ? (isQuickRound ? "linear-gradient(135deg,#6b4c8a,#9b7bc0)" : "linear-gradient(135deg,#b8860b,#d4a843)") : "rgba(180,140,80,0.12)", border: isUpcoming ? "1.5px solid rgba(180,140,80,0.25)" : "none", transition: "all 0.3s" }}>
-                            {isDone
-                              ? <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5L20 7" stroke="#fdf6ec" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                              : <span style={{ fontSize: 10 }}>{topic.icon}</span>
-                            }
+                      <div key={step.id} style={{ animation: "fadeUp 0.3s ease forwards" }}>
+                        {isKey && <div style={{ borderTop: "1px dashed rgba(184,134,11,0.3)", marginBottom: 10, marginTop: 4 }} />}
+                        <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                          <div style={{ width: 22, height: 22, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: isDone ? "#5c3d1e" : isCurrent ? "linear-gradient(135deg,#b8860b,#d4a843)" : "rgba(180,140,80,0.12)", border: isUpcoming ? "1.5px solid rgba(180,140,80,0.2)" : "none", boxShadow: isCurrent && isKey ? "0 0 0 3px rgba(184,134,11,0.2)" : "none", transition: "all 0.3s" }}>
+                            {isDone ? <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5L20 7" stroke="#fdf6ec" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                              : <span style={{ fontSize: isKey ? 11 : 9 }}>{isKey ? "⭐" : step.icon}</span>}
                           </div>
-                          <span style={{ fontSize: fs(13), fontFamily: "'Lato',sans-serif", fontWeight: isCurrent ? 700 : isDone ? 400 : 400, color: isCurrent ? (isQuickRound ? "#6b4c8a" : "#5c3d1e") : isDone ? "#a89070" : tc("#8b7355","#6b5030"), textDecoration: isDone ? "line-through" : "none", textDecorationColor: "rgba(139,94,52,0.4)", opacity: isUpcoming ? 0.5 : 1 }}>
-                            {topic.title}
-                          </span>
-                          {isCurrent && <span style={{ fontSize: 9, background: isQuickRound ? "rgba(107,76,138,0.1)" : "rgba(184,134,11,0.12)", color: isQuickRound ? "#6b4c8a" : "#b8860b", border: "1px solid " + (isQuickRound ? "rgba(107,76,138,0.3)" : "rgba(184,134,11,0.3)"), borderRadius: 100, padding: "2px 6px", fontFamily: "'Lato',sans-serif", fontWeight: 700, letterSpacing: "0.5px" }}>NOW</span>}
-                        </div>
-
-                        {/* Detail bullets */}
-                        {topic.details.length > 0 && (
-                          <div style={{ marginLeft: 30, display: "flex", flexDirection: "column", gap: 3 }}>
-                            {topic.details.map((detail, di) => (
-                              <div key={di} style={{ display: "flex", gap: 6, alignItems: "flex-start", animation: "fadeUp 0.3s ease forwards" }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                              <span style={{ fontSize: fs(13), fontFamily: "'Lato',sans-serif", fontWeight: isCurrent ? 700 : 400, color: isCurrent ? "#5c3d1e" : isDone ? "#a89070" : tc("#8b7355","#6b5030"), textDecoration: isDone ? "line-through" : "none", textDecorationColor: "rgba(139,94,52,0.4)", opacity: isUpcoming ? 0.45 : 1 }}>
+                                {step.title}
+                              </span>
+                              {isCurrent && <span style={{ fontSize: 9, borderRadius: 100, padding: "2px 6px", background: "rgba(184,134,11,0.1)", color: "#b8860b", border: "1px solid rgba(184,134,11,0.3)", fontFamily: "'Lato',sans-serif", fontWeight: 700 }}>{isKey ? "⭐ NOW" : "NOW"}</span>}
+                            </div>
+                            {isCurrent && step.coachingNote && (
+                              <p style={{ fontSize: fs(11), color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", fontStyle: "italic", marginTop: 2, lineHeight: 1.4 }}>{step.coachingNote}</p>
+                            )}
+                            {step.details.filter(d => d.startsWith("Story:")).map((s, si) => (
+                              <div key={si} style={{ display: "flex", gap: 6, alignItems: "flex-start", marginTop: 4, background: "rgba(184,134,11,0.06)", borderRadius: 6, padding: "4px 8px" }}>
+                                <span style={{ fontSize: 10, marginTop: 2 }}>📖</span>
+                                <span style={{ fontSize: fs(11), color: tc("#5c3d1e","#3a2510"), fontFamily: "'Lato',sans-serif", lineHeight: 1.4, fontWeight: 500 }}>{s.replace("Story:", "").trim()}</span>
+                              </div>
+                            ))}
+                            {step.details.filter(d => !d.startsWith("Story:") && !d.startsWith("Save for")).map((detail, di) => (
+                              <div key={di} style={{ display: "flex", gap: 6, alignItems: "flex-start", marginTop: 3 }}>
                                 <span style={{ color: "#b8860b", fontSize: 10, marginTop: 4, flexShrink: 0 }}>·</span>
                                 <span style={{ fontSize: fs(12), color: tc("#6b5540","#3a2510"), fontFamily: "'Lato',sans-serif", lineHeight: 1.5 }}>{detail}</span>
                               </div>
                             ))}
+                            {step.details.filter(d => d.startsWith("Save for")).map((note, ni) => (
+                              <div key={ni} style={{ display: "flex", gap: 5, alignItems: "flex-start", marginTop: 3 }}>
+                                <span style={{ fontSize: 10, marginTop: 2 }}>📌</span>
+                                <span style={{ fontSize: fs(11), color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", lineHeight: 1.4, fontStyle: "italic" }}>{note.replace(/^Save for \w+:/, "Saved →").trim()}</span>
+                              </div>
+                            ))}
                           </div>
-                        )}
+                        </div>
                       </div>
                     );
                   })}
