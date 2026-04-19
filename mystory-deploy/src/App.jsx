@@ -2904,9 +2904,10 @@ export default function MyStoryFamily() {
 
   const generatePreview = async (topicId, topicTitle) => {
     setShowingPreview(true);
-    // Get messages for just this topic from full history
-    const topicTranscript = currentTopicMessages
-      .filter(m => m.content?.trim())
+    // Use full messages history — currentTopicMessages resets every 4 exchanges
+    // so it doesn't have the complete story. Full messages has everything.
+    const topicTranscript = messages
+      .filter(m => m.content?.trim() && m.role !== "system")
       .map(m => `${m.role === "user" ? (user?.firstName || "You") : "Grace"}: ${m.content}`)
       .join("\n\n");
 
@@ -2920,8 +2921,20 @@ export default function MyStoryFamily() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             model: "claude-sonnet-4-20250514",
-            max_tokens: 600,
-            system: `You are organizing someone's answers into a short memoir passage. Preserve their exact words and voice completely. Fix spelling and punctuation only. Use first person (I, my, me). 2-4 short paragraphs. No additions, no enrichment, no historical context — only what they said. Return ONLY the passage.`,
+            max_tokens: 1200,
+            system: `You are organizing someone's spoken answers into a memoir passage.
+
+STRICT RULES — NO EXCEPTIONS:
+1. Use ONLY words and details that appear in the conversation below. Nothing else.
+2. Do NOT add any location, place name, year, person, or detail that was not explicitly stated
+3. Do NOT infer anything — if they didn't say it, it doesn't go in
+4. Fix spelling and punctuation only
+5. Organize their answers into natural flowing paragraphs
+6. Use first person (I, my, me) throughout
+7. 3-5 short paragraphs
+8. Return ONLY the passage — no preamble, no explanation
+
+If you are tempted to add a detail to make it sound better — don't. Their exact words are already perfect.`,
             messages: [{ role: "user", content: `Topic: "${topicTitle}"\n\nConversation:\n${topicTranscript}` }],
           }),
         }),
@@ -2930,8 +2943,15 @@ export default function MyStoryFamily() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             model: "claude-sonnet-4-20250514",
-            max_tokens: 600,
-            system: `You are enriching someone's memoir passage with historical context. Keep their exact words and voice. Add 1-2 specific historical details (prices, events, cultural moments of the era) that bring the time period to life. Use first person (I, my, me). 2-4 short paragraphs. Return ONLY the passage.`,
+            max_tokens: 1200,
+            system: `You are enriching someone's memoir passage with historical context. 
+
+CRITICAL RULES:
+1. First organize their exact words into flowing paragraphs — preserve their voice completely
+2. Only add historical details for places, years, or eras that were EXPLICITLY mentioned in the conversation. Do NOT infer or assume any location, year, or time period that wasn't stated.
+3. If no specific year or location was mentioned, do NOT add any historical context — just organize their words cleanly
+4. When historical details ARE grounded in what they said, you may add 1-2 specific facts (prices, events, cultural moments) that bring that exact time and place to life
+5. Use first person (I, my, me). 3-5 short paragraphs. Return ONLY the passage.`,
             messages: [{ role: "user", content: `Topic: "${topicTitle}"\n\nConversation:\n${topicTranscript}` }],
           }),
         }),
