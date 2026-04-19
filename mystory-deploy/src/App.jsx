@@ -3188,7 +3188,7 @@ export default function MyStoryFamily() {
                 <p style={{ fontSize: fs(isMobile ? 14 : 16), color: tc("#7a5c3a","#3a2510"), textAlign: "center", maxWidth: 520, marginBottom: 28, lineHeight: 1.6, fontFamily: "'Lato',sans-serif", fontWeight: 300, fontStyle: "italic" }}>
                   {previewStep >= 4 ? "Here's the opening of the story for your family." :
                    previewStep === 3 ? "Grace is putting it together…" :
-                   "Takes about a minute. Always private. Never public."}
+                   "Try it for a minute. Go at your own pace. Always private."}
                 </p>
 
                 {/* Rate limited notice */}
@@ -3636,7 +3636,7 @@ export default function MyStoryFamily() {
                 Start My Story — Free ✦
               </button>
               <p style={{ fontFamily: "'Lato',sans-serif", fontSize: fs(13), color: "rgba(245,237,224,0.45)", marginTop: 18 }}>
-                No credit card · No pressure · Begin in under 2 minutes
+                No credit card · No pressure · Go at your own pace
               </p>
             </div>
           </div>
