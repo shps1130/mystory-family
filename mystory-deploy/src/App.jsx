@@ -3156,7 +3156,7 @@ export default function MyStoryFamily() {
                   <em style={{ fontStyle: "italic", color: tc("#5c3d1e","#2a1000") }}>Let's start it together.</em>
                 </h1>
                 <p style={{ fontSize: fs(isMobile ? 15 : 18), color: tc("#7a5c3a","#3a2510"), textAlign: "center", maxWidth: 520, marginBottom: 32, lineHeight: 1.6, fontFamily: "'Lato',sans-serif", fontWeight: 300 }}>
-                  {previewStep >= 4 ? "Here's the opening of your legacy book." :
+                  {previewStep >= 4 ? "Here's the opening of the story for your family." :
                    previewStep === 3 ? "Grace is putting it together…" :
                    "Answer three short questions. See what Grace can do with them."}
                 </p>
@@ -3202,7 +3202,7 @@ export default function MyStoryFamily() {
                     <div key={idx} style={{ marginBottom: 16, animation: "fadeUp 0.4s ease both" }}>
                       {/* Grace question */}
                       <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 10 }}>
-                        <div style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(135deg,#5c3d1e,#8b5e34)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fdf6ec", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 17, flexShrink: 0, boxShadow: "0 3px 10px rgba(93,61,26,0.22)" }}>G</div>
+                        <img src="/grace-avatar.png" alt="Grace" width="36" height="36" style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover", flexShrink: 0, boxShadow: "0 3px 10px rgba(93,61,26,0.22)", background: "linear-gradient(135deg,#f5ede0,#e8d9b8)" }} />
                         <div style={{ flex: 1, background: "#fdf6ec", border: "1px solid rgba(184,134,11,0.14)", borderRadius: "4px 14px 14px 14px", padding: "11px 15px", fontSize: fs(isMobile ? 15 : 16), color: tc("#3d2b1a","#1a0e00"), lineHeight: 1.55, fontFamily: "'Cormorant Garamond',Georgia,serif" }}>
                           {ex.q}
                         </div>
@@ -3215,7 +3215,7 @@ export default function MyStoryFamily() {
                       </div>
                       {/* Grace response */}
                       <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-                        <div style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(135deg,#5c3d1e,#8b5e34)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fdf6ec", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 17, flexShrink: 0, boxShadow: "0 3px 10px rgba(93,61,26,0.22)" }}>G</div>
+                        <img src="/grace-avatar.png" alt="Grace" width="36" height="36" style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover", flexShrink: 0, boxShadow: "0 3px 10px rgba(93,61,26,0.22)", background: "linear-gradient(135deg,#f5ede0,#e8d9b8)" }} />
                         <div style={{ flex: 1, background: "white", border: "1px solid rgba(184,134,11,0.14)", borderRadius: "4px 14px 14px 14px", padding: "11px 15px", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(isMobile ? 15 : 16), fontStyle: "italic", color: tc("#3d2b1a","#1a0e00"), lineHeight: 1.6 }}>
                           {ex.r}
                         </div>
@@ -3226,13 +3226,24 @@ export default function MyStoryFamily() {
                   {/* ── Current question + input (steps 0, 1, 2) ── */}
                   {previewStep < 3 && !previewLoading && (
                     <div style={{ animation: "fadeUp 0.4s ease both" }}>
+
+                      {/* Grace's preamble — only shown on the very first question, before Q1 */}
+                      {previewStep === 0 && (
+                        <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 12 }}>
+                          <img src="/grace-avatar.png" alt="Grace" width="36" height="36" style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover", flexShrink: 0, boxShadow: "0 3px 10px rgba(93,61,26,0.22)", background: "linear-gradient(135deg,#f5ede0,#e8d9b8)" }} />
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontFamily: "'Lato',sans-serif", fontSize: fs(11), color: "#b8860b", fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", marginBottom: 4 }}>Grace</div>
+                            <div style={{ background: "white", border: "1px solid rgba(184,134,11,0.14)", borderRadius: "4px 14px 14px 14px", padding: "12px 16px", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(isMobile ? 15 : 17), fontStyle: "italic", color: tc("#3d2b1a","#1a0e00"), lineHeight: 1.6 }}>
+                              Hi — I'm Grace. I help people turn their memories into a beautifully written life story for their family to keep. Just for them — never public. Let's start with something easy.
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                       {/* Grace's current question */}
                       <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 14 }}>
-                        <div style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(135deg,#5c3d1e,#8b5e34)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fdf6ec", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 17, flexShrink: 0, boxShadow: "0 3px 10px rgba(93,61,26,0.22)" }}>G</div>
+                        <img src="/grace-avatar.png" alt="Grace" width="36" height="36" style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover", flexShrink: 0, boxShadow: "0 3px 10px rgba(93,61,26,0.22)", background: "linear-gradient(135deg,#f5ede0,#e8d9b8)" }} />
                         <div style={{ flex: 1 }}>
-                          {previewStep === 0 && (
-                            <div style={{ fontFamily: "'Lato',sans-serif", fontSize: fs(11), color: "#b8860b", fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", marginBottom: 4 }}>Grace</div>
-                          )}
                           <div style={{ background: "#fdf6ec", border: "1px solid rgba(184,134,11,0.14)", borderRadius: "4px 14px 14px 14px", padding: "11px 15px", fontSize: fs(isMobile ? 16 : 18), color: tc("#3d2b1a","#1a0e00"), lineHeight: 1.55, fontFamily: "'Cormorant Garamond',Georgia,serif" }}>
                             {PREVIEW_QUESTIONS[previewStep]}
                           </div>
@@ -3292,7 +3303,7 @@ export default function MyStoryFamily() {
                   {/* ── Loading — Grace "thinking" typing indicator ── */}
                   {previewLoading && previewStep < 3 && (
                     <div style={{ display: "flex", alignItems: "flex-start", gap: 12, animation: "fadeIn 0.3s ease both" }}>
-                      <div style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(135deg,#5c3d1e,#8b5e34)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fdf6ec", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 17, flexShrink: 0, boxShadow: "0 3px 10px rgba(93,61,26,0.22)" }}>G</div>
+                      <img src="/grace-avatar.png" alt="Grace" width="36" height="36" style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover", flexShrink: 0, boxShadow: "0 3px 10px rgba(93,61,26,0.22)", background: "linear-gradient(135deg,#f5ede0,#e8d9b8)" }} />
                       <div style={{ background: "white", border: "1px solid rgba(184,134,11,0.14)", borderRadius: "4px 14px 14px 14px", padding: "13px 18px", display: "flex", alignItems: "center", gap: 5 }}>
                         {[0, 0.15, 0.3].map((d, i) => (
                           <div key={i} style={{ width: 7, height: 7, background: "#b8860b", borderRadius: "50%", animation: `bounce 1.2s ${d}s infinite`, opacity: 0.7 }} />
@@ -3329,13 +3340,21 @@ export default function MyStoryFamily() {
                         </div>
                       </div>
 
+                      {/* Warm Grace bubble — bridges the paragraph to the form */}
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 18, animation: "fadeUp 0.5s 0.2s ease both" }}>
+                        <img src="/grace-avatar.png" alt="Grace" width="36" height="36" style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover", flexShrink: 0, boxShadow: "0 3px 10px rgba(93,61,26,0.22)", background: "linear-gradient(135deg,#f5ede0,#e8d9b8)" }} />
+                        <div style={{ flex: 1, background: "white", border: "1px solid rgba(184,134,11,0.14)", borderRadius: "4px 14px 14px 14px", padding: "12px 16px", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(isMobile ? 15 : 16), fontStyle: "italic", color: tc("#3d2b1a","#1a0e00"), lineHeight: 1.6 }}>
+                          This is just the opening — there's so much more of your story to tell. I'll remember everything you've shared so far. Ready to keep going?
+                        </div>
+                      </div>
+
                       {/* Email/password wall */}
                       <div style={{ background: "rgba(255,248,232,0.6)", border: "1.5px solid rgba(184,134,11,0.35)", borderRadius: 14, padding: isMobile ? 20 : 26 }}>
                         <p style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(isMobile ? 19 : 22), color: tc("#3d2b1a","#1a0e00"), fontStyle: "italic", lineHeight: 1.35, marginBottom: 6, textAlign: "center" }}>
-                          This is the beginning of your legacy book.
+                          The beginning of your story for your family.
                         </p>
                         <p style={{ fontFamily: "'Lato',sans-serif", fontSize: fs(14), color: tc("#7a5c3a","#4a3020"), lineHeight: 1.6, marginBottom: 18, textAlign: "center" }}>
-                          Save it so you never lose it — and keep writing whenever you're ready.
+                          Save it so you never lose it — and keep writing whenever you're ready. Always private. Always yours.
                         </p>
 
                         <div style={{ marginBottom: 10 }}>
@@ -3708,7 +3727,7 @@ export default function MyStoryFamily() {
               if (legacy?.answer) {
                 return (
                   <div style={{ background: "linear-gradient(135deg,rgba(184,134,11,0.08),rgba(212,168,67,0.05))", border: "1.5px solid rgba(184,134,11,0.25)", borderRadius: 14, padding: "18px 22px", marginBottom: 22, display: "flex", gap: 14, alignItems: "flex-start" }}>
-                    <div style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(135deg,#5c3d1e,#8b5e34)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fdf6ec", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 18, flexShrink: 0 }}>G</div>
+                    <img src="/grace-avatar.png" alt="Grace" width="36" height="36" style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover", flexShrink: 0, background: "linear-gradient(135deg,#f5ede0,#e8d9b8)" }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontFamily: "'Lato',sans-serif", fontSize: fs(12), color: "#b8860b", fontWeight: 700, letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 4 }}>Grace is holding your first memory</div>
                       <div style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontStyle: "italic", fontSize: fs(15), color: tc("#3d2b1a","#1a0e00"), lineHeight: 1.5, wordBreak: "break-word" }}>
