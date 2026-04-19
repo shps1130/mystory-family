@@ -3155,10 +3155,40 @@ export default function MyStoryFamily() {
                   Your story matters.<br/>
                   <em style={{ fontStyle: "italic", color: tc("#5c3d1e","#2a1000") }}>Let's start it together.</em>
                 </h1>
-                <p style={{ fontSize: fs(isMobile ? 15 : 18), color: tc("#7a5c3a","#3a2510"), textAlign: "center", maxWidth: 520, marginBottom: 32, lineHeight: 1.6, fontFamily: "'Lato',sans-serif", fontWeight: 300 }}>
+
+                {/* Plain-language orientation — the "what is this?" answer */}
+                {previewStep < 4 && !previewRateLimited && (
+                  <p style={{ fontSize: fs(isMobile ? 16 : 18), color: tc("#5c3d1e","#2a1000"), textAlign: "center", maxWidth: 560, marginBottom: 20, lineHeight: 1.6, fontFamily: "'Lato',sans-serif", fontWeight: 400 }}>
+                    MyStory.Family is a private service that helps you turn your memories into a beautiful book for your family. Answer a few questions below to see how it works.
+                  </p>
+                )}
+
+                {/* How this works — 3 micro-steps */}
+                {previewStep < 4 && !previewRateLimited && (
+                  <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 16, flexWrap: "wrap", justifyContent: "center", marginBottom: 28, padding: isMobile ? "12px 14px" : "14px 22px", background: "rgba(255,253,245,0.6)", border: "1px solid rgba(184,134,11,0.18)", borderRadius: 100, maxWidth: 560 }}>
+                    {[
+                      { n: "1", t: "Answer questions" },
+                      { n: "2", t: "Grace writes your story" },
+                      { n: "3", t: "Give it to your family" },
+                    ].map((step, i, arr) => (
+                      <div key={step.n} style={{ display: "flex", alignItems: "center", gap: isMobile ? 6 : 10 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 7 : 9 }}>
+                          <div style={{ width: 22, height: 22, borderRadius: "50%", background: "linear-gradient(135deg,#b8860b,#d4a843)", color: "#fdf6ec", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Lato',sans-serif", fontSize: fs(12), fontWeight: 700, flexShrink: 0 }}>{step.n}</div>
+                          <span style={{ fontFamily: "'Lato',sans-serif", fontSize: fs(isMobile ? 12 : 14), color: tc("#3d2b1a","#1a0e00"), fontWeight: 500, whiteSpace: isMobile ? "normal" : "nowrap" }}>{step.t}</span>
+                        </div>
+                        {i < arr.length - 1 && (
+                          <span style={{ color: "rgba(184,134,11,0.45)", fontSize: fs(14), fontWeight: 300, display: isMobile ? "none" : "inline" }}>→</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Stage-specific subhead */}
+                <p style={{ fontSize: fs(isMobile ? 14 : 16), color: tc("#7a5c3a","#3a2510"), textAlign: "center", maxWidth: 520, marginBottom: 28, lineHeight: 1.6, fontFamily: "'Lato',sans-serif", fontWeight: 300, fontStyle: "italic" }}>
                   {previewStep >= 4 ? "Here's the opening of the story for your family." :
                    previewStep === 3 ? "Grace is putting it together…" :
-                   "Answer three short questions. See what Grace can do with them."}
+                   "Takes about a minute. Always private. Never public."}
                 </p>
 
                 {/* Rate limited notice */}
@@ -3234,7 +3264,7 @@ export default function MyStoryFamily() {
                           <div style={{ flex: 1 }}>
                             <div style={{ fontFamily: "'Lato',sans-serif", fontSize: fs(11), color: "#b8860b", fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", marginBottom: 4 }}>Grace</div>
                             <div style={{ background: "white", border: "1px solid rgba(184,134,11,0.14)", borderRadius: "4px 14px 14px 14px", padding: "12px 16px", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(isMobile ? 15 : 17), fontStyle: "italic", color: tc("#3d2b1a","#1a0e00"), lineHeight: 1.6 }}>
-                              Hi — I'm Grace. I help people turn their memories into a beautifully written life story for their family to keep. Just for them — never public. Let's start with something easy.
+                              Hi — I'm Grace. I'm an AI companion built to listen patiently and help turn your memories into a life story your family will keep. Just for them — never public. Let's start with something easy.
                             </div>
                           </div>
                         </div>
@@ -3613,24 +3643,39 @@ export default function MyStoryFamily() {
 
           {/* ── FOOTER UTILITY (quiet, not distracting) ── */}
           <div style={{ background: "#fdf6ec", padding: isMobile ? "40px 20px" : "48px 32px", borderTop: "1px solid rgba(184,134,11,0.15)" }}>
-            <div style={{ maxWidth: 1020, margin: "0 auto", display: "flex", flexDirection: isMobile ? "column" : "row", alignItems: "center", justifyContent: "space-between", gap: 20, flexWrap: "wrap" }}>
-              <div style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(16), color: tc("#5c3d1e","#2a1000"), fontStyle: "italic" }}>
-                MyStory.Family · With Grace
+            <div style={{ maxWidth: 1020, margin: "0 auto" }}>
+
+              {/* "Who we are" trust line — humanizes the product */}
+              <div style={{ textAlign: "center", marginBottom: 24, paddingBottom: 24, borderBottom: "1px solid rgba(184,134,11,0.15)" }}>
+                <p style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontStyle: "italic", fontSize: fs(isMobile ? 14 : 15), color: tc("#5c3d1e","#2a1000"), lineHeight: 1.7, marginBottom: 6 }}>
+                  MyStory.Family is a family-owned business based in Mason, Ohio.
+                </p>
+                <p style={{ fontFamily: "'Lato',sans-serif", fontSize: fs(13), color: tc("#7a5c3a","#4a3020"), lineHeight: 1.7, maxWidth: 520, margin: "0 auto" }}>
+                  Built by Timothy McClendon so every family's stories have a way to last.
+                  Real people, real support — reach us any time at{" "}
+                  <a href="mailto:grace@mystory.family" style={{ color: "#b8860b", textDecoration: "underline", textUnderlineOffset: 2 }}>grace@mystory.family</a>.
+                </p>
               </div>
-              <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: isMobile ? 14 : 22, fontFamily: "'Lato',sans-serif", fontSize: fs(13) }}>
-                {!savedSession?.user && (
-                  <button onClick={() => setScreen("signin")} style={{ background: "none", border: "none", color: tc("#7a5c3a","#4a3020"), fontFamily: "'Lato',sans-serif", fontSize: fs(13), cursor: "pointer", padding: "6px 4px", minHeight: 36 }}>
-                    Sign in
+
+              <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", alignItems: "center", justifyContent: "space-between", gap: 20, flexWrap: "wrap" }}>
+                <div style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(16), color: tc("#5c3d1e","#2a1000"), fontStyle: "italic" }}>
+                  MyStory.Family · With Grace
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: isMobile ? 14 : 22, fontFamily: "'Lato',sans-serif", fontSize: fs(13) }}>
+                  {!savedSession?.user && (
+                    <button onClick={() => setScreen("signin")} style={{ background: "none", border: "none", color: tc("#7a5c3a","#4a3020"), fontFamily: "'Lato',sans-serif", fontSize: fs(13), cursor: "pointer", padding: "6px 4px", minHeight: 36 }}>
+                      Sign in
+                    </button>
+                  )}
+                  <button onClick={() => setShowGiftEntry(true)} style={{ background: "none", border: "none", color: tc("#7a5c3a","#4a3020"), fontFamily: "'Lato',sans-serif", fontSize: fs(13), cursor: "pointer", padding: "6px 4px", minHeight: 36 }}>
+                    🎁 Have a gift code?
                   </button>
-                )}
-                <button onClick={() => setShowGiftEntry(true)} style={{ background: "none", border: "none", color: tc("#7a5c3a","#4a3020"), fontFamily: "'Lato',sans-serif", fontSize: fs(13), cursor: "pointer", padding: "6px 4px", minHeight: 36 }}>
-                  🎁 Have a gift code?
-                </button>
-                <button onClick={() => setHeroMode("hear")} style={{ background: "none", border: "none", color: tc("#7a5c3a","#4a3020"), fontFamily: "'Lato',sans-serif", fontSize: fs(13), cursor: "pointer", padding: "6px 4px", minHeight: 36 }}>
-                  Give as a gift
-                </button>
-                <a href="/privacy" style={{ color: tc("#7a5c3a","#4a3020"), fontFamily: "'Lato',sans-serif", fontSize: fs(13), textDecoration: "none", padding: "6px 4px" }}>Privacy</a>
-                <a href="/blog" style={{ color: tc("#7a5c3a","#4a3020"), fontFamily: "'Lato',sans-serif", fontSize: fs(13), textDecoration: "none", padding: "6px 4px" }}>Blog</a>
+                  <button onClick={() => setHeroMode("hear")} style={{ background: "none", border: "none", color: tc("#7a5c3a","#4a3020"), fontFamily: "'Lato',sans-serif", fontSize: fs(13), cursor: "pointer", padding: "6px 4px", minHeight: 36 }}>
+                    Give as a gift
+                  </button>
+                  <a href="/privacy" style={{ color: tc("#7a5c3a","#4a3020"), fontFamily: "'Lato',sans-serif", fontSize: fs(13), textDecoration: "none", padding: "6px 4px" }}>Privacy</a>
+                  <a href="/blog" style={{ color: tc("#7a5c3a","#4a3020"), fontFamily: "'Lato',sans-serif", fontSize: fs(13), textDecoration: "none", padding: "6px 4px" }}>Blog</a>
+                </div>
               </div>
             </div>
           </div>
