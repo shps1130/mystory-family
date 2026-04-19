@@ -2254,7 +2254,7 @@ export default function MyStoryFamily() {
     { id: "set-the-scene", number: 1, title: "Set the Scene", icon: "🌍", opening: "Before we get to the stories — and there are good ones coming — let's paint the picture first. Just a sentence or two is perfect here.", coachingNote: "Short answers are great here. We're just setting the stage.", isKeyMoment: false, details: [], stories: [], complete: false },
     { id: "the-people", number: 2, title: "The People", icon: "👥", opening: "Now let's bring in the people. Every great story has characters. Who were the ones that filled your world during this time?", coachingNote: "Names and personalities — the more specific the better.", isKeyMoment: false, details: [], stories: [], complete: false },
     { id: "everyday-life", number: 3, title: "Everyday Life", icon: "☀️", opening: "One more piece of the picture before we get to the good stuff — what did ordinary life actually feel like? What was a normal day like for you?", coachingNote: "A few sentences is plenty. Just capturing what normal looked like.", isKeyMoment: false, details: [], stories: [], complete: false },
-    { id: "your-stories", number: 4, title: "Your Stories", icon: "⭐", opening: "Okay. Now we get to the good part — this is what all of that was building toward. Tell me a story. The funny ones, the hard ones, the ones you've told a hundred times. We have room for all of them.", coachingNote: "This is the important one. Take your time. Tell it like you're telling it to someone you love.", isKeyMoment: true, details: [], stories: [], complete: false },
+    { id: "your-stories", number: 4, title: "Your Stories", icon: "⭐", opening: "Okay — now we get to the good part. Tell me a story. Any story that comes to mind from this time in your life. And if you happen to remember roughly when it happened — your age, what grade you were in, anything like that — include it. Your family will love knowing when these moments took place. But don't worry if you can't remember exactly. The story is what matters.", coachingNote: "This is the important one. Take your time. Tell it like you're telling it to someone you love.", isKeyMoment: true, details: [], stories: [], complete: false },
     { id: "what-it-felt-like", number: 5, title: "What It Felt Like", icon: "💛", opening: "Now I want to understand what it all felt like on the inside. Not just what happened — but what it meant to you at the time.", coachingNote: "There's no wrong answer here. Just honest feelings.", isKeyMoment: false, details: [], stories: [], complete: false },
     { id: "what-i-know-now", number: 6, title: "What I Know Now", icon: "🌿", opening: "Now we bring in the wisdom. Looking back on this time in your life with everything you know today — what do you see differently?", coachingNote: "This is the part your grandchildren will read when they need it most.", isKeyMoment: false, details: [], stories: [], complete: false },
     { id: "looking-forward", number: 7, title: "Looking Forward", icon: "🔗", opening: "Last question for this chapter — how did this season of your life lead into the next one? What changed because of everything you've just shared?", coachingNote: "Just a sentence or two. This is the bridge to your next chapter.", isKeyMoment: false, details: [], stories: [], complete: false },
@@ -2338,6 +2338,7 @@ export default function MyStoryFamily() {
         "SECTION GUIDANCE:\n" + stepGuidance + "\n\n" +
         "SHORT ANSWER COACHING: 'That's a great start — tell me more. Where were you when this happened?'\n" +
         "STUCK COACHING: 'Imagine telling this to your grandchild. Start with where you were standing.'\n\n" +
+        "TIME ANCHORS: The opening line already invites them to share ages or years. Do NOT ask about dates again after every story — the invitation was given once. Only ask naturally if a time reference would genuinely help clarify the story.\n\n" +
         "REMAINING STEPS: " + remaining;
     }
 
@@ -2600,12 +2601,12 @@ export default function MyStoryFamily() {
         });
       }
 
-      // Trigger A/B preview — automatically after 4 user messages on a topic,
-      // OR if Grace explicitly offered one. Only trigger once per 4-message cycle.
+      // Trigger A/B preview — on Step 4 after every 4 user messages total in the section,
+      // OR whenever Grace explicitly includes <PEEK_OFFER>
       if (!pendingPreview && !showingPreview && !hasTopicComplete) {
         const currentTopic = topicFramework[currentTopicIdx];
-        const topicUserCount = currentTopicMessages.filter(m => m.role === "user").length + 1;
-        const shouldAutoTrigger = currentTopic?.isKeyMoment && topicUserCount > 0 && topicUserCount % 4 === 0;
+        const totalUserCount = next.filter(m => m.role === "user").length;
+        const shouldAutoTrigger = currentTopic?.isKeyMoment && totalUserCount > 0 && totalUserCount % 4 === 0;
         if ((hasPeekOffer || shouldAutoTrigger) && currentTopic) {
           setTimeout(() => generatePreview(currentTopic.id, currentTopic.title), 400);
         }
@@ -2973,7 +2974,10 @@ The difference from the plain version: this one flows like a chapter in a publis
       if (versionA && versionB) {
         setPendingPreview({ topicId, topicTitle, versionA, versionB });
       }
-    } catch { showToast("Couldn't generate preview. Keep going and we'll sort it at the end."); }
+    } catch (err) {
+      console.error("Preview generation error:", err);
+      showToast("Couldn't generate preview — keep going and Grace will write it all at the end.");
+    }
     setShowingPreview(false);
   };
 
@@ -4889,6 +4893,9 @@ The difference from the plain version: this one flows like a chapter in a publis
                       style={{ width: "100%", marginTop: 12, background: "linear-gradient(135deg,#b8860b,#d4a843)", color: "#fdf6ec", border: "none", padding: "11px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 15, cursor: "pointer" }}>
                       See what we've written ✦
                     </button>
+                    <p style={{ fontSize: 11, color: "#a89070", fontFamily: "'Lato',sans-serif", fontStyle: "italic", textAlign: "center", marginTop: 8, lineHeight: 1.6 }}>
+                      💬 Grace can rearrange, shorten, or reword anything — just tell her
+                    </p>
                   )}
                 </div>
               )}
@@ -5061,6 +5068,9 @@ The difference from the plain version: this one flows like a chapter in a publis
                       style={{ display: "block", margin: "12px auto 0", background: "none", border: "none", fontFamily: "'Lato',sans-serif", fontSize: fs(13), color: tc("#a89070","#6b5030"), cursor: "pointer", textDecoration: "underline" }}>
                       Keep going — I'll choose at the end
                     </button>
+                    <p style={{ textAlign: "center", marginTop: 10, fontSize: fs(12), color: tc("#a89070","#6b5030"), fontFamily: "'Lato',sans-serif", fontStyle: "italic", lineHeight: 1.6 }}>
+                      💬 Not quite right? Just tell Grace what you'd like to change — the order, the wording, anything. She's listening.
+                    </p>
                   </div>
                 )}
 
@@ -5261,6 +5271,9 @@ The difference from the plain version: this one flows like a chapter in a publis
                     See what we've written ✦
                   </button>
                 )}
+                <p style={{ fontSize: fs(11), color: tc("#b8a080","#7a5c3a"), fontFamily: "'Lato',sans-serif", fontStyle: "italic", textAlign: "center", marginTop: 12, lineHeight: 1.6, paddingBottom: 4 }}>
+                  💬 Grace can rearrange, shorten, or reword anything — just tell her
+                </p>
               </div>
             </aside>
             )}
