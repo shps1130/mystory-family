@@ -2922,20 +2922,22 @@ export default function MyStoryFamily() {
           body: JSON.stringify({
             model: "claude-sonnet-4-20250514",
             max_tokens: 1200,
-            system: `You are organizing someone's spoken answers into a memoir passage.
+            system: `You are transcribing someone's spoken answers into a memoir passage.
 
-STRICT RULES — NO EXCEPTIONS:
-1. Use ONLY words and details that appear in the conversation below. Nothing else.
-2. Do NOT add any location, place name, year, person, or detail that was not explicitly stated
-3. Do NOT infer anything — if they didn't say it, it doesn't go in
-4. Fix spelling and punctuation only
-5. Organize their answers into natural flowing paragraphs
+YOUR ONLY JOB: Put their words on the page almost exactly as they said them.
+
+STRICT RULES:
+1. Use their exact words and phrases wherever possible — do not paraphrase
+2. Fix obvious spelling mistakes and punctuation only
+3. Organize their answers into natural paragraphs in the order they shared them
+4. Do NOT add any word, detail, place, person, or fact they did not say
+5. Do NOT improve their sentences — if they said "it was real nice" keep "it was real nice"
 6. Use first person (I, my, me) throughout
 7. 3-5 short paragraphs
-8. Return ONLY the passage — no preamble, no explanation
+8. Return ONLY the passage
 
-If you are tempted to add a detail to make it sound better — don't. Their exact words are already perfect.`,
-            messages: [{ role: "user", content: `Topic: "${topicTitle}"\n\nConversation:\n${topicTranscript}` }],
+This version should sound exactly like them talking. That is the goal.`,
+            messages: [{ role: "user", content: `Conversation:\n${topicTranscript}` }],
           }),
         }),
         fetch("/api/claude", {
@@ -2944,15 +2946,22 @@ If you are tempted to add a detail to make it sound better — don't. Their exac
           body: JSON.stringify({
             model: "claude-sonnet-4-20250514",
             max_tokens: 1200,
-            system: `You are enriching someone's memoir passage with historical context. 
+            system: `You are shaping someone's spoken answers into a polished memoir passage.
 
-CRITICAL RULES:
-1. First organize their exact words into flowing paragraphs — preserve their voice completely
-2. Only add historical details for places, years, or eras that were EXPLICITLY mentioned in the conversation. Do NOT infer or assume any location, year, or time period that wasn't stated.
-3. If no specific year or location was mentioned, do NOT add any historical context — just organize their words cleanly
-4. When historical details ARE grounded in what they said, you may add 1-2 specific facts (prices, events, cultural moments) that bring that exact time and place to life
-5. Use first person (I, my, me). 3-5 short paragraphs. Return ONLY the passage.`,
-            messages: [{ role: "user", content: `Topic: "${topicTitle}"\n\nConversation:\n${topicTranscript}` }],
+YOUR JOB: Take everything they said and craft it into something that reads like a real book chapter — while keeping every fact, detail, and feeling exactly as they shared it.
+
+RULES:
+1. Do NOT add any new facts, places, people, or details they did not mention
+2. Keep their voice — if they have a casual, warm way of speaking, preserve that tone
+3. You MAY improve sentence structure, add smooth transitions between stories, and write a stronger opening and closing sentence
+4. Organize their stories into a natural narrative arc
+5. Fix spelling and punctuation
+6. Use first person (I, my, me) throughout
+7. 3-5 short paragraphs
+8. Return ONLY the passage
+
+The difference from the plain version: this one flows like a chapter in a published memoir. Same facts, better shape.`,
+            messages: [{ role: "user", content: `Conversation:\n${topicTranscript}` }],
           }),
         }),
       ]);
@@ -4999,21 +5008,24 @@ CRITICAL RULES:
                 {pendingPreview && !showingPreview && (
                   <div style={{ background: "rgba(184,134,11,0.04)", borderRadius: 16, padding: "20px", border: "1.5px solid rgba(184,134,11,0.2)", animation: "fadeUp 0.4s ease forwards" }}>
                     <p style={{ fontFamily: "'Lato',sans-serif", fontSize: fs(13), color: tc("#5c3d1e","#2a1000"), fontWeight: 700, marginBottom: 16, textAlign: "center", letterSpacing: "0.3px" }}>
-                      Here's what we have so far — which version would you like in your book?
+                      Here's what we have so far — which version feels more like you?
                     </p>
                     <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 14 }}>
-                      {/* Version A — their words */}
+                      {/* Version A — verbatim */}
                       <div style={{ flex: 1, background: "white", borderRadius: 12, padding: "16px", border: "1.5px solid rgba(180,140,80,0.25)", display: "flex", flexDirection: "column", gap: 12 }}>
                         <div style={{ fontFamily: "'Lato',sans-serif", fontSize: fs(11), fontWeight: 700, color: "#b8860b", letterSpacing: "1.5px", textTransform: "uppercase" }}>
                           📝 Your Words
                         </div>
+                        <p style={{ fontSize: fs(12), color: tc("#8b7355","#5c3d1e"), fontFamily: "'Lato',sans-serif", fontStyle: "italic", marginBottom: 4 }}>
+                          Exactly how you said it — barely touched
+                        </p>
                         <p style={{ fontSize: fs(15), color: tc("#3d2b1a","#1a0e00"), lineHeight: 1.75, fontStyle: "italic", flex: 1 }}>
                           {pendingPreview.versionA}
                         </p>
                         <button onClick={() => {
                           setLockedPassages(prev => ({ ...prev, [pendingPreview.topicId]: { text: pendingPreview.versionA, hasContext: false } }));
                           setPendingPreview(null);
-                          const confirmMsg = { role: "assistant", content: "Perfect — I've locked in your words exactly as written. That's going straight into your book. ✦" };
+                          const confirmMsg = { role: "assistant", content: "Perfect — I've kept that exactly as you said it. It's going into your book word for word. ✦" };
                           setMessages(prev => [...prev, confirmMsg]);
                           setCurrentTopicMessages(prev => [...prev, confirmMsg]);
                         }}
@@ -5022,18 +5034,21 @@ CRITICAL RULES:
                         </button>
                       </div>
 
-                      {/* Version B — with context */}
+                      {/* Version B — crafted narrative */}
                       <div style={{ flex: 1, background: "white", borderRadius: 12, padding: "16px", border: "1.5px solid rgba(180,140,80,0.25)", display: "flex", flexDirection: "column", gap: 12 }}>
                         <div style={{ fontFamily: "'Lato',sans-serif", fontSize: fs(11), fontWeight: 700, color: "#b8860b", letterSpacing: "1.5px", textTransform: "uppercase" }}>
-                          ✨ Your Words + Context
+                          ✨ Grace's Craft
                         </div>
+                        <p style={{ fontSize: fs(12), color: tc("#8b7355","#5c3d1e"), fontFamily: "'Lato',sans-serif", fontStyle: "italic", marginBottom: 4 }}>
+                          Same stories — shaped into a memoir chapter
+                        </p>
                         <p style={{ fontSize: fs(15), color: tc("#3d2b1a","#1a0e00"), lineHeight: 1.75, fontStyle: "italic", flex: 1 }}>
                           {pendingPreview.versionB}
                         </p>
                         <button onClick={() => {
                           setLockedPassages(prev => ({ ...prev, [pendingPreview.topicId]: { text: pendingPreview.versionB, hasContext: true } }));
                           setPendingPreview(null);
-                          const confirmMsg = { role: "assistant", content: "Wonderful — I've locked that in with the added context. It's going into your book exactly as shown. ✦" };
+                          const confirmMsg = { role: "assistant", content: "Beautiful — I've shaped that into your book exactly as shown. ✦" };
                           setMessages(prev => [...prev, confirmMsg]);
                           setCurrentTopicMessages(prev => [...prev, confirmMsg]);
                         }}
