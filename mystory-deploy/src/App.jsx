@@ -3387,11 +3387,19 @@ export default function MyStoryFamily() {
                           Save it so you never lose it — and keep writing whenever you're ready. Always private. Always yours.
                         </p>
 
-                        <div style={{ marginBottom: 10 }}>
-                          <label htmlFor="wall-first" style={{ display: "block", fontFamily: "'Lato',sans-serif", fontSize: fs(12), fontWeight: 600, color: tc("#7a5c3a","#4a3020"), marginBottom: 5, letterSpacing: 0.5 }}>First Name</label>
-                          <input id="wall-first" type="text" value={signupFields.firstName}
-                            onChange={e => { setSignupFields(p => ({ ...p, firstName: e.target.value })); setSignupError(""); }}
-                            style={{ width: "100%", border: `1.5px solid ${signupError && !signupFields.firstName.trim() ? "#c0392b" : "rgba(180,140,80,0.3)"}`, borderRadius: 8, padding: "12px 14px", fontFamily: "'Lato',sans-serif", fontSize: fs(15), color: tc("#3d2b1a","#1a0e00"), background: "#fffdf5", outline: "none", boxSizing: "border-box", minHeight: 46 }} />
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+                          <div>
+                            <label htmlFor="wall-first" style={{ display: "block", fontFamily: "'Lato',sans-serif", fontSize: fs(12), fontWeight: 600, color: tc("#7a5c3a","#4a3020"), marginBottom: 5, letterSpacing: 0.5 }}>First Name</label>
+                            <input id="wall-first" type="text" value={signupFields.firstName}
+                              onChange={e => { setSignupFields(p => ({ ...p, firstName: e.target.value })); setSignupError(""); }}
+                              style={{ width: "100%", border: `1.5px solid ${signupError && !signupFields.firstName.trim() ? "#c0392b" : "rgba(180,140,80,0.3)"}`, borderRadius: 8, padding: "12px 14px", fontFamily: "'Lato',sans-serif", fontSize: fs(15), color: tc("#3d2b1a","#1a0e00"), background: "#fffdf5", outline: "none", boxSizing: "border-box", minHeight: 46 }} />
+                          </div>
+                          <div>
+                            <label htmlFor="wall-last" style={{ display: "block", fontFamily: "'Lato',sans-serif", fontSize: fs(12), fontWeight: 600, color: tc("#7a5c3a","#4a3020"), marginBottom: 5, letterSpacing: 0.5 }}>Last Name</label>
+                            <input id="wall-last" type="text" value={signupFields.lastName}
+                              onChange={e => { setSignupFields(p => ({ ...p, lastName: e.target.value })); setSignupError(""); }}
+                              style={{ width: "100%", border: `1.5px solid ${signupError && !signupFields.lastName.trim() ? "#c0392b" : "rgba(180,140,80,0.3)"}`, borderRadius: 8, padding: "12px 14px", fontFamily: "'Lato',sans-serif", fontSize: fs(15), color: tc("#3d2b1a","#1a0e00"), background: "#fffdf5", outline: "none", boxSizing: "border-box", minHeight: 46 }} />
+                          </div>
                         </div>
 
                         <div style={{ marginBottom: 10 }}>
@@ -4196,46 +4204,70 @@ export default function MyStoryFamily() {
       )}
 
       {/* ── PERSONA REVEAL ── */}
-      {screen === "reveal" && persona && (
+      {screen === "reveal" && persona && (() => {
+        // Detect whether user met Grace on the homepage preview.
+        // If preview data is still in memory OR was recently cleared (set just before chat seed),
+        // we treat this as continuity, not a cold intro.
+        let cameFromPreview = false;
+        try {
+          // The preview paragraph gets read and cleared when chat seeds, but on fresh signup
+          // it's still in localStorage when we land here.
+          const raw = localStorage.getItem("mystory_preview_data");
+          if (raw) {
+            const data = JSON.parse(raw);
+            if (data?.exchanges?.length) cameFromPreview = true;
+          }
+        } catch (e) {}
+
+        return (
         <main id="main-content" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "78vh", textAlign: "center", padding: "40px 24px", animation: "fadeIn 0.6s ease forwards" }}>
           <div style={{ maxWidth: 680, width: "100%" }}>
-            <p style={{ fontSize: fs(12), letterSpacing: "2.5px", textTransform: "uppercase", color: tc("#8b7355", "#4a3020"), fontFamily: "'Lato',sans-serif", marginBottom: 28 }}>Your guide is ready</p>
-            <div style={{ width: 100, height: 100, borderRadius: "50%", background: personaAvatarBg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 44, margin: "0 auto 24px", boxShadow: "0 8px 32px rgba(93,61,26,0.2)", animation: "revealGlow 2s ease-in-out" }} aria-hidden="true">
-              {personaAvatar}
+            <p style={{ fontSize: fs(12), letterSpacing: "2.5px", textTransform: "uppercase", color: tc("#8b7355", "#4a3020"), fontFamily: "'Lato',sans-serif", marginBottom: 28 }}>
+              {cameFromPreview ? "Welcome, " + (user?.firstName || "") : "Your guide is ready"}
+            </p>
+            <div style={{ width: 100, height: 100, borderRadius: "50%", background: personaAvatarBg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 44, margin: "0 auto 24px", boxShadow: "0 8px 32px rgba(93,61,26,0.2)", animation: "revealGlow 2s ease-in-out", overflow: "hidden" }} aria-hidden="true">
+              <img src="/grace-avatar.png" alt="Grace" width="100" height="100" style={{ width: 100, height: 100, borderRadius: "50%", objectFit: "cover" }} />
             </div>
-            <h1 style={{ fontSize: fs(42), fontWeight: 300, color: tc("#3d2b1a", "#1a0e00"), fontStyle: "italic", marginBottom: 8 }}>Meet {persona.name}</h1>
+            <h1 style={{ fontSize: fs(42), fontWeight: 300, color: tc("#3d2b1a", "#1a0e00"), fontStyle: "italic", marginBottom: 8 }}>
+              {cameFromPreview ? `${persona.name} is ready to keep going` : `Meet ${persona.name}`}
+            </h1>
             <p style={{ fontSize: fs(15), color: tc("#8b7355", "#4a3020"), fontFamily: "'Lato',sans-serif", letterSpacing: "1.5px", textTransform: "uppercase", marginBottom: 28 }}>{persona.role}</p>
 
-            {/* Grace intro video */}
-            <div style={{ marginBottom: 32, borderRadius: 16, overflow: "hidden", boxShadow: "0 12px 48px rgba(93,61,26,0.2)", border: "1px solid rgba(180,140,80,0.2)", background: "#1a0f05" }}>
-              <div style={{ position: "relative", paddingBottom: "56.25%", height: 0 }}>
-                <iframe
-                  src="https://app.heygen.com/embeds/1c6b4714cfc949a8b94bd542cc88f614"
-                  title="A message from Grace"
-                  frameBorder="0"
-                  allow="encrypted-media; fullscreen;"
-                  allowFullScreen
-                  style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}
-                />
+            {/* Grace intro video — only for newcomers who haven't met her yet */}
+            {!cameFromPreview && (
+              <div style={{ marginBottom: 32, borderRadius: 16, overflow: "hidden", boxShadow: "0 12px 48px rgba(93,61,26,0.2)", border: "1px solid rgba(180,140,80,0.2)", background: "#1a0f05" }}>
+                <div style={{ position: "relative", paddingBottom: "56.25%", height: 0 }}>
+                  <iframe
+                    src="https://app.heygen.com/embeds/1c6b4714cfc949a8b94bd542cc88f614"
+                    title="A message from Grace"
+                    frameBorder="0"
+                    allow="encrypted-media; fullscreen;"
+                    allowFullScreen
+                    style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}
+                  />
+                </div>
+                <div style={{ padding: "10px 16px", background: "rgba(61,43,26,0.6)" }}>
+                  <p style={{ fontSize: fs(12), color: "rgba(245,232,204,0.6)", fontFamily: "'Lato',sans-serif", fontStyle: "italic", margin: 0 }}>A personal message from Grace before you begin</p>
+                </div>
               </div>
-              <div style={{ padding: "10px 16px", background: "rgba(61,43,26,0.6)" }}>
-                <p style={{ fontSize: fs(12), color: "rgba(245,232,204,0.6)", fontFamily: "'Lato',sans-serif", fontStyle: "italic", margin: 0 }}>A personal message from Grace before you begin</p>
-              </div>
-            </div>
+            )}
 
             <p style={{ fontSize: fs(18), color: tc("#5c4a35", "#2a1a0a"), lineHeight: 1.85, fontStyle: "italic", marginBottom: 16 }}>
-              {`${persona.name} is your faith-centered writing companion. She listens deeply, honors what you share, and helps shape your story with warmth and reverence.`}
+              {cameFromPreview
+                ? `She still has everything you shared earlier. Now she just needs to get to know you a little better before continuing your story.`
+                : `${persona.name} is your faith-centered writing companion. She listens deeply, honors what you share, and helps shape your story with warmth and reverence.`}
             </p>
             <p style={{ fontSize: fs(15), color: tc("#8b7355", "#5c3d1e"), fontFamily: "'Lato',sans-serif", marginBottom: 40, lineHeight: 1.7 }}>
-              {persona.tagline}
+              {cameFromPreview ? "A few quick questions so she can write in your voice, not hers." : persona.tagline}
             </p>
             <button className="start-btn" onClick={() => setScreen("onboarding")}
               style={{ background: personaAvatarBg, color: "#fdf6ec", border: "none", padding: "18px 52px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: fs(19), letterSpacing: 1, cursor: "pointer", boxShadow: "0 4px 24px rgba(93,61,26,0.25)", minHeight: 58 }}>
-              Let's Get Started ✦
+              {cameFromPreview ? "Continue → " : "Let's Get Started ✦"}
             </button>
           </div>
         </main>
-      )}
+        );
+      })()}
 
       {/* ── BOOK SIZE ── */}
       {/* ── CHAPTER SETUP ── */}
