@@ -4888,18 +4888,17 @@ The difference from the plain version: this one flows like a chapter in a publis
                       );
                     })}
                   </div>
-                  {topicFramework.some(t => t.details.length > 0 || t.complete) && (
-                    <button onClick={() => { setShowSidebar(false); chapterComplete(); }}
-                      style={{ width: "100%", marginTop: 12, background: "linear-gradient(135deg,#b8860b,#d4a843)", color: "#fdf6ec", border: "none", padding: "11px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 15, cursor: "pointer" }}>
-                      See what we've written ✦
-                    </button>
-                    <p style={{ fontSize: 11, color: "#a89070", fontFamily: "'Lato',sans-serif", fontStyle: "italic", textAlign: "center", marginTop: 8, lineHeight: 1.6 }}>
-                      💬 Grace can rearrange, shorten, or reword anything — just tell her
-                    </p>
-                  )}
-                </div>
-              )}
-
+ {topicFramework.some(t => t.details.length > 0 || t.complete) && (
+    <>
+      <button onClick={() => { setShowSidebar(false); chapterComplete(); }}
+        style={{ width: "100%", marginTop: 12, background: "linear-gradient(135deg,#b8860b,#d4a843)", color: "#fdf6ec", border: "none", padding: "11px", borderRadius: 100, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 15, cursor: "pointer" }}>
+        See what we've written ✦
+      </button>
+      <p style={{ fontSize: 11, color: "#a89070", fontFamily: "'Lato',sans-serif", fontStyle: "italic", textAlign: "center", marginTop: 8, lineHeight: 1.6 }}>
+        💬 Grace can rearrange, shorten, or reword anything — just tell her
+      </p>
+    </>
+  )}
               {/* Book complete celebration video — only when fully done */}
               {bookComplete && messages.some(m => m.content?.includes("extraordinary")) && (
                 <div style={{ marginBottom: 14, borderRadius: 12, overflow: "hidden", border: "1px solid rgba(180,140,80,0.2)", background: "#000", position: "relative", paddingBottom: "56.25%", height: 0, flexShrink: 0 }}>
