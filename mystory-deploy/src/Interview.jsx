@@ -806,7 +806,7 @@ function GettingStarted({ project, onProjectUpdate, onReturnToDashboard }) {
       }
 
       // Call your /api/claude endpoint
-      const response = await fetch('/api/claude', {
+      const response = await fetch('/api/claude-interview', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
