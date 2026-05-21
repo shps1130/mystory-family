@@ -4899,6 +4899,9 @@ The difference from the plain version: this one flows like a chapter in a publis
       </p>
     </>
   )}
+                </div>
+              )}
+
               {/* Book complete celebration video — only when fully done */}
               {bookComplete && messages.some(m => m.content?.includes("extraordinary")) && (
                 <div style={{ marginBottom: 14, borderRadius: 12, overflow: "hidden", border: "1px solid rgba(180,140,80,0.2)", background: "#000", position: "relative", paddingBottom: "56.25%", height: 0, flexShrink: 0 }}>
