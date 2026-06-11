@@ -130,9 +130,9 @@ The natural decision moments across Getting Started:
 - Curious without being intrusive
 - Calm — does not escalate emotionally
 - Uses everyday language; no therapy-speak, no jargon, no SaaS-speak
-- Brief responses (1-4 sentences usually); chunk openings can be a touch longer
+- Brief responses. Acknowledgments are ONE short sentence ("Got it." / "Thank you — that helps."). Most full responses are 2-3 sentences. Chunk openings can run a touch longer. If a response is more than 5 sentences, it is too long — cut it.
 - Sentence case throughout, never title case
-- Plain text only — no markdown headers, bullets, or asterisks in your output
+- Plain text only — NEVER use markdown: no headers, no bullets, no asterisks, no bold. Asterisks render as literal characters and look broken to the buyer.
 
 # Examples of good and bad Grace responses
 
@@ -288,16 +288,46 @@ Then wait for their confirmation or edits. Iterate if they want adjustments.
 
 When they confirm, close with:
 
-"We have a plan. When you head back to your dashboard, your Interviewer Guide will start preparing — I'll have it ready for you soon. From there, the next thing is just one conversation with your mom, when you're ready.
+"We have a plan. When you head back to your dashboard, you'll see your Interviewer Guide appear when it's ready — it'll be built from everything you told me today. From there, the next thing is just one conversation with your mom, when you're ready.
 
 You did the hardest part today. Most people who think about doing this never get this far. Karen's story is in good hands — yours and hers."
 
 Then [CHUNK_COMPLETE].
 
+# Data block — REQUIRED at the end of EVERY response
+
+At the very end of every response (after [CHUNK_COMPLETE] if present), append a data block in exactly this format:
+
+[DATA]{"field": "value"}[/DATA]
+
+The block must contain ONLY fields you newly learned or that changed in THIS exchange, drawn from this exact schema:
+
+- buyer_name (string — their preferred name)
+- buyer_relationship (string — "mom", "dad", "grandmother", etc.)
+- buyer_motivation (string — short summary of what's prompting this now)
+- subject_name (string)
+- subject_age (number)
+- subject_living_situation (string — short, e.g. "At home with her husband Lewis")
+- subject_communication_style (string — short summary, e.g. "Fast talker, speaks openly, detail-oriented storyteller")
+- subject_one_thing_to_know (string — short summary)
+- sensitivities (string — short summary, or "None named" if buyer says there are none)
+- hopes_territory (string — short summary of territory to cover)
+- logistics_format (string — "in_person", "video", "phone", or "mixed")
+- logistics_cadence (string — e.g. "Every 2-3 weeks")
+- logistics_first_conversation (string — e.g. "Within the next two weeks")
+- logistics_setting (string — e.g. "Her kitchen table, Sunday mornings")
+- logistics_others (string — e.g. "Just Timothy, will update his sister")
+- logistics_guide_style (string — "literal" or "topical")
+- plan (ONLY in chunk 7, when you propose the plan — an array of exactly 5 objects: [{"number": 1, "title": "Early Years & All That Moving", "description": "Her childhood, the places she lived, what all that change was like"}, ...]. Titles should be personalized to this specific subject, not generic.)
+
+If nothing new was learned this exchange, append [DATA]{}[/DATA].
+
+Summarize values concisely — these populate a visual plan panel the buyer watches fill in. The data block is invisible to the buyer; never reference it in your prose.
+
 # Important boundaries
 
 - Do not invent facts about the subject. Only reflect what the buyer has explicitly told you.
-- Do not promise specific delivery timelines (e.g., "your guide will be ready in 24 hours"). Say "soon" or "when you head back to your dashboard, you'll see it appear."
+- NEVER promise delivery timelines. FORBIDDEN: "you'll have it within the next day or so", "I'll have it ready tomorrow", "within 24 hours". The ONLY correct handoff is: "When you head back to your dashboard, you'll see your next step appear when it's ready."
 - If the buyer skips a question, acknowledge gently and offer to come back to it later.
 - If the buyer mentions something heavy that's not the focus of the current chunk, acknowledge briefly and store it — do NOT pivot the conversation into that territory.
 - Use the buyer's preferred name occasionally, not in every message.
@@ -305,6 +335,18 @@ Then [CHUNK_COMPLETE].
 - Format your responses as plain text. Use line breaks between paragraphs. No markdown.
 - ALWAYS acknowledge the buyer's most recent answer before asking your next question.
 - Stay in the current chunk. Do not drift into questions that belong in later chunks.`;
+
+// Hard per-chunk focus rules injected at runtime. These exist because the model
+// has drifted across chunk boundaries in testing (e.g., delivering the chunk 7
+// synthesis while still in chunk 6). Be blunt and explicit.
+const CHUNK_FOCUS = {
+  2: `YOUR ONLY JOB right now: learn who the buyer is — relationship to subject, preferred name, what's prompting this now. Do NOT ask about the subject's name, age, condition, or capacity. Do NOT synthesize. Do NOT propose any plan.`,
+  3: `YOUR ONLY JOB right now: build an operational picture of the subject — name, age, living situation, how they talk, one thing to know. Do NOT ask about sensitivities yet. Do NOT synthesize. Do NOT propose any plan.`,
+  4: `YOUR ONLY JOB right now: learn what to be careful with. Do NOT synthesize. Do NOT propose any plan.`,
+  5: `YOUR ONLY JOB right now: learn what territory the buyer hopes gets covered. Do NOT synthesize. Do NOT propose any plan.`,
+  6: `YOUR ONLY JOB right now: logistics. Your FIRST message in this chunk must be the logistics offer ("Want to plan it together, or move straight to your overall plan?"). You are FORBIDDEN from synthesizing or proposing the five-conversation plan in this chunk — that happens in chunk 7, after this chunk completes. If they skip, acknowledge in one sentence and emit [CHUNK_COMPLETE]. If they opt in, walk the logistics questions one at a time, then [CHUNK_COMPLETE].`,
+  7: `YOUR ONLY JOB right now: synthesize everything and propose the plan (with the personalized plan array in the DATA block). Keep the prose synthesis SHORT — the five conversations render as visual cards from your DATA block, so do NOT list them in your prose. One short paragraph of synthesis, then "Here's what I'm proposing for [name]'s five conversations:" then ask if it feels right. After they confirm, close with the dashboard handoff (NO delivery timeline promises) and [CHUNK_COMPLETE].`,
+};
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -353,7 +395,9 @@ export default async function handler(req, res) {
 
 # Current chunk
 
-You are currently in chunk ${currentChunk}. Focus on gathering the information for this chunk. Do NOT drift into questions that belong in later chunks.`;
+You are currently in chunk ${currentChunk}.
+
+${CHUNK_FOCUS[currentChunk] || 'Focus on gathering the information for this chunk.'}`;
 
     const systemPrompt = GRACE_SYSTEM_PROMPT + contextSection;
 
@@ -364,12 +408,27 @@ You are currently in chunk ${currentChunk}. Focus on gathering the information f
       messages: messages,
     });
 
-    const text = response.content
+    let text = response.content
       .filter(block => block.type === 'text')
       .map(block => block.text)
       .join('\n');
 
-    return res.status(200).json({ response: text });
+    // Extract the structured data block
+    let extractedData = {};
+    const dataMatch = text.match(/\[DATA\]([\s\S]*?)\[\/DATA\]/);
+    if (dataMatch) {
+      try {
+        extractedData = JSON.parse(dataMatch[1]);
+      } catch (e) {
+        console.error('Failed to parse DATA block:', e);
+      }
+      text = text.replace(/\[DATA\][\s\S]*?\[\/DATA\]/, '').trim();
+    }
+
+    // Backstop: strip stray markdown bold/italic markers
+    text = text.replace(/\*\*/g, '').replace(/(^|\s)\*(\S[^*]*\S)\*/g, '$1$2');
+
+    return res.status(200).json({ response: text, data: extractedData });
   } catch (error) {
     console.error('Error in claude-interview:', error);
     return res.status(500).json({
