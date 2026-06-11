@@ -367,6 +367,34 @@ function Dashboard({ user, project, onBeginGettingStarted }) {
                 icon={<IconGetting />}
               />
             )}
+            {activeStep !== 'getting_started' && (
+              <div style={{
+                background: colors.creamWarm,
+                border: `1px solid ${colors.border}`,
+                borderRadius: '12px',
+                padding: '18px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '18px',
+              }}>
+                <IconGuide />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{
+                    fontSize: '11px', color: colors.tan, fontWeight: 500,
+                    letterSpacing: '0.8px', textTransform: 'uppercase', marginBottom: '4px',
+                  }}>
+                    Up next · Step 2 of 3
+                  </div>
+                  <div style={{ fontFamily: fonts.serif, fontSize: '18px', fontWeight: 500, marginBottom: '4px' }}>
+                    Your interviewer guide
+                  </div>
+                  <div style={{ fontSize: '13px', color: colors.textSecondary, lineHeight: 1.5 }}>
+                    Grace is using everything you shared to shape your personalized guide. You'll see it
+                    appear here when it's ready — we'll let you know.
+                  </div>
+                </div>
+              </div>
+            )}
           </Section>
 
           <Section
@@ -664,7 +692,18 @@ function GettingStarted({ project, onProjectUpdate, onReturnToDashboard }) {
   const [hasStarted, setHasStarted] = useState(false);
   const [error, setError] = useState('');
   const [currentProject, setCurrentProject] = useState(project);
+  const [kickstartChunk, setKickstartChunk] = useState(null);
   const messagesEndRef = useRef(null);
+
+  // If a chunk loaded with no Grace message (interrupted transition), prompt her to start it.
+  useEffect(() => {
+    if (kickstartChunk && !loading) {
+      const chunk = kickstartChunk;
+      setKickstartChunk(null);
+      sendToGrace(null, chunk);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kickstartChunk]);
 
   // Load existing progress
   useEffect(() => {
@@ -690,6 +729,14 @@ function GettingStarted({ project, onProjectUpdate, onReturnToDashboard }) {
         if (firstIncomplete) {
           setCurrentChunk(firstIncomplete.chunk_number);
           setHasStarted(firstIncomplete.chunk_number > 1);
+          // If this chunk has no Grace message yet (e.g. interrupted transition),
+          // flag it so Grace gets prompted to start it instead of showing a silent input box.
+          const chunkHasGraceMsg = (msgs || []).some(
+            m => m.chunk_number === firstIncomplete.chunk_number && m.role === 'grace'
+          );
+          if (firstIncomplete.chunk_number > 1 && !chunkHasGraceMsg) {
+            setKickstartChunk(firstIncomplete.chunk_number);
+          }
         } else if (chunks.length > 0) {
           setCurrentChunk(7);
           setHasStarted(true);
@@ -799,6 +846,8 @@ function GettingStarted({ project, onProjectUpdate, onReturnToDashboard }) {
       if (isComplete) {
         graceResponse = graceResponse.replace('[CHUNK_COMPLETE]', '').trim();
       }
+      // Backstop: strip stray markdown bold markers
+      graceResponse = graceResponse.replace(/\*\*/g, '');
 
       const { data: savedGrace } = await supabase
         .from('interview_messages')
@@ -813,9 +862,9 @@ function GettingStarted({ project, onProjectUpdate, onReturnToDashboard }) {
 
       if (savedGrace) setMessages(prev => [...prev, savedGrace]);
 
-      // Extract and save project fields based on chunk and buyer's message
-      if (userMessage) {
-        await extractAndSaveFields(userMessage, chunkNumber);
+      // Save structured fields Grace extracted this exchange (drives the plan panel)
+      if (data.data && Object.keys(data.data).length > 0) {
+        await applyExtractedData(data.data);
       }
 
       if (isComplete) {
@@ -861,45 +910,26 @@ function GettingStarted({ project, onProjectUpdate, onReturnToDashboard }) {
     }
   };
 
-  // Lightweight field extraction — looks at the buyer's message and stores
-  // what we can infer for the plan panel. Conservative — only stores when confident.
-  const extractAndSaveFields = async (message, chunkNumber) => {
+  // Save fields Grace extracted via the API's DATA block. Whitelisted columns only.
+  const applyExtractedData = async (extracted) => {
+    const ALLOWED = [
+      'buyer_name', 'buyer_relationship', 'buyer_motivation',
+      'subject_name', 'subject_age', 'subject_living_situation',
+      'subject_communication_style', 'subject_one_thing_to_know',
+      'sensitivities', 'hopes_territory',
+      'logistics_format', 'logistics_cadence', 'logistics_first_conversation',
+      'logistics_setting', 'logistics_others', 'logistics_guide_style',
+    ];
     const updates = {};
-    const lower = message.toLowerCase().trim();
-
-    if (chunkNumber === 2) {
-      // Relationship detection
-      if (/\bmom\b|\bmother\b/.test(lower)) updates.buyer_relationship = 'mom';
-      else if (/\bdad\b|\bfather\b/.test(lower)) updates.buyer_relationship = 'dad';
-      else if (/\bgrandmother\b|\bgrandma\b|\bgranny\b/.test(lower)) updates.buyer_relationship = 'grandmother';
-      else if (/\bgrandfather\b|\bgrandpa\b|\bgrandad\b/.test(lower)) updates.buyer_relationship = 'grandfather';
-
-      // Save what's prompting if message is longer (likely the motivation answer)
-      if (message.length > 30 && !updates.buyer_relationship) {
-        updates.buyer_motivation = message;
+    for (const key of ALLOWED) {
+      if (extracted[key] !== undefined && extracted[key] !== null && extracted[key] !== '') {
+        updates[key] = key === 'subject_age' ? parseInt(extracted[key]) || null : String(extracted[key]);
       }
     }
-
-    if (chunkNumber === 3 && message.length < 50) {
-      // Likely the name+age answer
-      const ageMatch = message.match(/\b(\d{2,3})\b/);
-      if (ageMatch) {
-        updates.subject_age = parseInt(ageMatch[1]);
-        const nameMatch = message.replace(/\b\d{2,3}\b/, '').replace(/[,.]/g, '').trim();
-        if (nameMatch && nameMatch.length < 30) {
-          updates.subject_name = nameMatch.split(/\s+/)[0];
-        }
-      }
+    // The plan array is saved to the project_plan JSONB column
+    if (Array.isArray(extracted.plan) && extracted.plan.length > 0) {
+      updates.project_plan = { conversations: extracted.plan };
     }
-
-    if (chunkNumber === 4 && message.length > 10) {
-      updates.sensitivities = message;
-    }
-
-    if (chunkNumber === 5 && message.length > 10) {
-      updates.hopes_territory = message;
-    }
-
     if (Object.keys(updates).length > 0) {
       await supabase.from('interview_projects').update(updates).eq('id', project.id);
       await refreshProject();
@@ -1023,6 +1053,7 @@ function GettingStarted({ project, onProjectUpdate, onReturnToDashboard }) {
                   subjectName={subjectName}
                   relationship={relationship}
                   messagesEndRef={messagesEndRef}
+                  plan={currentProject.project_plan}
                 />
               )}
             </div>
@@ -1117,7 +1148,7 @@ function WelcomeScreen({ welcomeContent, onBegin }) {
 // ============================================================
 function ConversationArea({
   chunkStatuses, currentChunk, messages, loading, input, error,
-  onInputChange, onSubmit, onSkip, subjectName, relationship, messagesEndRef,
+  onInputChange, onSubmit, onSkip, subjectName, relationship, messagesEndRef, plan,
 }) {
   const currentChunkLabel = getChunkLabel(currentChunk, subjectName, relationship);
 
@@ -1143,6 +1174,15 @@ function ConversationArea({
       {messages.filter(m => m.chunk_number === currentChunk).map((msg, i) => (
         <Message key={msg.id || i} message={msg} />
       ))}
+
+      {/* Visual plan cards — rendered when the plan has been proposed (chunk 7) */}
+      {currentChunk === 7 && plan?.conversations?.length > 0 && (
+        <div style={{ marginLeft: '54px', marginBottom: '24px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {plan.conversations.map((c, i) => (
+            <PlanRevealCard key={c.number || i} conversation={c} index={i} />
+          ))}
+        </div>
+      )}
 
       {loading && <TypingIndicator />}
 
@@ -1390,13 +1430,22 @@ function PlanPanel({ project, currentChunk, chunkStatuses }) {
         </PlanSection>
       )}
 
-      {/* Conversations preview */}
+      {/* Conversations preview — generic titles until the plan personalizes them */}
       <PlanSection title="The conversations" active={currentChunk === 7}>
-        <ConversationPreview num={1} title="Early life" filled={currentChunk === 7} />
-        <ConversationPreview num={2} title="Formative years" filled={currentChunk === 7} />
-        <ConversationPreview num={3} title="Faith" filled={currentChunk === 7} />
-        <ConversationPreview num={4} title="Marriage & family" filled={currentChunk === 7} />
-        <ConversationPreview num={5} title="Reflections" filled={currentChunk === 7} />
+        {(project.project_plan?.conversations?.length > 0
+          ? project.project_plan.conversations.map(c => ({
+              num: c.number, title: c.title, filled: true,
+            }))
+          : [
+              { num: 1, title: 'Early life', filled: false },
+              { num: 2, title: 'Formative years', filled: false },
+              { num: 3, title: 'Faith', filled: false },
+              { num: 4, title: 'Marriage & family', filled: false },
+              { num: 5, title: 'Reflections', filled: false },
+            ]
+        ).map(c => (
+          <ConversationPreview key={c.num} num={c.num} title={c.title} filled={c.filled} />
+        ))}
       </PlanSection>
     </div>
   );
@@ -1511,11 +1560,12 @@ function GraceAvatar({ size = 'small' }) {
 
 function Message({ message }) {
   if (message.role === 'grace') {
+    const cleanContent = message.content.replace(/\*\*/g, '');
     return (
       <div style={{ display: 'flex', gap: '18px', marginBottom: '24px' }}>
         <GraceAvatar />
         <div style={{ flex: 1 }}>
-          {message.content.split('\n').filter(p => p.trim()).map((para, i) => (
+          {cleanContent.split('\n').filter(p => p.trim()).map((para, i) => (
             <div key={i} style={{
               fontSize: '16px', lineHeight: 1.7,
               color: colors.navy,
@@ -1543,6 +1593,52 @@ function Message({ message }) {
       }}>
         {message.content}
       </div>
+    </div>
+  );
+}
+
+// Visual card for each proposed conversation in the chunk 7 plan reveal
+const PLAN_CARD_ICONS = [IconHouse, IconPerson, IconCross, IconFamily, IconReflect];
+
+function PlanRevealCard({ conversation, index }) {
+  const Icon = PLAN_CARD_ICONS[index] || IconReflect;
+  return (
+    <div style={{
+      background: colors.creamWarm,
+      border: `1px solid ${colors.gold}`,
+      borderRadius: '12px',
+      padding: '14px 16px',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '14px',
+      animation: `fadeUp 0.4s ease ${index * 0.12}s both`,
+    }}>
+      <Icon />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{
+          fontSize: '11px', color: colors.tan, fontWeight: 500,
+          letterSpacing: '0.8px', textTransform: 'uppercase', marginBottom: '2px',
+        }}>
+          Conversation {conversation.number || index + 1}
+        </div>
+        <div style={{
+          fontFamily: fonts.serif, fontSize: '16px', fontWeight: 500,
+          color: colors.text, marginBottom: conversation.description ? '3px' : 0,
+        }}>
+          {conversation.title}
+        </div>
+        {conversation.description && (
+          <div style={{ fontSize: '12px', color: colors.textSecondary, lineHeight: 1.5 }}>
+            {conversation.description}
+          </div>
+        )}
+      </div>
+      <style>{`
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
     </div>
   );
 }
