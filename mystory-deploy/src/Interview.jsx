@@ -692,8 +692,19 @@ function GettingStarted({ project, onProjectUpdate, onReturnToDashboard }) {
   const [hasStarted, setHasStarted] = useState(false);
   const [error, setError] = useState('');
   const [currentProject, setCurrentProject] = useState(project);
+  // When a chunk completes, holds that chunk number until the buyer clicks Continue.
+  const [awaitingContinue, setAwaitingContinue] = useState(null);
   const [kickstartChunk, setKickstartChunk] = useState(null);
   const messagesEndRef = useRef(null);
+  // Always-current mirror of messages, so sendToGrace never reads a stale closure.
+  const messagesRef = useRef([]);
+  const setMessagesSafe = (updater) => {
+    setMessages(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      messagesRef.current = next;
+      return next;
+    });
+  };
 
   // If a chunk loaded with no Grace message (interrupted transition), prompt her to start it.
   useEffect(() => {
@@ -743,7 +754,7 @@ function GettingStarted({ project, onProjectUpdate, onReturnToDashboard }) {
         }
       }
 
-      if (msgs) setMessages(msgs);
+      if (msgs) setMessagesSafe(msgs);
     };
 
     loadProgress();
@@ -807,10 +818,10 @@ function GettingStarted({ project, onProjectUpdate, onReturnToDashboard }) {
           .select()
           .single();
 
-        if (savedMsg) setMessages(prev => [...prev, savedMsg]);
+        if (savedMsg) setMessagesSafe(prev => [...prev, savedMsg]);
       }
 
-      const history = messages.map(m => ({
+      const history = messagesRef.current.map(m => ({
         role: m.role === 'grace' ? 'assistant' : 'user',
         content: m.content,
       }));
@@ -860,7 +871,7 @@ function GettingStarted({ project, onProjectUpdate, onReturnToDashboard }) {
         .select()
         .single();
 
-      if (savedGrace) setMessages(prev => [...prev, savedGrace]);
+      if (savedGrace) setMessagesSafe(prev => [...prev, savedGrace]);
 
       // Save structured fields Grace extracted this exchange (drives the plan panel)
       if (data.data && Object.keys(data.data).length > 0) {
@@ -879,19 +890,9 @@ function GettingStarted({ project, onProjectUpdate, onReturnToDashboard }) {
         setChunkStatuses(prev => ({ ...prev, [chunkNumber]: 'complete' }));
 
         if (chunkNumber < TOTAL_CHUNKS) {
-          const nextChunk = chunkNumber + 1;
-          setCurrentChunk(nextChunk);
-
-          await supabase.from('interview_orientation_chunks').upsert({
-            project_id: project.id,
-            chunk_number: nextChunk,
-            chunk_name: CHUNKS[nextChunk].name,
-            status: 'in_progress',
-            started_at: new Date().toISOString(),
-          }, { onConflict: 'project_id,chunk_number' });
-
-          setChunkStatuses(prev => ({ ...prev, [nextChunk]: 'in_progress' }));
-          setTimeout(() => sendToGrace(null, nextChunk), 500);
+          // Do NOT auto-advance. Show a Continue button so the buyer can read
+          // Grace's closing message at their own pace, then move on when ready.
+          setAwaitingContinue(chunkNumber);
         } else {
           // All chunks complete
           await supabase
@@ -947,6 +948,26 @@ function GettingStarted({ project, onProjectUpdate, onReturnToDashboard }) {
   const handleSkip = async () => {
     if (loading) return;
     await sendToGrace("[The buyer wants to skip this. Acknowledge gently and move on.]", currentChunk);
+  };
+
+  // Buyer clicked "Continue" after reading Grace's closing message for a chunk.
+  const handleContinue = async () => {
+    const completedChunk = awaitingContinue;
+    if (!completedChunk || loading) return;
+    const nextChunk = completedChunk + 1;
+    setAwaitingContinue(null);
+    setCurrentChunk(nextChunk);
+
+    await supabase.from('interview_orientation_chunks').upsert({
+      project_id: project.id,
+      chunk_number: nextChunk,
+      chunk_name: CHUNKS[nextChunk].name,
+      status: 'in_progress',
+      started_at: new Date().toISOString(),
+    }, { onConflict: 'project_id,chunk_number' });
+
+    setChunkStatuses(prev => ({ ...prev, [nextChunk]: 'in_progress' }));
+    await sendToGrace(null, nextChunk);
   };
 
   const buyerName = currentProject.buyer_name || '';
@@ -1054,6 +1075,8 @@ function GettingStarted({ project, onProjectUpdate, onReturnToDashboard }) {
                   relationship={relationship}
                   messagesEndRef={messagesEndRef}
                   plan={currentProject.project_plan}
+                  awaitingContinue={awaitingContinue}
+                  onContinue={handleContinue}
                 />
               )}
             </div>
@@ -1149,8 +1172,11 @@ function WelcomeScreen({ welcomeContent, onBegin }) {
 function ConversationArea({
   chunkStatuses, currentChunk, messages, loading, input, error,
   onInputChange, onSubmit, onSkip, subjectName, relationship, messagesEndRef, plan,
+  awaitingContinue, onContinue,
 }) {
   const currentChunkLabel = getChunkLabel(currentChunk, subjectName, relationship);
+  const currentChunkMessages = messages.filter(m => m.chunk_number === currentChunk);
+  const hasGraceMessageThisChunk = currentChunkMessages.some(m => m.role === 'grace');
 
   return (
     <div>
@@ -1188,8 +1214,38 @@ function ConversationArea({
 
       <div ref={messagesEndRef} />
 
-      {/* Input form */}
-      {!loading && (
+      {/* Continue button — shown after a chunk completes, lets the buyer read at their pace */}
+      {!loading && awaitingContinue === currentChunk && (
+        <div style={{
+          marginLeft: '54px', marginTop: '24px', paddingTop: '20px',
+          borderTop: `0.5px solid ${colors.border}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          flexWrap: 'wrap', gap: '12px',
+        }}>
+          <div style={{ fontSize: '13px', color: colors.textTertiary }}>
+            Take your time. Continue when you're ready.
+          </div>
+          <button onClick={onContinue} style={{
+            fontSize: '14px', padding: '11px 28px',
+            background: colors.navy, color: 'white',
+            border: 'none', borderRadius: '999px', cursor: 'pointer',
+            fontWeight: 500, fontFamily: 'inherit',
+          }}>
+            Continue →
+          </button>
+        </div>
+      )}
+
+      {/* If the chunk has no Grace message yet and nothing is loading, show a waiting
+          state instead of a bare input. The kickstart effect will prompt Grace. */}
+      {!loading && awaitingContinue !== currentChunk && !hasGraceMessageThisChunk && (
+        <div style={{ marginLeft: '54px', marginTop: '20px' }}>
+          <TypingIndicator />
+        </div>
+      )}
+
+      {/* Input form — hidden while awaiting continue or before Grace has spoken */}
+      {!loading && awaitingContinue !== currentChunk && hasGraceMessageThisChunk && (
         <div style={{ marginLeft: '54px', marginTop: '20px' }}>
           <textarea
             value={input}
