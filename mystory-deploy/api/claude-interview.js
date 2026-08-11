@@ -276,13 +276,15 @@ Structure your synthesis like this:
 
 *[If logistics were captured — add this section]:* And here's how we'll do it — first conversation in the [next two weeks] at her [kitchen table on a Sunday morning when she's sharpest], every [three weeks] after that, [just you and her], [reading from prepared questions].
 
-*[The plan]:* Based on all of that, here's what I'd recommend for her five conversations:
+*[The plan]:* Based on all of that, here's what I'd recommend for her five conversations. These five together tell a whole life story — not just a pile of memories. Each one is a chapter of who she is.
 
-Conversation 1: Early Life
-Conversation 2: Formative Years
-Conversation 3: Faith
-Conversation 4: Marriage and Family
-Conversation 5: Reflections
+Conversation 1: Beginnings — where she came from and who shaped her early (her origins and childhood)
+Conversation 2: Becoming Herself — the turning points, the forks in the road that made her who she became
+Conversation 3: The Life She Built — marriage, family, work, home, the decades of building
+Conversation 4: What She Came Through — the hard chapters, the things she endured and what they cost
+Conversation 5: Looking Back — what it all meant, what she learned, what she wants carried forward
+
+PERSONALIZE these. The titles above are the structure, but you should adapt each title and description to THIS specific person using what you learned. "Beginnings" might become "Beginnings on the Lancaster Farm." "What She Came Through" might reference (gently, without naming specifics she'd find painful) the territory the buyer flagged. Faith is NOT its own conversation — it threads through all five, especially the turning points, the hard chapters, and looking back. If the buyer signaled faith is central to who she is, mention that you'll make sure it comes through across the conversations.
 
 Five conversations. Probably 45 to 60 minutes each. [If logistics captured: "At your pace, we'll be done by [estimated month]."]
 
@@ -322,7 +324,7 @@ The block must contain ONLY fields you newly learned or that changed in THIS exc
 - logistics_setting (string — e.g. "Her kitchen table, Sunday mornings")
 - logistics_others (string — e.g. "Just Timothy, will update his sister")
 - logistics_guide_style (string — "literal" or "topical")
-- plan (ONLY in chunk 7, when you propose the plan — an array of exactly 5 objects: [{"number": 1, "title": "Early Years & All That Moving", "description": "Her childhood, the places she lived, what all that change was like"}, ...]. Titles should be personalized to this specific subject, not generic.)
+- plan (ONLY in chunk 7, when you propose the plan — an array of exactly 5 objects following this arc: 1) Beginnings (origins + childhood), 2) Becoming Herself (turning points), 3) The Life She Built (the long middle — marriage, family, work), 4) What She Came Through (the hard chapters), 5) Looking Back (reflection + legacy). Example: [{"number": 1, "title": "Beginnings on the Lancaster Farm", "description": "Her childhood, the places she lived, the people who shaped her"}, ...]. PERSONALIZE each title and description to this specific subject using what you learned — do not use the generic arc labels verbatim. Faith threads through all five, never its own conversation.)
 
 If nothing new was learned this exchange, append [DATA]{}[/DATA].
 
@@ -349,7 +351,7 @@ const CHUNK_FOCUS = {
   4: `YOUR ONLY JOB right now: learn what to be careful with. Do NOT synthesize. Do NOT propose any plan.`,
   5: `YOUR ONLY JOB right now: learn what territory the buyer hopes gets covered. Do NOT synthesize. Do NOT propose any plan.`,
   6: `YOUR ONLY JOB right now: logistics. Your FIRST message in this chunk must be the logistics offer ("Want to plan it together, or move straight to your overall plan?"). You are FORBIDDEN from synthesizing or proposing the five-conversation plan in this chunk — that happens in chunk 7, after this chunk completes. If they skip, acknowledge in one sentence and emit [CHUNK_COMPLETE]. If they opt in, walk the logistics questions one at a time, then [CHUNK_COMPLETE].`,
-  7: `YOUR ONLY JOB right now: synthesize everything and propose the plan (with the personalized plan array in the DATA block). Keep the prose synthesis SHORT — the five conversations render as visual cards from your DATA block, so do NOT list them in your prose. One short paragraph of synthesis, then "Here's what I'm proposing for [name]'s five conversations:" then ask if it feels right. After they confirm, close with the dashboard handoff (NO delivery timeline promises) and [CHUNK_COMPLETE].`,
+  7: `YOUR ONLY JOB right now: synthesize everything and propose the plan (with the personalized plan array in the DATA block). The five conversations follow the biography arc: Beginnings, Becoming Herself, The Life She Built, What She Came Through, Looking Back — personalized to this subject, with faith threaded through (never its own conversation). Keep the prose synthesis SHORT — the five conversations render as visual cards from your DATA block, so do NOT list them in your prose. One short paragraph of synthesis, then "Here's what I'm proposing for [name]'s five conversations:" then ask if it feels right. After they confirm, close with the dashboard handoff (NO delivery timeline promises) and [CHUNK_COMPLETE].`,
 };
 
 export default async function handler(req, res) {
