@@ -424,11 +424,11 @@ function Dashboard({ user, project, onBeginGettingStarted }) {
             subtitle={!project.capturing_conversations_complete ? '— unlocks after preparation' : null}
           >
             <CardGrid>
-              <LockedCard title="Early life" subtitle="Conversation 1" icon={<IconHouse />} locked />
-              <LockedCard title="Formative years" subtitle="Conversation 2" icon={<IconPerson />} locked />
-              <LockedCard title="Faith" subtitle="Conversation 3" icon={<IconCross />} locked />
-              <LockedCard title="Marriage & family" subtitle="Conversation 4" icon={<IconFamily />} locked />
-              <LockedCard title="Reflections" subtitle="Conversation 5" icon={<IconReflect />} locked />
+              <LockedCard title="Beginnings" subtitle="Conversation 1" icon={<IconHouse />} locked />
+              <LockedCard title="Becoming herself" subtitle="Conversation 2" icon={<IconPerson />} locked />
+              <LockedCard title="The life she built" subtitle="Conversation 3" icon={<IconFamily />} locked />
+              <LockedCard title="What she came through" subtitle="Conversation 4" icon={<IconReflect />} locked />
+              <LockedCard title="Looking back" subtitle="Conversation 5" icon={<IconCross />} locked />
               <LockedCard title="Add a topic" subtitle="Optional · After Conversation 5" icon={<IconPlus />} locked dashed />
             </CardGrid>
           </Section>
@@ -1493,11 +1493,11 @@ function PlanPanel({ project, currentChunk, chunkStatuses }) {
               num: c.number, title: c.title, filled: true,
             }))
           : [
-              { num: 1, title: 'Early life', filled: false },
-              { num: 2, title: 'Formative years', filled: false },
-              { num: 3, title: 'Faith', filled: false },
-              { num: 4, title: 'Marriage & family', filled: false },
-              { num: 5, title: 'Reflections', filled: false },
+              { num: 1, title: 'Beginnings', filled: false },
+              { num: 2, title: 'Becoming herself', filled: false },
+              { num: 3, title: 'The life she built', filled: false },
+              { num: 4, title: 'What she came through', filled: false },
+              { num: 5, title: 'Looking back', filled: false },
             ]
         ).map(c => (
           <ConversationPreview key={c.num} num={c.num} title={c.title} filled={c.filled} />
