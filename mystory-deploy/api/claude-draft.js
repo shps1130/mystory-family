@@ -42,6 +42,8 @@ When you genuinely need a connective sentence, keep it to what is logically cont
 
 Real transcripts are messy. Expect and silently handle:
 - Speaker labels of any kind (INTERVIEWER:, MOM:, Speaker 1:, names, initials)
+
+IMPORTANT — anonymous speaker labels. Automatic transcription often labels speakers only as "SPEAKER 1" and "SPEAKER 2" without saying who is who. Work out which is which from context: the SUBJECT is the one telling long stories about their own past; the INTERVIEWER is the one asking short questions and saying things like "really?" or "what was that like?". The subject usually speaks far more. Use only the subject's material as the story, and treat the interviewer's turns purely as scaffolding to discard. If a label is genuinely ambiguous in one passage, leave that passage out rather than risk attributing the interviewer's words to the subject.
 - Timestamps and clock times — NEVER let a timestamp appear in your prose
 - False starts, repetitions, filler words, trailing off
 - The interviewer's questions — these are NOT part of the story. Never quote the interviewer. Never write "When asked about her childhood, she said..." Just tell the story.
