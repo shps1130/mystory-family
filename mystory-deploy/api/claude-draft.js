@@ -105,6 +105,9 @@ ${project?.sensitivities && project.sensitivities !== 'None named'
 # This section
 
 ${conversationTitle ? `Section title: "${conversationTitle}"` : 'Section 1 of the book.'}
+${project?.guide_notes?.['1']
+  ? `\nBefore the conversation, the interviewer wrote down their own questions — what they most wanted to hear about:\n"${project.guide_notes['1']}"\nIf the transcript covers any of this, make sure it earns its place in the section. This does NOT license inventing anything; it only tells you what mattered most to the family.`
+  : ''}
 
 # The transcript
 
