@@ -2211,6 +2211,10 @@ function CaptureConversation({ project, onProjectUpdate, onReturnToDashboard }) 
   const [revisionText, setRevisionText] = useState('');
   const [showRevision, setShowRevision] = useState(false);
   const [loadingRow, setLoadingRow] = useState(true);
+  // Audio upload state
+  const [audioFile, setAudioFile] = useState(null);
+  const [stage, setStage] = useState(null); // 'uploading' | 'transcribing' | 'writing'
+  const [uploadPct, setUploadPct] = useState(0);
 
   const subjectName = project.subject_name || 'your loved one';
   const plannedTitle = project.project_plan?.conversations?.find(
@@ -2288,6 +2292,89 @@ function CaptureConversation({ project, onProjectUpdate, onReturnToDashboard }) 
       setError("We couldn't write the section just now. Your transcript is saved — try again in a moment.");
     } finally {
       setDrafting(false);
+    }
+  };
+
+  // Upload audio → transcribe → draft, in one flow.
+  const processAudio = async () => {
+    if (!audioFile) { setError('Choose your recording first.'); return; }
+    setError('');
+    setDrafting(true);
+    setStage('uploading');
+    setUploadPct(0);
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not signed in');
+
+      const ext = (audioFile.name.split('.').pop() || 'm4a').toLowerCase();
+      const path = `${user.id}/${project.id}-conv${CONVERSATION_NUMBER}-${Date.now()}.${ext}`;
+
+      const { error: upErr } = await supabase.storage
+        .from('conversation-audio')
+        .upload(path, audioFile, { upsert: true, contentType: audioFile.type || undefined });
+      if (upErr) throw new Error(`Upload failed: ${upErr.message}`);
+
+      setUploadPct(100);
+      setStage('transcribing');
+
+      // Signed URL so Deepgram can fetch the private file
+      const { data: signed, error: signErr } = await supabase.storage
+        .from('conversation-audio')
+        .createSignedUrl(path, 3600);
+      if (signErr || !signed?.signedUrl) throw new Error('Could not prepare the file');
+
+      const tRes = await fetch('/api/transcribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ audioUrl: signed.signedUrl }),
+      });
+      if (!tRes.ok) {
+        const d = await tRes.json().catch(() => ({}));
+        throw new Error(d.details || d.error || 'Transcription failed');
+      }
+      const tData = await tRes.json();
+      const text = (tData.transcript || '').trim();
+      if (!text) throw new Error('The recording came back empty — check the file plays back with sound.');
+
+      setTranscript(text);
+      await saveRow({
+        transcript: text,
+        transcript_source: 'audio',
+        audio_path: path,
+        status: 'captured',
+      });
+
+      setStage('writing');
+
+      const dRes = await fetch('/api/claude-draft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          transcript: text,
+          project,
+          conversationTitle: plannedTitle,
+        }),
+      });
+      if (!dRes.ok) throw new Error(`Drafting failed (${dRes.status})`);
+      const dData = await dRes.json();
+      if (!dData.draft) throw new Error('No draft returned');
+
+      await saveRow({
+        transcript: text,
+        transcript_source: 'audio',
+        audio_path: path,
+        draft: dData.draft,
+        draft_generated_at: new Date().toISOString(),
+        status: 'drafted',
+        approved: false,
+      });
+    } catch (err) {
+      console.error('Audio flow error:', err);
+      setError(err.message || "Something went wrong. Your recording may have saved — try again in a moment.");
+    } finally {
+      setDrafting(false);
+      setStage(null);
     }
   };
 
@@ -2502,8 +2589,11 @@ function CaptureConversation({ project, onProjectUpdate, onReturnToDashboard }) 
                       fontSize: '14px', color: colors.textSecondary, textAlign: 'center',
                       maxWidth: '400px', lineHeight: 1.6,
                     }}>
-                      Grace is reading your conversation and writing {subjectName}'s section.
-                      This takes a minute — it's a lot of words to work through.
+                      {stage === 'uploading'
+                        ? 'Uploading your recording. Keep this page open — larger files take a minute.'
+                        : stage === 'transcribing'
+                        ? "Turning the recording into text. This is the slow part — a long conversation can take a few minutes."
+                        : `Grace is reading your conversation and writing ${subjectName}'s section. This takes a minute — it's a lot of words to work through.`}
                     </div>
                   </div>
                 ) : (
@@ -2520,9 +2610,9 @@ function CaptureConversation({ project, onProjectUpdate, onReturnToDashboard }) 
                           <CapturePathCard
                             icon={<IconRecord />}
                             title="Upload the audio"
-                            body="You recorded on your phone or a recorder. Upload the file and we'll turn it into text."
-                            note="Coming next"
-                            disabled
+                            body="You recorded the conversation on your phone. Upload the file and we'll turn it into text for you."
+                            note="Ready"
+                            onClick={() => setMode('audio')}
                           />
                           <CapturePathCard
                             icon={<IconGuide />}
@@ -2595,6 +2685,112 @@ function CaptureConversation({ project, onProjectUpdate, onReturnToDashboard }) 
                             }}>
                             Write the section →
                           </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {mode === 'audio' && (
+                      <div>
+                        <div style={{
+                          display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px',
+                        }}>
+                          <div style={{ width: '4px', height: '16px', background: colors.gold, borderRadius: '2px' }} />
+                          <div style={{
+                            fontFamily: fonts.serif, fontSize: '15px', fontWeight: 500, color: colors.textSecondary,
+                          }}>
+                            Upload your recording
+                          </div>
+                        </div>
+
+                        <div style={{
+                          background: colors.creamLight, border: `0.5px solid ${colors.border}`,
+                          borderRadius: '10px', padding: '18px 20px', marginBottom: '20px',
+                        }}>
+                          <div style={{
+                            fontSize: '13px', fontWeight: 600, color: colors.tan,
+                            letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '10px',
+                          }}>
+                            How to record
+                          </div>
+                          <div style={{ fontSize: '14.5px', color: colors.navy, lineHeight: 1.7 }}>
+                            Use the voice recorder already on your phone — Voice Memos on an iPhone,
+                            Recorder on most Android phones. Set the phone on the table between you,
+                            screen up, and start it before you begin talking.
+                            <br /><br />
+                            A few things that help: keep the phone within a couple of feet of both of
+                            you, put it on something soft rather than a hard table if you can, and
+                            silence notifications first. When you're done, share the file to yourself
+                            and upload it here.
+                          </div>
+                        </div>
+
+                        <label style={{
+                          display: 'block', border: `1.5px dashed ${colors.border}`,
+                          borderRadius: '12px', padding: '28px 20px', textAlign: 'center',
+                          cursor: 'pointer', background: audioFile ? colors.creamWarm : 'white',
+                        }}>
+                          <input
+                            type="file"
+                            accept="audio/*,.m4a,.mp3,.wav,.aac,.mp4,.mov"
+                            style={{ display: 'none' }}
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f) { setAudioFile(f); setError(''); }
+                            }}
+                          />
+                          {audioFile ? (
+                            <div>
+                              <div style={{
+                                fontFamily: fonts.serif, fontSize: '17px', fontWeight: 500, marginBottom: '4px',
+                              }}>
+                                {audioFile.name}
+                              </div>
+                              <div style={{ fontSize: '13px', color: colors.textSecondary }}>
+                                {(audioFile.size / (1024 * 1024)).toFixed(1)} MB · tap to choose a different file
+                              </div>
+                            </div>
+                          ) : (
+                            <div>
+                              <div style={{
+                                fontFamily: fonts.serif, fontSize: '17px', fontWeight: 500, marginBottom: '4px',
+                              }}>
+                                Choose your recording
+                              </div>
+                              <div style={{ fontSize: '13px', color: colors.textSecondary }}>
+                                m4a, mp3, wav — most phone recordings work
+                              </div>
+                            </div>
+                          )}
+                        </label>
+
+                        <div style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          marginTop: '16px', flexWrap: 'wrap', gap: '12px',
+                        }}>
+                          <button onClick={() => { setMode(null); setAudioFile(null); }} style={{
+                            fontSize: '13px', padding: '9px 15px', background: 'transparent',
+                            border: `0.5px solid ${colors.border}`, borderRadius: '999px',
+                            cursor: 'pointer', color: colors.textSecondary, fontFamily: 'inherit',
+                          }}>
+                            ← Back
+                          </button>
+                          <button onClick={processAudio} disabled={!audioFile} style={{
+                            fontSize: '15px', padding: '12px 28px',
+                            background: audioFile ? colors.navy : colors.gray,
+                            color: 'white', border: 'none', borderRadius: '999px',
+                            cursor: audioFile ? 'pointer' : 'not-allowed',
+                            fontWeight: 500, fontFamily: 'inherit',
+                          }}>
+                            Upload and write the section →
+                          </button>
+                        </div>
+
+                        <div style={{
+                          fontSize: '12.5px', color: colors.textTertiary,
+                          marginTop: '14px', lineHeight: 1.6,
+                        }}>
+                          Long recordings take a few minutes to process. Keep this page open while
+                          it works — you'll see the section when it's ready.
                         </div>
                       </div>
                     )}
