@@ -167,11 +167,22 @@ export default function Interview() {
     );
   }
 
+  if (view === 'interviewer_guide') {
+    return (
+      <InterviewerGuide
+        project={project}
+        onProjectUpdate={setProject}
+        onReturnToDashboard={() => setView('dashboard')}
+      />
+    );
+  }
+
   return (
     <Dashboard
       user={user}
       project={project}
       onBeginGettingStarted={() => setView('getting_started')}
+      onOpenGuide={() => setView('interviewer_guide')}
     />
   );
 }
@@ -299,7 +310,7 @@ function SignInScreen() {
 // ============================================================
 // Dashboard
 // ============================================================
-function Dashboard({ user, project, onBeginGettingStarted }) {
+function Dashboard({ user, project, onBeginGettingStarted, onOpenGuide }) {
   const subject = project.subject_name || 'your loved one';
   const buyerInitials = (project.buyer_name || user.email || '?')
     .split(' ').map(s => s[0]).join('').slice(0, 2).toUpperCase();
@@ -367,7 +378,17 @@ function Dashboard({ user, project, onBeginGettingStarted }) {
                 icon={<IconGetting />}
               />
             )}
-            {activeStep !== 'getting_started' && (
+            {activeStep === 'interviewer_guide' && (
+              <ActiveCard
+                eyebrow="Up next · Step 2 of 3"
+                title="Your interviewer guide"
+                description={`Your personalized guide for your first conversation${project.subject_name ? ` with ${project.subject_name}` : ''} — how to set them at ease, what to cover, and what to do if something comes up.`}
+                buttonText="Open your guide →"
+                onClick={onOpenGuide}
+                icon={<IconGuide />}
+              />
+            )}
+            {activeStep !== 'getting_started' && activeStep !== 'interviewer_guide' && (
               <div style={{
                 background: colors.creamWarm,
                 border: `1px solid ${colors.border}`,
@@ -377,20 +398,20 @@ function Dashboard({ user, project, onBeginGettingStarted }) {
                 alignItems: 'center',
                 gap: '18px',
               }}>
-                <IconGuide />
+                <IconRecord />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{
                     fontSize: '11px', color: colors.tan, fontWeight: 500,
                     letterSpacing: '0.8px', textTransform: 'uppercase', marginBottom: '4px',
                   }}>
-                    Up next · Step 2 of 3
+                    Up next · Step 3 of 3
                   </div>
                   <div style={{ fontFamily: fonts.serif, fontSize: '18px', fontWeight: 500, marginBottom: '4px' }}>
-                    Your interviewer guide
+                    Capturing your conversations
                   </div>
                   <div style={{ fontSize: '13px', color: colors.textSecondary, lineHeight: 1.5 }}>
-                    Grace is using everything you shared to shape your personalized guide. You'll see it
-                    appear here when it's ready — we'll let you know.
+                    We're building this next — how to record your conversations and turn them into
+                    your loved one's book. You'll see it appear here when it's ready.
                   </div>
                 </div>
               </div>
@@ -408,6 +429,7 @@ function Dashboard({ user, project, onBeginGettingStarted }) {
                 subtitle="Step 2 of 3"
                 icon={<IconGuide />}
                 locked={!project.getting_started_complete}
+                onClick={project.getting_started_complete ? onOpenGuide : null}
               />
               <LockedCard
                 title="Capturing your conversations"
@@ -618,23 +640,24 @@ function ActiveCard({ eyebrow, title, description, buttonText, onClick, icon }) 
   );
 }
 
-function LockedCard({ title, subtitle, icon, locked, dashed }) {
+function LockedCard({ title, subtitle, icon, locked, dashed, onClick }) {
   return (
-    <div style={{
+    <div onClick={onClick || undefined} style={{
       background: colors.creamLight,
-      border: `0.5px ${dashed ? 'dashed' : 'solid'} ${colors.border}`,
+      border: `0.5px ${dashed ? 'dashed' : 'solid'} ${onClick ? colors.gold : colors.border}`,
       borderRadius: '12px',
       padding: '14px',
       display: 'flex',
       alignItems: 'center',
       gap: '12px',
       opacity: locked ? 0.6 : 1,
+      cursor: onClick ? 'pointer' : 'default',
     }}>
       <div style={{ flexShrink: 0 }}>{icon}</div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: '13px', fontWeight: 500, marginBottom: '2px' }}>{title}</div>
         <div style={{ fontSize: '11px', color: colors.textTertiary }}>
-          {subtitle}{locked ? ' · Locked' : ''}
+          {subtitle}{locked ? ' · Locked' : onClick ? ' · Ready' : ''}
         </div>
       </div>
     </div>
@@ -1762,6 +1785,311 @@ function CompletedChunkCard({ chunkNumber, subjectName, relationship }) {
       </div>
     </div>
   );
+}
+
+// ============================================================
+// Interviewer Guide page
+// Generates once, saves, loads instantly on return. Print-friendly.
+// ============================================================
+function InterviewerGuide({ project, onProjectUpdate, onReturnToDashboard }) {
+  const CONVERSATION_NUMBER = 1; // Conversation 1 (Beginnings) for now
+  const [guide, setGuide] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [regenerating, setRegenerating] = useState(false);
+
+  const subjectName = project.subject_name || 'your loved one';
+
+  // Personalized conversation title from their plan, if available
+  const plannedTitle = project.project_plan?.conversations?.find(
+    c => Number(c.number) === CONVERSATION_NUMBER
+  )?.title;
+
+  useEffect(() => {
+    const existing = project.interviewer_guides?.[String(CONVERSATION_NUMBER)];
+    if (existing) {
+      setGuide(existing);
+    } else {
+      generateGuide(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const generateGuide = async (isRegen) => {
+    if (isRegen) setRegenerating(true); else setLoading(true);
+    setError('');
+    try {
+      const response = await fetch('/api/claude-guide', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ project, conversationNumber: CONVERSATION_NUMBER }),
+      });
+      if (!response.ok) throw new Error(`API returned ${response.status}`);
+      const data = await response.json();
+      const text = data.guide;
+      if (!text) throw new Error('No guide returned');
+
+      const updatedGuides = {
+        ...(project.interviewer_guides || {}),
+        [String(CONVERSATION_NUMBER)]: text,
+      };
+
+      await supabase
+        .from('interview_projects')
+        .update({
+          interviewer_guides: updatedGuides,
+          interviewer_guide_complete: true,
+          current_step: 'capturing_conversations',
+        })
+        .eq('id', project.id);
+
+      setGuide(text);
+      onProjectUpdate({
+        ...project,
+        interviewer_guides: updatedGuides,
+        interviewer_guide_complete: true,
+        current_step: 'capturing_conversations',
+      });
+    } catch (err) {
+      console.error('Error generating guide:', err);
+      setError("We couldn't build your guide just now. Try again in a moment — nothing is lost.");
+    } finally {
+      setLoading(false);
+      setRegenerating(false);
+    }
+  };
+
+  return (
+    <div style={{
+      minHeight: '100vh', background: colors.cream,
+      fontFamily: fonts.sans, color: colors.text,
+    }}>
+      <style>{`
+        @media print {
+          .no-print { display: none !important; }
+          body { background: white !important; }
+          .guide-sheet {
+            border: none !important; border-radius: 0 !important;
+            max-width: 100% !important; box-shadow: none !important;
+          }
+          .guide-page { padding: 0 !important; background: white !important; }
+          .guide-body { padding: 0 !important; }
+          .guide-h2 { page-break-after: avoid; }
+          p, li { page-break-inside: avoid; }
+        }
+      `}</style>
+
+      <div className="guide-page" style={{ maxWidth: '760px', margin: '0 auto', padding: '20px 16px 60px' }}>
+        <div className="guide-sheet" style={{
+          background: 'white', borderRadius: '16px', overflow: 'hidden',
+          border: `0.5px solid ${colors.border}`,
+        }}>
+          {/* Header */}
+          <div className="no-print" style={{
+            background: colors.navy, padding: '14px 24px',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            flexWrap: 'wrap', gap: '10px',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+              <button onClick={onReturnToDashboard} style={{
+                fontSize: '12px', padding: '5px 10px',
+                background: 'rgba(255,255,255,0.1)', color: 'white',
+                border: '0.5px solid rgba(255,255,255,0.25)',
+                borderRadius: '6px', cursor: 'pointer', fontFamily: 'inherit',
+              }}>
+                ← Dashboard
+              </button>
+              <div style={{ fontFamily: fonts.serif, fontSize: '15px', fontWeight: 500, color: 'white' }}>
+                MyStory<span style={{ color: colors.gold }}>.</span>Family
+              </div>
+            </div>
+            {guide && (
+              <button onClick={() => window.print()} style={{
+                fontSize: '12px', padding: '6px 14px',
+                background: colors.gold, color: colors.navy,
+                border: 'none', borderRadius: '999px', cursor: 'pointer',
+                fontWeight: 600, fontFamily: 'inherit',
+              }}>
+                Print this guide
+              </button>
+            )}
+          </div>
+
+          {/* Title block */}
+          <div style={{
+            padding: '28px 32px 22px', background: colors.creamLight,
+            borderBottom: `0.5px solid ${colors.border}`,
+          }}>
+            <div style={{
+              fontSize: '11px', color: colors.tan, fontWeight: 600,
+              letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '8px',
+            }}>
+              Step 2 of 3 · Your interviewer guide
+            </div>
+            <div style={{
+              fontFamily: fonts.serif, fontSize: '26px', fontWeight: 500,
+              lineHeight: 1.25, marginBottom: '6px',
+            }}>
+              Conversation 1 with {subjectName}
+            </div>
+            <div style={{ fontSize: '15px', color: colors.textSecondary, fontStyle: 'italic' }}>
+              {plannedTitle || 'Beginnings'} — where {subjectName} came from, and who shaped {subjectName === 'your loved one' ? 'them' : 'her'}
+            </div>
+          </div>
+
+          {/* Body */}
+          <div className="guide-body" style={{ padding: '32px' }}>
+            {loading && (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px 0', gap: '14px' }}>
+                <TypingIndicator />
+                <div style={{ fontSize: '14px', color: colors.textSecondary, textAlign: 'center', maxWidth: '380px', lineHeight: 1.6 }}>
+                  Grace is writing your guide from everything you shared. This takes a moment.
+                </div>
+              </div>
+            )}
+
+            {error && !loading && (
+              <div style={{ padding: '16px 18px', background: '#FBE9E7', color: '#B8543D', borderRadius: '8px', fontSize: '14px', lineHeight: 1.6 }}>
+                {error}
+                <div style={{ marginTop: '12px' }}>
+                  <button onClick={() => generateGuide(false)} style={{
+                    fontSize: '13px', padding: '8px 18px', background: colors.navy,
+                    color: 'white', border: 'none', borderRadius: '999px',
+                    cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500,
+                  }}>
+                    Try again
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {guide && !loading && <GuideText text={guide} />}
+
+            {guide && !loading && (
+              <div className="no-print" style={{
+                marginTop: '36px', paddingTop: '24px',
+                borderTop: `0.5px solid ${colors.border}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                flexWrap: 'wrap', gap: '12px',
+              }}>
+                <button onClick={() => generateGuide(true)} disabled={regenerating} style={{
+                  fontSize: '13px', padding: '8px 16px', background: 'transparent',
+                  border: `0.5px solid ${colors.border}`, borderRadius: '6px',
+                  cursor: regenerating ? 'not-allowed' : 'pointer',
+                  color: colors.textSecondary, fontFamily: 'inherit',
+                }}>
+                  {regenerating ? 'Grace is rewriting…' : 'Not quite right? Ask Grace to redo it'}
+                </button>
+                <button onClick={onReturnToDashboard} style={{
+                  fontSize: '14px', padding: '11px 26px', background: colors.navy,
+                  color: 'white', border: 'none', borderRadius: '999px',
+                  cursor: 'pointer', fontWeight: 500, fontFamily: 'inherit',
+                }}>
+                  Back to dashboard →
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Renders the guide's light markdown (## headings, - bullets, "quotes") warmly.
+function GuideText({ text }) {
+  const blocks = [];
+  const lines = text.split('\n');
+  let listBuffer = [];
+
+  const flushList = (key) => {
+    if (listBuffer.length === 0) return;
+    blocks.push(
+      <ul key={`ul-${key}`} style={{ margin: '0 0 18px', paddingLeft: '22px' }}>
+        {listBuffer.map((item, i) => (
+          <li key={i} style={{
+            fontSize: '16px', lineHeight: 1.7, color: colors.navy, marginBottom: '7px',
+          }}>
+            {item}
+          </li>
+        ))}
+      </ul>
+    );
+    listBuffer = [];
+  };
+
+  lines.forEach((raw, idx) => {
+    const line = raw.trim();
+    if (!line) { flushList(idx); return; }
+
+    if (line.startsWith('## ')) {
+      flushList(idx);
+      blocks.push(
+        <div key={idx} className="guide-h2" style={{
+          display: 'flex', alignItems: 'center', gap: '9px',
+          marginTop: blocks.length ? '34px' : 0, marginBottom: '16px',
+        }}>
+          <div style={{ width: '4px', height: '20px', background: colors.gold, borderRadius: '2px', flexShrink: 0 }} />
+          <h2 style={{
+            fontFamily: fonts.serif, fontSize: '21px', fontWeight: 500, margin: 0, lineHeight: 1.3,
+          }}>
+            {line.replace(/^##\s*/, '')}
+          </h2>
+        </div>
+      );
+      return;
+    }
+
+    if (line.startsWith('# ')) {
+      flushList(idx);
+      blocks.push(
+        <h1 key={idx} style={{
+          fontFamily: fonts.serif, fontSize: '24px', fontWeight: 500,
+          margin: blocks.length ? '30px 0 14px' : '0 0 14px',
+        }}>
+          {line.replace(/^#\s*/, '')}
+        </h1>
+      );
+      return;
+    }
+
+    if (line.startsWith('- ') || line.startsWith('* ')) {
+      listBuffer.push(line.replace(/^[-*]\s*/, ''));
+      return;
+    }
+
+    flushList(idx);
+
+    // A line that is entirely a quoted script gets the pull-quote treatment
+    const isScript = /^["“].*["”]$/.test(line) && line.length > 40;
+    if (isScript) {
+      blocks.push(
+        <div key={idx} style={{
+          background: colors.creamWarm,
+          borderLeft: `3px solid ${colors.gold}`,
+          padding: '16px 20px', borderRadius: '0 8px 8px 0',
+          margin: '0 0 20px',
+          fontFamily: fonts.serif, fontSize: '17px', lineHeight: 1.65,
+          color: colors.text, fontStyle: 'italic',
+        }}>
+          {line}
+        </div>
+      );
+      return;
+    }
+
+    blocks.push(
+      <p key={idx} style={{
+        fontSize: '16px', lineHeight: 1.75, color: colors.navy, margin: '0 0 16px',
+      }}>
+        {line}
+      </p>
+    );
+  });
+
+  flushList('end');
+
+  return <div>{blocks}</div>;
 }
 
 // ============================================================
