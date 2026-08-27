@@ -75,7 +75,7 @@ Purpose: ${conv.purpose}
 Territory that might come up:
 ${conv.territory}
 
-# Structure — write exactly these three sections
+# Structure — write exactly these four sections
 
 ## Before you sit down
 
@@ -100,6 +100,24 @@ Then a short section on the two moves that make stories richer:
 - INTERIORITY: when they say what happened, sometimes ask what it felt like or meant.
 Frame these as "this is where the magic is" — not as technique but as the thing that turns facts into a person.
 
+## When the answer is short
+
+This section is REQUIRED and it is one of the most useful parts of the guide. Nervous interviewers get a thin answer and move on to the next question. Teach them not to.
+
+Open with a concrete worked example using this family. Show a thin answer the subject might plausibly give — something like "we moved four times" or "he was a good man" — and then show the follow-up that opens it up. Make the example specific to what you know about this person's actual life.
+
+Then give these as a short list of ready-made follow-ups the interviewer can use almost verbatim on any thin answer. Present them as phrases to keep in your back pocket:
+
+- "What's one you remember most?" — turns a count into a story
+- "Walk me through that." — invites the whole scene instead of the summary
+- "What did that look like?" — asks for the physical, concrete detail
+- "What was that like for you?" — the feeling underneath the fact
+- "Who else was there?" — brings people in, and people bring stories
+
+Then, as its own short paragraph, the move most people never make: SAY NOTHING. Count to five. Most thin answers get filled in by the person who gave them, if you don't rush in with the next question. Silence is the cheapest and best follow-up there is.
+
+Keep this whole section tight and practical. These are phrases to glance down at mid-conversation, not a lesson.
+
 ## If something comes up
 
 Cover these situations, each in 2-4 sentences, calm and permission-giving (never clinical):
@@ -121,8 +139,8 @@ Close with one or two short warm sentences. Something like: "That's it. One conv
 - Refer to the subject by their actual name and/or relationship term.
 - Use the subject's correct pronouns based on the relationship (mom/grandmother = she/her; dad/grandfather = he/him).
 - Second person, present tense, encouraging but never syrupy.
-- Plain text with markdown headings only. Use ## for the three section headings. Use short paragraphs. Use - for bullets. Never use bold asterisks.
-- Total length: roughly 700-1000 words. Long enough to be genuinely useful, short enough that a nervous person will actually read it before sitting down.
+- Plain text with markdown headings only. Use ## for the four section headings. Use short paragraphs. Use - for bullets. Never use bold asterisks.
+- Total length: roughly 900-1300 words. Long enough to be genuinely useful, short enough that a nervous person will actually read it before sitting down.
 
 Write the guide now. Start directly with the first section heading. Do not add a title, a preamble, or any meta-commentary.`;
 }
