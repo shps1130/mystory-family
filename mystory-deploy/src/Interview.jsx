@@ -178,12 +178,23 @@ export default function Interview() {
     );
   }
 
+  if (view === 'capture') {
+    return (
+      <CaptureConversation
+        project={project}
+        onProjectUpdate={setProject}
+        onReturnToDashboard={() => setView('dashboard')}
+      />
+    );
+  }
+
   return (
     <Dashboard
       user={user}
       project={project}
       onBeginGettingStarted={() => setView('getting_started')}
       onOpenGuide={() => setView('interviewer_guide')}
+      onOpenCapture={() => setView('capture')}
     />
   );
 }
@@ -311,7 +322,7 @@ function SignInScreen() {
 // ============================================================
 // Dashboard
 // ============================================================
-function Dashboard({ user, project, onBeginGettingStarted, onOpenGuide }) {
+function Dashboard({ user, project, onBeginGettingStarted, onOpenGuide, onOpenCapture }) {
   const subject = project.subject_name || 'your loved one';
   const buyerInitials = (project.buyer_name || user.email || '?')
     .split(' ').map(s => s[0]).join('').slice(0, 2).toUpperCase();
@@ -390,32 +401,14 @@ function Dashboard({ user, project, onBeginGettingStarted, onOpenGuide }) {
               />
             )}
             {activeStep !== 'getting_started' && activeStep !== 'interviewer_guide' && (
-              <div style={{
-                background: colors.creamWarm,
-                border: `1px solid ${colors.border}`,
-                borderRadius: '12px',
-                padding: '18px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '18px',
-              }}>
-                <IconRecord />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{
-                    fontSize: '11px', color: colors.tan, fontWeight: 500,
-                    letterSpacing: '0.8px', textTransform: 'uppercase', marginBottom: '4px',
-                  }}>
-                    Up next · Step 3 of 3
-                  </div>
-                  <div style={{ fontFamily: fonts.serif, fontSize: '18px', fontWeight: 500, marginBottom: '4px' }}>
-                    Capturing your conversations
-                  </div>
-                  <div style={{ fontSize: '13px', color: colors.textSecondary, lineHeight: 1.5 }}>
-                    We're building this next — how to record your conversations and turn them into
-                    your loved one's book. You'll see it appear here when it's ready.
-                  </div>
-                </div>
-              </div>
+              <ActiveCard
+                eyebrow="Up next · Step 3 of 3"
+                title="Capturing your conversations"
+                description={`Bring your first conversation${project.subject_name ? ` with ${project.subject_name}` : ''} into the book — upload the audio or paste a transcript, and Grace writes the section.`}
+                buttonText="Capture a conversation →"
+                onClick={onOpenCapture}
+                icon={<IconRecord />}
+              />
             )}
           </Section>
 
@@ -437,6 +430,7 @@ function Dashboard({ user, project, onBeginGettingStarted, onOpenGuide }) {
                 subtitle="Step 3 of 3"
                 icon={<IconRecord />}
                 locked={!project.interviewer_guide_complete}
+                onClick={project.interviewer_guide_complete ? onOpenCapture : null}
               />
             </CardGrid>
           </Section>
@@ -456,7 +450,7 @@ function Dashboard({ user, project, onBeginGettingStarted, onOpenGuide }) {
             </CardGrid>
           </Section>
 
-          <BookFooter subject={subject} hasContent={false} />
+          <BookFooter subject={subject} hasContent={!!project.capturing_conversations_complete} />
         </div>
       </div>
     </div>
@@ -2170,6 +2164,503 @@ function GuideText({ text }) {
   flushList('end');
 
   return <div>{blocks}</div>;
+}
+
+// ============================================================
+// Capture a conversation — two paths in, one section out
+// ============================================================
+const SAMPLE_TRANSCRIPT = `INTERVIEWER: Mom, tell me about the first house you remember living in.
+
+MOM: Oh, the first one I really remember was on Third Street. We were there until I was, oh, six maybe. It was small. Two bedrooms, and there were four of us kids by then, so my sister and I shared a bed and the boys had the other room. My mother used to say the house had good bones. I didn't know what that meant. I thought she meant there were bones in it somewhere.
+
+INTERVIEWER: That's funny. What do you remember about it?
+
+MOM: The porch. There was a wooden porch out front and in the summer my father would sit out there after supper and just, you know, sit. He worked at the mill and he came home tired. He'd sit out there and not say much. But if you came and sat next to him he'd put his hand on your head. He wasn't a talker, my dad. But he'd do that.
+
+INTERVIEWER: And then you moved?
+
+MOM: We moved a lot. I counted once — eleven times before I was eighteen. My father followed the work. Sometimes it was a better job, sometimes the job just ended. We'd pack up in a day or two. My mother got fast at it. She had a system.
+
+INTERVIEWER: Eleven times. That's a lot.
+
+MOM: It was. I never did unpack that last box. In the last house, I mean, when I was seventeen. There was a box in my room I just left packed. What was the point. Turned out we stayed there four years, longest anywhere, and that box sat there the whole time.
+
+INTERVIEWER: What was that like, moving that much?
+
+MOM: You learn not to make friends too fast. Or — no, that's not right. You learn to make friends fast but not to hold on. That's different. I was good at making friends. I just knew it wouldn't last, so.
+
+INTERVIEWER: You mentioned your mom died when you were young.
+
+MOM: I was eleven. Pneumonia. It came on fast, three or four days. We were in the house on Warren Avenue then. And after that the house just went quiet. My father never talked about her, not once, the rest of his life. Not one time. I used to go in their room and open her drawer just to smell her handkerchiefs, she used lavender. And every year it got a little fainter until one day I opened it and it was just wood. Just the smell of the wood.
+
+INTERVIEWER: Oh, Mom.
+
+MOM: Well. That was a long time ago now.
+
+INTERVIEWER: Who took care of you all after that?
+
+MOM: I did, mostly. I was the oldest girl. My sister was nine and the boys were little. I made the lunches and I did the wash. My father worked. That's what he knew how to do. So I did the rest of it.`;
+
+function CaptureConversation({ project, onProjectUpdate, onReturnToDashboard }) {
+  const CONVERSATION_NUMBER = 1;
+  const [conversation, setConversation] = useState(null);
+  const [mode, setMode] = useState(null);          // null | 'paste' | 'audio'
+  const [transcript, setTranscript] = useState('');
+  const [drafting, setDrafting] = useState(false);
+  const [error, setError] = useState('');
+  const [revisionText, setRevisionText] = useState('');
+  const [showRevision, setShowRevision] = useState(false);
+  const [loadingRow, setLoadingRow] = useState(true);
+
+  const subjectName = project.subject_name || 'your loved one';
+  const plannedTitle = project.project_plan?.conversations?.find(
+    c => Number(c.number) === CONVERSATION_NUMBER
+  )?.title || 'Beginnings';
+
+  useEffect(() => {
+    const load = async () => {
+      const { data } = await supabase
+        .from('interview_conversations')
+        .select('*')
+        .eq('project_id', project.id)
+        .eq('conversation_number', CONVERSATION_NUMBER)
+        .maybeSingle();
+      if (data) {
+        setConversation(data);
+        if (data.transcript) setTranscript(data.transcript);
+      }
+      setLoadingRow(false);
+    };
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project.id]);
+
+  const saveRow = async (fields) => {
+    const payload = {
+      project_id: project.id,
+      conversation_number: CONVERSATION_NUMBER,
+      title: plannedTitle,
+      ...fields,
+    };
+    const { data, error: err } = await supabase
+      .from('interview_conversations')
+      .upsert(payload, { onConflict: 'project_id,conversation_number' })
+      .select()
+      .single();
+    if (err) throw err;
+    setConversation(data);
+    return data;
+  };
+
+  const generateDraft = async (revision) => {
+    const source = transcript.trim();
+    if (!source) { setError('Paste the transcript first.'); return; }
+    setDrafting(true);
+    setError('');
+    try {
+      const response = await fetch('/api/claude-draft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          transcript: source,
+          project,
+          conversationTitle: plannedTitle,
+          revisionRequest: revision || null,
+          existingDraft: revision ? conversation?.draft : null,
+        }),
+      });
+      if (!response.ok) throw new Error(`API returned ${response.status}`);
+      const data = await response.json();
+      if (!data.draft) throw new Error('No draft returned');
+
+      await saveRow({
+        transcript: source,
+        transcript_source: 'pasted',
+        draft: data.draft,
+        draft_generated_at: new Date().toISOString(),
+        status: 'drafted',
+        approved: false,
+      });
+      setShowRevision(false);
+      setRevisionText('');
+    } catch (err) {
+      console.error('Draft error:', err);
+      setError("We couldn't write the section just now. Your transcript is saved — try again in a moment.");
+    } finally {
+      setDrafting(false);
+    }
+  };
+
+  const approveDraft = async () => {
+    try {
+      await saveRow({
+        transcript: transcript.trim(),
+        transcript_source: 'pasted',
+        draft: conversation.draft,
+        status: 'approved',
+        approved: true,
+        approved_at: new Date().toISOString(),
+      });
+      await supabase
+        .from('interview_projects')
+        .update({ capturing_conversations_complete: true })
+        .eq('id', project.id);
+      onProjectUpdate({ ...project, capturing_conversations_complete: true });
+    } catch (err) {
+      console.error(err);
+      setError('Could not save your approval. Try again.');
+    }
+  };
+
+  const hasDraft = conversation?.draft;
+
+  return (
+    <div style={{ minHeight: '100vh', background: colors.cream, fontFamily: fonts.sans, color: colors.text }}>
+      <style>{`
+        @media print {
+          .no-print { display: none !important; }
+          .cap-sheet { border: none !important; border-radius: 0 !important; }
+        }
+      `}</style>
+      <div style={{ maxWidth: '820px', margin: '0 auto', padding: '20px 16px 60px' }}>
+        <div className="cap-sheet" style={{
+          background: 'white', borderRadius: '16px', overflow: 'hidden',
+          border: `0.5px solid ${colors.border}`,
+        }}>
+          {/* Header */}
+          <div className="no-print" style={{
+            background: colors.navy, padding: '14px 24px',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            flexWrap: 'wrap', gap: '10px',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+              <button onClick={onReturnToDashboard} style={{
+                fontSize: '12px', padding: '5px 10px',
+                background: 'rgba(255,255,255,0.1)', color: 'white',
+                border: '0.5px solid rgba(255,255,255,0.25)',
+                borderRadius: '6px', cursor: 'pointer', fontFamily: 'inherit',
+              }}>
+                ← Dashboard
+              </button>
+              <div style={{ fontFamily: fonts.serif, fontSize: '15px', fontWeight: 500, color: 'white' }}>
+                MyStory<span style={{ color: colors.gold }}>.</span>Family
+              </div>
+            </div>
+            {hasDraft && (
+              <button onClick={() => window.print()} style={{
+                fontSize: '12px', padding: '6px 14px', background: colors.gold,
+                color: colors.navy, border: 'none', borderRadius: '999px',
+                cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit',
+              }}>
+                Print this section
+              </button>
+            )}
+          </div>
+
+          {/* Title */}
+          <div style={{
+            padding: '26px 32px 20px', background: colors.creamLight,
+            borderBottom: `0.5px solid ${colors.border}`,
+          }}>
+            <div style={{
+              fontSize: '11px', color: colors.tan, fontWeight: 600,
+              letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '8px',
+            }}>
+              Conversation 1 · {conversation?.approved ? 'Approved' : hasDraft ? 'Draft ready' : 'Capture'}
+            </div>
+            <div style={{ fontFamily: fonts.serif, fontSize: '25px', fontWeight: 500, lineHeight: 1.25 }}>
+              {plannedTitle}
+            </div>
+            <div style={{ fontSize: '14px', color: colors.textSecondary, marginTop: '5px' }}>
+              {subjectName}'s story, as told to {project.buyer_name || 'you'}
+            </div>
+          </div>
+
+          <div style={{ padding: '32px' }}>
+            {loadingRow && (
+              <div style={{ color: colors.textSecondary, fontSize: '14px' }}>Loading…</div>
+            )}
+
+            {/* ---------- Draft view ---------- */}
+            {!loadingRow && hasDraft && (
+              <div>
+                {conversation.approved && (
+                  <div className="no-print" style={{
+                    background: colors.creamWarm, border: `1px solid ${colors.olive}`,
+                    borderRadius: '10px', padding: '12px 16px', marginBottom: '24px',
+                    fontSize: '14px', color: colors.text,
+                  }}>
+                    This section is approved and part of {subjectName}'s book.
+                  </div>
+                )}
+
+                <SectionProse text={conversation.draft} />
+
+                {drafting && (
+                  <div className="no-print" style={{ marginTop: '24px' }}>
+                    <TypingIndicator />
+                  </div>
+                )}
+
+                {!drafting && (
+                  <div className="no-print" style={{
+                    marginTop: '36px', paddingTop: '24px',
+                    borderTop: `0.5px solid ${colors.border}`,
+                  }}>
+                    {!showRevision && (
+                      <div style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        flexWrap: 'wrap', gap: '12px',
+                      }}>
+                        <button onClick={() => setShowRevision(true)} style={{
+                          fontSize: '13px', padding: '9px 16px', background: 'transparent',
+                          border: `0.5px solid ${colors.border}`, borderRadius: '999px',
+                          cursor: 'pointer', color: colors.textSecondary, fontFamily: 'inherit',
+                        }}>
+                          Ask Grace for a change
+                        </button>
+                        {!conversation.approved ? (
+                          <button onClick={approveDraft} style={{
+                            fontSize: '15px', padding: '12px 30px', background: colors.navy,
+                            color: 'white', border: 'none', borderRadius: '999px',
+                            cursor: 'pointer', fontWeight: 500, fontFamily: 'inherit',
+                          }}>
+                            Approve this section →
+                          </button>
+                        ) : (
+                          <button onClick={onReturnToDashboard} style={{
+                            fontSize: '15px', padding: '12px 30px', background: colors.navy,
+                            color: 'white', border: 'none', borderRadius: '999px',
+                            cursor: 'pointer', fontWeight: 500, fontFamily: 'inherit',
+                          }}>
+                            Back to dashboard →
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {showRevision && (
+                      <div>
+                        <div style={{
+                          fontSize: '13px', color: colors.textSecondary, marginBottom: '10px', lineHeight: 1.6,
+                        }}>
+                          What would you like different? For example: "use more of her actual words,"
+                          "this part about her father should come first," or "it's too long."
+                        </div>
+                        <textarea
+                          value={revisionText}
+                          onChange={(e) => setRevisionText(e.target.value)}
+                          placeholder="Tell Grace what to change…"
+                          style={{
+                            width: '100%', minHeight: '90px', padding: '13px 15px',
+                            border: `0.5px solid ${colors.border}`, borderRadius: '8px',
+                            fontFamily: 'inherit', fontSize: '15px', lineHeight: 1.6,
+                            color: colors.text, background: 'white', resize: 'vertical',
+                            boxSizing: 'border-box',
+                          }}
+                        />
+                        <div style={{
+                          display: 'flex', alignItems: 'center', gap: '10px',
+                          marginTop: '12px', flexWrap: 'wrap',
+                        }}>
+                          <button onClick={() => generateDraft(revisionText.trim())}
+                            disabled={!revisionText.trim()}
+                            style={{
+                              fontSize: '14px', padding: '10px 24px',
+                              background: revisionText.trim() ? colors.navy : colors.gray,
+                              color: 'white', border: 'none', borderRadius: '999px',
+                              cursor: revisionText.trim() ? 'pointer' : 'not-allowed',
+                              fontWeight: 500, fontFamily: 'inherit',
+                            }}>
+                            Rewrite it
+                          </button>
+                          <button onClick={() => { setShowRevision(false); setRevisionText(''); }} style={{
+                            fontSize: '13px', padding: '9px 16px', background: 'transparent',
+                            border: 'none', cursor: 'pointer', color: colors.textTertiary,
+                            fontFamily: 'inherit',
+                          }}>
+                            Never mind
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ---------- Capture view ---------- */}
+            {!loadingRow && !hasDraft && (
+              <div>
+                {drafting ? (
+                  <div style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center',
+                    padding: '40px 0', gap: '14px',
+                  }}>
+                    <TypingIndicator />
+                    <div style={{
+                      fontSize: '14px', color: colors.textSecondary, textAlign: 'center',
+                      maxWidth: '400px', lineHeight: 1.6,
+                    }}>
+                      Grace is reading your conversation and writing {subjectName}'s section.
+                      This takes a minute — it's a lot of words to work through.
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    {!mode && (
+                      <div>
+                        <div style={{
+                          fontSize: '16px', lineHeight: 1.7, color: colors.navy, marginBottom: '26px',
+                        }}>
+                          You've had the conversation. Now let's bring it into the book.
+                          Two ways to do that — whichever fits how you recorded it.
+                        </div>
+                        <CardGrid>
+                          <CapturePathCard
+                            icon={<IconRecord />}
+                            title="Upload the audio"
+                            body="You recorded on your phone or a recorder. Upload the file and we'll turn it into text."
+                            note="Coming next"
+                            disabled
+                          />
+                          <CapturePathCard
+                            icon={<IconGuide />}
+                            title="Paste a transcript"
+                            body="You already have text — from Zoom, Otter, your phone's transcription, or notes you typed."
+                            note="Ready"
+                            onClick={() => setMode('paste')}
+                          />
+                        </CardGrid>
+                      </div>
+                    )}
+
+                    {mode === 'paste' && (
+                      <div>
+                        <div style={{
+                          display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px',
+                        }}>
+                          <div style={{ width: '4px', height: '16px', background: colors.gold, borderRadius: '2px' }} />
+                          <div style={{
+                            fontFamily: fonts.serif, fontSize: '15px', fontWeight: 500, color: colors.textSecondary,
+                          }}>
+                            Paste your transcript
+                          </div>
+                        </div>
+                        <div style={{
+                          fontSize: '14px', color: colors.textSecondary, lineHeight: 1.65, marginBottom: '14px',
+                        }}>
+                          Don't worry about tidying it up. Speaker labels, timestamps, false starts —
+                          Grace handles all of it. Paste it exactly as it came.
+                        </div>
+                        <textarea
+                          value={transcript}
+                          onChange={(e) => setTranscript(e.target.value)}
+                          placeholder="Paste the conversation here…"
+                          style={{
+                            width: '100%', minHeight: '300px', padding: '15px 17px',
+                            border: `0.5px solid ${colors.border}`, borderRadius: '10px',
+                            fontFamily: 'Georgia, serif', fontSize: '15px', lineHeight: 1.7,
+                            color: colors.text, background: 'white', resize: 'vertical',
+                            boxSizing: 'border-box',
+                          }}
+                        />
+                        <div style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          marginTop: '14px', flexWrap: 'wrap', gap: '12px',
+                        }}>
+                          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                            <button onClick={() => setMode(null)} style={{
+                              fontSize: '13px', padding: '9px 15px', background: 'transparent',
+                              border: `0.5px solid ${colors.border}`, borderRadius: '999px',
+                              cursor: 'pointer', color: colors.textSecondary, fontFamily: 'inherit',
+                            }}>
+                              ← Back
+                            </button>
+                            <button onClick={() => setTranscript(SAMPLE_TRANSCRIPT)} style={{
+                              fontSize: '13px', padding: '9px 15px', background: 'transparent',
+                              border: `0.5px dashed ${colors.border}`, borderRadius: '999px',
+                              cursor: 'pointer', color: colors.textTertiary, fontFamily: 'inherit',
+                            }}>
+                              Load a sample
+                            </button>
+                          </div>
+                          <button onClick={() => generateDraft(null)} disabled={!transcript.trim()}
+                            style={{
+                              fontSize: '15px', padding: '12px 28px',
+                              background: transcript.trim() ? colors.navy : colors.gray,
+                              color: 'white', border: 'none', borderRadius: '999px',
+                              cursor: transcript.trim() ? 'pointer' : 'not-allowed',
+                              fontWeight: 500, fontFamily: 'inherit',
+                            }}>
+                            Write the section →
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {error && (
+              <div className="no-print" style={{
+                marginTop: '18px', padding: '13px 16px', background: '#FBE9E7',
+                color: '#B8543D', borderRadius: '8px', fontSize: '14px', lineHeight: 1.6,
+              }}>
+                {error}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CapturePathCard({ icon, title, body, note, onClick, disabled }) {
+  return (
+    <div onClick={disabled ? undefined : onClick} style={{
+      background: disabled ? colors.creamLight : colors.creamWarm,
+      border: `1px solid ${disabled ? colors.border : colors.gold}`,
+      borderRadius: '12px', padding: '20px',
+      cursor: disabled ? 'default' : 'pointer',
+      opacity: disabled ? 0.65 : 1,
+      display: 'flex', flexDirection: 'column', gap: '10px',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ flexShrink: 0 }}>{icon}</div>
+        <div>
+          <div style={{ fontFamily: fonts.serif, fontSize: '17px', fontWeight: 500 }}>{title}</div>
+          <div style={{
+            fontSize: '10.5px', color: colors.tan, fontWeight: 600,
+            letterSpacing: '0.8px', textTransform: 'uppercase', marginTop: '2px',
+          }}>
+            {note}
+          </div>
+        </div>
+      </div>
+      <div style={{ fontSize: '13.5px', color: colors.textSecondary, lineHeight: 1.6 }}>{body}</div>
+    </div>
+  );
+}
+
+// Renders the drafted section as book prose.
+function SectionProse({ text }) {
+  const paras = text.split('\n').map(p => p.trim()).filter(Boolean);
+  return (
+    <div style={{ fontFamily: 'Georgia, serif' }}>
+      {paras.map((p, i) => (
+        <p key={i} style={{
+          fontSize: '17px', lineHeight: 1.8, color: colors.text,
+          margin: i === 0 ? '0 0 18px' : '0 0 18px',
+          textIndent: i === 0 ? 0 : '1.4em',
+        }}>
+          {p}
+        </p>
+      ))}
+    </div>
+  );
 }
 
 // ============================================================
