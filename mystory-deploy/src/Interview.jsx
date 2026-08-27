@@ -163,6 +163,7 @@ export default function Interview() {
         project={project}
         onProjectUpdate={setProject}
         onReturnToDashboard={() => setView('dashboard')}
+        onOpenGuide={() => setView('interviewer_guide')}
       />
     );
   }
@@ -706,7 +707,7 @@ function BookFooter({ subject, hasContent }) {
 // ============================================================
 // Getting Started — NEW: seven chunks with plan panel
 // ============================================================
-function GettingStarted({ project, onProjectUpdate, onReturnToDashboard }) {
+function GettingStarted({ project, onProjectUpdate, onReturnToDashboard, onOpenGuide }) {
   const [currentChunk, setCurrentChunk] = useState(1);
   const [chunkStatuses, setChunkStatuses] = useState({});
   const [messages, setMessages] = useState([]);
@@ -717,6 +718,8 @@ function GettingStarted({ project, onProjectUpdate, onReturnToDashboard }) {
   const [currentProject, setCurrentProject] = useState(project);
   // When a chunk completes, holds that chunk number until the buyer clicks Continue.
   const [awaitingContinue, setAwaitingContinue] = useState(null);
+  // True once all seven chunks are finished — shows the completion moment.
+  const [allComplete, setAllComplete] = useState(false);
   const [kickstartChunk, setKickstartChunk] = useState(null);
   const messagesEndRef = useRef(null);
   // Always-current mirror of messages, so sendToGrace never reads a stale closure.
@@ -774,6 +777,8 @@ function GettingStarted({ project, onProjectUpdate, onReturnToDashboard }) {
         } else if (chunks.length > 0) {
           setCurrentChunk(7);
           setHasStarted(true);
+          // Every chunk is done — show the completion moment rather than a dead input box.
+          setAllComplete(true);
         }
       }
 
@@ -917,13 +922,16 @@ function GettingStarted({ project, onProjectUpdate, onReturnToDashboard }) {
           // Grace's closing message at their own pace, then move on when ready.
           setAwaitingContinue(chunkNumber);
         } else {
-          // All chunks complete
+          // All chunks complete — mark done and show the completion moment
           await supabase
             .from('interview_projects')
             .update({ getting_started_complete: true, current_step: 'interviewer_guide' })
             .eq('id', project.id);
 
-          onProjectUpdate({ ...currentProject, getting_started_complete: true });
+          const done = { ...currentProject, getting_started_complete: true, current_step: 'interviewer_guide' };
+          setCurrentProject(done);
+          onProjectUpdate(done);
+          setAllComplete(true);
         }
       }
     } catch (err) {
@@ -1099,6 +1107,10 @@ function GettingStarted({ project, onProjectUpdate, onReturnToDashboard }) {
                   messagesEndRef={messagesEndRef}
                   plan={currentProject.project_plan}
                   awaitingContinue={awaitingContinue}
+                  allComplete={allComplete}
+                  onOpenGuide={onOpenGuide}
+                  subjectNameForDone={currentProject.subject_name}
+                  onBackToDashboard={onReturnToDashboard}
                   onContinue={handleContinue}
                 />
               )}
@@ -1195,7 +1207,7 @@ function WelcomeScreen({ welcomeContent, onBegin }) {
 function ConversationArea({
   chunkStatuses, currentChunk, messages, loading, input, error,
   onInputChange, onSubmit, onSkip, subjectName, relationship, messagesEndRef, plan,
-  awaitingContinue, onContinue,
+  awaitingContinue, onContinue, allComplete, onOpenGuide, subjectNameForDone, onBackToDashboard,
 }) {
   const currentChunkLabel = getChunkLabel(currentChunk, subjectName, relationship);
   const currentChunkMessages = messages.filter(m => m.chunk_number === currentChunk);
@@ -1259,16 +1271,81 @@ function ConversationArea({
         </div>
       )}
 
+      {/* Completion moment — all seven chunks done. Hands the buyer to their guide. */}
+      {!loading && allComplete && (
+        <div style={{
+          marginLeft: '54px', marginTop: '28px',
+          background: colors.creamWarm,
+          border: `1.5px solid ${colors.gold}`,
+          borderRadius: '14px',
+          padding: '26px 28px',
+        }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px',
+          }}>
+            <div style={{
+              width: '26px', height: '26px', borderRadius: '50%',
+              background: colors.olive, display: 'flex',
+              alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            }}>
+              <svg width="14" height="14" viewBox="0 0 14 14">
+                <path d="M3.5 7l2.5 2.5L10.5 4.5" stroke="white" strokeWidth="2"
+                  fill="none" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
+            <div style={{
+              fontSize: '11px', color: colors.tan, fontWeight: 600,
+              letterSpacing: '1px', textTransform: 'uppercase',
+            }}>
+              Getting started · Complete
+            </div>
+          </div>
+
+          <div style={{
+            fontFamily: fonts.serif, fontSize: '22px', fontWeight: 500,
+            lineHeight: 1.35, marginBottom: '10px',
+          }}>
+            You have a plan{subjectNameForDone ? ` for ${subjectNameForDone}'s story` : ''}.
+          </div>
+
+          <div style={{
+            fontSize: '15px', color: colors.textSecondary, lineHeight: 1.7, marginBottom: '20px',
+          }}>
+            Your interviewer guide is ready — everything you shared, turned into a plan for your
+            first conversation. Read it before you sit down together.
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+            <button onClick={onOpenGuide} style={{
+              fontSize: '15px', padding: '12px 30px',
+              background: colors.navy, color: 'white',
+              border: 'none', borderRadius: '999px', cursor: 'pointer',
+              fontWeight: 500, fontFamily: 'inherit',
+            }}>
+              Open your guide →
+            </button>
+            <button onClick={onBackToDashboard} style={{
+              fontSize: '13px', padding: '10px 18px',
+              background: 'transparent', border: `0.5px solid ${colors.border}`,
+              borderRadius: '999px', cursor: 'pointer',
+              color: colors.textSecondary, fontFamily: 'inherit',
+            }}>
+              Back to dashboard
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* If the chunk has no Grace message yet and nothing is loading, show a waiting
           state instead of a bare input. The kickstart effect will prompt Grace. */}
-      {!loading && awaitingContinue !== currentChunk && !hasGraceMessageThisChunk && (
+      {!loading && !allComplete && awaitingContinue !== currentChunk && !hasGraceMessageThisChunk && (
         <div style={{ marginLeft: '54px', marginTop: '20px' }}>
           <TypingIndicator />
         </div>
       )}
 
-      {/* Input form — hidden while awaiting continue or before Grace has spoken */}
-      {!loading && awaitingContinue !== currentChunk && hasGraceMessageThisChunk && (
+      {/* Input form — hidden while awaiting continue, before Grace has spoken, or when done */}
+      {!loading && !allComplete && awaitingContinue !== currentChunk && hasGraceMessageThisChunk && (
         <div style={{ marginLeft: '54px', marginTop: '20px' }}>
           <textarea
             value={input}
@@ -1677,7 +1754,10 @@ function Message({ message }) {
 }
 
 // Visual card for each proposed conversation in the chunk 7 plan reveal
-const PLAN_CARD_ICONS = [IconHouse, IconPerson, IconCross, IconFamily, IconReflect];
+// Icons matched to the arc: 1 Beginnings (house), 2 Becoming Herself (person),
+// 3 The Life She Built (family), 4 What She Came Through (cross/endurance),
+// 5 Looking Back (reflect)
+const PLAN_CARD_ICONS = [IconHouse, IconPerson, IconFamily, IconCross, IconReflect];
 
 function PlanRevealCard({ conversation, index }) {
   const Icon = PLAN_CARD_ICONS[index] || IconReflect;
