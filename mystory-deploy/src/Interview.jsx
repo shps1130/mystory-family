@@ -1871,6 +1871,8 @@ function InterviewerGuide({ project, onProjectUpdate, onReturnToDashboard }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [regenerating, setRegenerating] = useState(false);
+  const [notes, setNotes] = useState('');
+  const [notesSaved, setNotesSaved] = useState(true);
 
   const subjectName = project.subject_name || 'your loved one';
 
@@ -1880,6 +1882,9 @@ function InterviewerGuide({ project, onProjectUpdate, onReturnToDashboard }) {
   )?.title;
 
   useEffect(() => {
+    const existingNotes = project.guide_notes?.[String(CONVERSATION_NUMBER)];
+    if (existingNotes) setNotes(existingNotes);
+
     const existing = project.interviewer_guides?.[String(CONVERSATION_NUMBER)];
     if (existing) {
       setGuide(existing);
@@ -1888,6 +1893,25 @@ function InterviewerGuide({ project, onProjectUpdate, onReturnToDashboard }) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Save the buyer's own questions (debounced so we're not writing every keystroke)
+  useEffect(() => {
+    if (notesSaved) return;
+    const t = setTimeout(async () => {
+      const updated = {
+        ...(project.guide_notes || {}),
+        [String(CONVERSATION_NUMBER)]: notes,
+      };
+      await supabase
+        .from('interview_projects')
+        .update({ guide_notes: updated })
+        .eq('id', project.id);
+      onProjectUpdate({ ...project, guide_notes: updated });
+      setNotesSaved(true);
+    }, 900);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notes, notesSaved]);
 
   const generateGuide = async (isRegen) => {
     if (isRegen) setRegenerating(true); else setLoading(true);
@@ -1939,8 +1963,10 @@ function InterviewerGuide({ project, onProjectUpdate, onReturnToDashboard }) {
       fontFamily: fonts.sans, color: colors.text,
     }}>
       <style>{`
+        .print-only { display: none; }
         @media print {
           .no-print { display: none !important; }
+          .print-only { display: block !important; }
           body { background: white !important; }
           .guide-sheet {
             border: none !important; border-radius: 0 !important;
@@ -2038,6 +2064,67 @@ function InterviewerGuide({ project, onProjectUpdate, onReturnToDashboard }) {
             )}
 
             {guide && !loading && <GuideText text={guide} />}
+
+            {/* Your own questions — typed, saved, and printed with the guide */}
+            {guide && !loading && (
+              <div style={{ marginTop: '38px' }}>
+                <div className="guide-h2" style={{
+                  display: 'flex', alignItems: 'center', gap: '9px', marginBottom: '12px',
+                }}>
+                  <div style={{ width: '4px', height: '20px', background: colors.gold, borderRadius: '2px', flexShrink: 0 }} />
+                  <h2 style={{
+                    fontFamily: fonts.serif, fontSize: '21px', fontWeight: 500, margin: 0, lineHeight: 1.3,
+                  }}>
+                    Your own questions
+                  </h2>
+                </div>
+
+                <p className="no-print" style={{
+                  fontSize: '15px', lineHeight: 1.7, color: colors.navy, margin: '0 0 12px',
+                }}>
+                  Things only you would think to ask. Write them here and they'll be saved,
+                  and printed with the guide.
+                </p>
+
+                <textarea
+                  className="no-print"
+                  value={notes}
+                  onChange={(e) => { setNotes(e.target.value); setNotesSaved(false); }}
+                  placeholder="Ask about the summer at the lake… Ask what happened to Uncle Ray…"
+                  style={{
+                    width: '100%', minHeight: '130px', padding: '14px 16px',
+                    border: `0.5px solid ${colors.border}`, borderRadius: '10px',
+                    fontFamily: 'Georgia, serif', fontSize: '15px', lineHeight: 1.7,
+                    color: colors.text, background: 'white', resize: 'vertical',
+                    boxSizing: 'border-box',
+                  }}
+                />
+                <div className="no-print" style={{
+                  fontSize: '12px', color: colors.textTertiary, marginTop: '6px', textAlign: 'right',
+                }}>
+                  {notesSaved ? 'Saved' : 'Saving…'}
+                </div>
+
+                {/* Print-only: the typed notes as text, plus blank lines to write on */}
+                <div className="print-only">
+                  {notes.trim() && (
+                    <div style={{
+                      fontFamily: 'Georgia, serif', fontSize: '16px', lineHeight: 1.8,
+                      color: colors.text, whiteSpace: 'pre-wrap', marginBottom: '18px',
+                    }}>
+                      {notes}
+                    </div>
+                  )}
+                  <div style={{ marginTop: '10px' }}>
+                    {[...Array(8)].map((_, i) => (
+                      <div key={i} style={{
+                        borderBottom: `1px solid ${colors.border}`, height: '30px',
+                      }} />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {guide && !loading && (
               <div className="no-print" style={{
