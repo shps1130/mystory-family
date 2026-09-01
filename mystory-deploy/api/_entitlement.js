@@ -18,7 +18,11 @@ import { createClient } from '@supabase/supabase-js';
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 
-const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
+// Exported so routes can run their own reads with the service key after the
+// caller has been authenticated and their ownership of the project confirmed.
+// Anything queried through this client bypasses RLS, so only use it behind
+// requireEntitlement/requireProject, never on unvalidated input.
+export const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
