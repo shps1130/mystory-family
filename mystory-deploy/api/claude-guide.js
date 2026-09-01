@@ -5,7 +5,14 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { requireEntitlement, requireProject } from './_entitlement.js';
 
-const CONVERSATION_PURPOSES = {
+// Generic fallback arc. Used only when the buyer's plan doesn't carry its own
+// purpose and territory — projects created before chunk 7 emitted those
+// fields, or a generation that came back malformed.
+//
+// Titles here are deliberately neutral. They used to read "Becoming Herself"
+// and "The Life She Built", which produced a guide headed with the wrong
+// pronoun for anyone interviewing their grandfather.
+const FALLBACK_ARC = {
   1: {
     title: 'Beginnings',
     purpose: 'where they came from, and who shaped them early',
@@ -16,7 +23,7 @@ const CONVERSATION_PURPOSES = {
 - What their world felt like as a kid`,
   },
   2: {
-    title: 'Becoming Herself',
+    title: 'Becoming Themselves',
     purpose: 'the turning points — the forks in the road that made them who they became',
     territory: `- Leaving home for the first time
 - The decisions that changed everything
@@ -25,7 +32,7 @@ const CONVERSATION_PURPOSES = {
 - The moment they became an adult in their own eyes`,
   },
   3: {
-    title: 'The Life She Built',
+    title: 'The Life They Built',
     purpose: 'the long middle — marriage, family, work, home, community',
     territory: `- Building a life with their partner
 - Raising children, the daily work of family
@@ -34,7 +41,7 @@ const CONVERSATION_PURPOSES = {
 - What they were proud of building`,
   },
   4: {
-    title: 'What She Came Through',
+    title: 'What They Came Through',
     purpose: 'the hard chapters — what they endured and what it cost',
     territory: `- Losses that shaped them
 - Times things fell apart
@@ -53,8 +60,70 @@ const CONVERSATION_PURPOSES = {
   },
 };
 
-function buildSystemPrompt(conversationNumber) {
-  const conv = CONVERSATION_PURPOSES[conversationNumber] || CONVERSATION_PURPOSES[1];
+// Resolve what this conversation is about, preferring the buyer's own plan.
+//
+// The plan is personalized to this subject in chunk 7 — it knows the farm was
+// in Lancaster and that there was no marriage to speak of. The fallback arc
+// knows none of that, and for a life that doesn't match the standard shape it
+// actively misleads: conversation 3 would push marriage-and-children
+// questions at someone who had neither.
+//
+// Fields are resolved individually rather than all-or-nothing, so an older
+// plan that only has a title still contributes that title.
+function resolveConversation(project, conversationNumber) {
+  const n = Number(conversationNumber);
+  const fallback = FALLBACK_ARC[n] || FALLBACK_ARC[1];
+
+  // Defensive: project_plan comes from a model-generated data block, so
+  // conversations has been seen as a string when generation went sideways.
+  const list = project?.project_plan?.conversations;
+  const planned = Array.isArray(list)
+    ? list.find(c => c && Number(c.number) === n)
+    : null;
+
+  let usedPlannedTerritory = false;
+
+  const territory = (() => {
+    const t = planned?.territory;
+    if (Array.isArray(t) && t.length) {
+      const lines = t
+        .filter(line => typeof line === 'string' && line.trim())
+        .map(line => `- ${line.trim()}`);
+      if (lines.length) {
+        usedPlannedTerritory = true;
+        return lines.join('\n');
+      }
+    }
+    if (typeof t === 'string' && t.trim()) {
+      // Tolerate a plain string, with or without existing bullets.
+      usedPlannedTerritory = true;
+      return t
+        .split('\n')
+        .map(line => line.trim())
+        .filter(Boolean)
+        .map(line => (line.startsWith('-') ? line : `- ${line}`))
+        .join('\n');
+    }
+    return fallback.territory;
+  })();
+
+  const usedPlannedPurpose = Boolean((planned?.purpose || '').trim());
+
+  return {
+    title: (planned?.title || '').trim() || fallback.title,
+    purpose: usedPlannedPurpose ? planned.purpose.trim() : fallback.purpose,
+    territory,
+    // The buyer-facing one-liner, when the plan has one. Gives the guide a
+    // sense of how they described this conversation to themselves.
+    description: (planned?.description || '').trim() || null,
+    // True only when planned content was actually used. Claiming a generic
+    // fallback was built for this subject would push the guide to mine
+    // boilerplate for specifics that aren't there.
+    personalized: usedPlannedPurpose || usedPlannedTerritory,
+  };
+}
+
+function buildSystemPrompt(conversationNumber, conv) {
 
   return `You are Grace, writing a personalized Interviewer Guide for someone about to sit down and interview their parent or grandparent to capture their life story.
 
@@ -72,9 +141,12 @@ The single biggest fear on the subject's side is SCALE — they hear "your life 
 
 Conversation ${conversationNumber}: ${conv.title}
 Purpose: ${conv.purpose}
+${conv.description ? `How the family described it: ${conv.description}` : ''}
 
 Territory that might come up:
 ${conv.territory}
+${conv.personalized ? `
+This title, purpose and territory were built for THIS subject from what the family told us — they are not a generic template. Treat the territory as the real ground of this person's life, and let it steer the questions you write. If something in it is specific (a place, a job, a name), use it.` : ''}
 
 # Structure — write exactly these four sections
 
@@ -175,14 +247,10 @@ export default async function handler(req, res) {
     const relationship = project.buyer_relationship || 'parent';
     const subjectName = project.subject_name || 'them';
 
-    // Pull the personalized conversation title from the saved plan if available
-    let plannedTitle = null;
-    if (project.project_plan?.conversations) {
-      const match = project.project_plan.conversations.find(
-        c => Number(c.number) === Number(conversationNumber)
-      );
-      if (match) plannedTitle = match.title;
-    }
+    // Resolve title, purpose and territory from the buyer's own plan, falling
+    // back to the generic arc field by field.
+    const conv = resolveConversation(project, conversationNumber);
+    const plannedTitle = conv.title;
 
     const profile = `# Who you're writing this for
 
@@ -212,7 +280,7 @@ Write the guide for conversation ${conversationNumber}.`;
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-5',
       max_tokens: 2500,
-      system: buildSystemPrompt(conversationNumber),
+      system: buildSystemPrompt(conversationNumber, conv),
       messages: [{ role: 'user', content: profile }],
     });
 
