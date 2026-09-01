@@ -10,6 +10,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
+import InterviewPaywall from './InterviewPaywall.jsx';
 
 // ============================================================
 // Supabase client
@@ -90,11 +91,43 @@ const CHUNK_1_WELCOME = (buyerName) => [
 // ============================================================
 // Main Interview app
 // ============================================================
+// Authenticated fetch — the interview API routes now require a bearer token
+// ============================================================
+async function authedFetch(url, body) {
+  // getSession refreshes the access token automatically when it's near
+  // expiry, so this is always a live token rather than whatever was issued
+  // when the page loaded.
+  const { data: { session } } = await supabase.auth.getSession();
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${session?.access_token ?? ''}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  // 401 = the session is gone. 402 = the entitlement is gone (a refund, say).
+  // Either way the page's current state is wrong, and the call-site catch
+  // blocks all show a generic "try again" that would send the user in
+  // circles. Reloading re-runs the gate, which lands them on the sign-in
+  // screen or the paywall — whichever is actually true now.
+  if (res.status === 401 || res.status === 402) {
+    window.location.reload();
+    throw new Error('Session or access changed — reloading.');
+  }
+
+  return res;
+}
+
+// ============================================================
 export default function Interview() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [project, setProject] = useState(null);
   const [view, setView] = useState('dashboard');
+  const [entitled, setEntitled] = useState(null); // null = still checking
 
   useEffect(() => {
     const loadUser = async () => {
@@ -114,13 +147,49 @@ export default function Interview() {
   useEffect(() => {
     if (!user) return;
 
-    const loadProject = async () => {
+    let cancelled = false;
+
+    // Order matters: claim, then check, then create. Buyers arrive here
+    // straight from Stripe having never signed in, so their entitlement is
+    // sitting in the table keyed only by email. Skip the claim and every
+    // first-time buyer sees the paywall for something they just paid for.
+    const bootstrap = async () => {
+      // 1. Bind any purchase made before this account existed. Safe to call
+      //    on every load — it only touches unclaimed rows matching the
+      //    verified email in the caller's token.
+      const { error: claimError } = await supabase.rpc('claim_entitlements');
+      if (claimError) console.error('Entitlement claim failed:', claimError);
+
+      // 2. Check access. No .eq('user_id', ...) here — RLS already scopes
+      //    this to the current user, and leaning on the policy rather than a
+      //    client-side filter means a mistake in the query can't widen access.
+      const { data: ents, error: entError } = await supabase
+        .from('entitlements')
+        .select('id')
+        .eq('product', 'interview')
+        .limit(1);
+
+      if (cancelled) return;
+
+      if (entError) {
+        console.error('Entitlement check failed:', entError);
+        setEntitled(false);
+        return;
+      }
+
+      const hasAccess = Boolean(ents && ents.length > 0);
+      setEntitled(hasAccess);
+      if (!hasAccess) return; // don't create a project for someone who hasn't paid
+
+      // 3. Load or create the project.
       const { data: projects, error } = await supabase
         .from('interview_projects')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(1);
+
+      if (cancelled) return;
 
       if (error) {
         console.error('Error loading project:', error);
@@ -129,32 +198,45 @@ export default function Interview() {
 
       if (projects && projects.length > 0) {
         setProject(projects[0]);
-      } else {
-        const buyerName =
-          user.user_metadata?.full_name ||
-          user.user_metadata?.name ||
-          user.email?.split('@')[0] ||
-          '';
-
-        const { data: newProject, error: createError } = await supabase
-          .from('interview_projects')
-          .insert({ user_id: user.id, buyer_name: buyerName })
-          .select()
-          .single();
-
-        if (createError) {
-          console.error('Error creating project:', createError);
-          return;
-        }
-        setProject(newProject);
+        return;
       }
+
+      const buyerName =
+        user.user_metadata?.full_name ||
+        user.user_metadata?.name ||
+        user.email?.split('@')[0] ||
+        '';
+
+      const { data: newProject, error: createError } = await supabase
+        .from('interview_projects')
+        .insert({ user_id: user.id, buyer_name: buyerName })
+        .select()
+        .single();
+
+      if (cancelled) return;
+
+      if (createError) {
+        console.error('Error creating project:', createError);
+        return;
+      }
+      setProject(newProject);
     };
 
-    loadProject();
+    bootstrap();
+    return () => { cancelled = true; };
   }, [user]);
 
   if (authLoading) return <LoadingScreen />;
   if (!user) return <SignInScreen />;
+  if (entitled === null) return <LoadingScreen message="Checking your account..." />;
+  if (!entitled) {
+    return (
+      <InterviewPaywall
+        userEmail={user.email}
+        onSignOut={() => supabase.auth.signOut()}
+      />
+    );
+  }
   if (!project) return <LoadingScreen message="Setting up your project..." />;
 
   if (view === 'getting_started') {
@@ -226,6 +308,14 @@ function SignInScreen() {
   const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
 
+  // Buyers land here straight from Stripe with no account yet. Their
+  // entitlement is keyed to the email Stripe collected, so signing in with a
+  // different address silently finds nothing and drops them on the paywall
+  // for something they just paid for. Saying which address to use is the
+  // cheapest fix for what would otherwise be the most common support ticket.
+  const justPurchased =
+    new URLSearchParams(window.location.search).get('purchase') === 'success';
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -270,6 +360,22 @@ function SignInScreen() {
         <p style={{ fontSize: '14px', color: colors.textSecondary, margin: '0 0 24px' }}>
           Sign in to continue your project.
         </p>
+
+        {justPurchased && (
+          <div style={{
+            background: colors.creamWarm,
+            border: `0.5px solid ${colors.border}`,
+            borderRadius: '10px',
+            padding: '14px 16px',
+            margin: '0 0 20px',
+          }}>
+            <p style={{ fontSize: '14px', color: colors.textSecondary, lineHeight: 1.65, margin: 0 }}>
+              Thank you — your purchase is complete. Sign in with the email
+              address you used at checkout and we'll pick up right where you
+              left off.
+            </p>
+          </div>
+        )}
 
         {sent ? (
           <p style={{ fontSize: '14px', color: colors.olive, lineHeight: 1.6 }}>
@@ -857,15 +963,11 @@ function GettingStarted({ project, onProjectUpdate, onReturnToDashboard, onOpenG
         });
       }
 
-      const response = await fetch('/api/claude-interview', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: history,
-          project: currentProject,
-          currentChunk: chunkNumber,
-          mode: 'getting_started',
-        }),
+      const response = await authedFetch('/api/claude-interview', {
+        messages: history,
+        project: currentProject,
+        currentChunk: chunkNumber,
+        mode: 'getting_started',
       });
 
       if (!response.ok) {
@@ -1917,10 +2019,9 @@ function InterviewerGuide({ project, onProjectUpdate, onReturnToDashboard }) {
     if (isRegen) setRegenerating(true); else setLoading(true);
     setError('');
     try {
-      const response = await fetch('/api/claude-guide', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ project, conversationNumber: CONVERSATION_NUMBER }),
+      const response = await authedFetch('/api/claude-guide', {
+        project,
+        conversationNumber: CONVERSATION_NUMBER,
       });
       if (!response.ok) throw new Error(`API returned ${response.status}`);
       const data = await response.json();
@@ -2349,16 +2450,12 @@ function CaptureConversation({ project, onProjectUpdate, onReturnToDashboard }) 
     setDrafting(true);
     setError('');
     try {
-      const response = await fetch('/api/claude-draft', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          transcript: source,
-          project,
-          conversationTitle: plannedTitle,
-          revisionRequest: revision || null,
-          existingDraft: revision ? conversation?.draft : null,
-        }),
+      const response = await authedFetch('/api/claude-draft', {
+        transcript: source,
+        project,
+        conversationTitle: plannedTitle,
+        revisionRequest: revision || null,
+        existingDraft: revision ? conversation?.draft : null,
       });
       if (!response.ok) throw new Error(`API returned ${response.status}`);
       const data = await response.json();
@@ -2434,14 +2531,10 @@ function CaptureConversation({ project, onProjectUpdate, onReturnToDashboard }) 
 
       setStage('writing');
 
-      const dRes = await fetch('/api/claude-draft', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          transcript: text,
-          project,
-          conversationTitle: plannedTitle,
-        }),
+      const dRes = await authedFetch('/api/claude-draft', {
+        transcript: text,
+        project,
+        conversationTitle: plannedTitle,
       });
       if (!dRes.ok) throw new Error(`Drafting failed (${dRes.status})`);
       const dData = await dRes.json();
