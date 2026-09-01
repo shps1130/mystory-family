@@ -65,11 +65,15 @@ const TOTAL_CHUNKS = 7;
 // predate the plan, or where generation failed.
 const TOTAL_CONVERSATIONS = 5;
 
+// Neutral wording on purpose. These used to read "Becoming herself" and
+// "The life she built", which showed the wrong pronoun to anyone
+// interviewing their grandfather. Grace personalizes these titles in chunk 7
+// anyway; this is only what shows before a plan exists.
 const DEFAULT_CONVERSATION_TITLES = {
   1: 'Beginnings',
-  2: 'Becoming herself',
-  3: 'The life she built',
-  4: 'What she came through',
+  2: 'Becoming themselves',
+  3: 'The life they built',
+  4: 'What they came through',
   5: 'Looking back',
 };
 
