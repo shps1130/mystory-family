@@ -3,6 +3,7 @@
 // Separate endpoint from /api/claude-interview.
 
 import Anthropic from '@anthropic-ai/sdk';
+import { requireEntitlement, requireProject } from './_entitlement.js';
 
 const CONVERSATION_PURPOSES = {
   1: {
@@ -150,12 +151,24 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  try {
-    const { project, conversationNumber = 1 } = req.body;
+  // Verify the caller holds the interview product. This route was previously
+  // open to anyone who found the URL.
+  const auth = await requireEntitlement(req, 'interview');
+  if (auth.error) return res.status(auth.status).json({ error: auth.error });
 
-    if (!project) {
+  try {
+    const { project: clientProject, conversationNumber = 1 } = req.body;
+
+    if (!clientProject) {
       return res.status(400).json({ error: 'No project provided' });
     }
+
+    // Load the project from the database instead of trusting the copy the
+    // client sent. Confirms the caller owns it, and stops a paying customer
+    // reading another customer's context by editing the request body.
+    const owned = await requireProject(auth.user.id, clientProject?.id);
+    if (owned.error) return res.status(owned.status).json({ error: owned.error });
+    const project = owned.project;
 
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
