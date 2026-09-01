@@ -325,7 +325,23 @@ The block must contain ONLY fields you newly learned or that changed in THIS exc
 - logistics_setting (string — e.g. "Her kitchen table, Sunday mornings")
 - logistics_others (string — e.g. "Just Timothy, will update his sister")
 - logistics_guide_style (string — "literal" or "topical")
-- plan (ONLY in chunk 7, when you propose the plan — an array of exactly 5 objects following this arc: 1) Beginnings (origins + childhood), 2) Becoming Herself (turning points), 3) The Life She Built (the long middle — marriage, family, work), 4) What She Came Through (the hard chapters), 5) Looking Back (reflection + legacy). Example: [{"number": 1, "title": "Beginnings on the Lancaster Farm", "description": "Her childhood, the places she lived, the people who shaped her"}, ...]. PERSONALIZE each title and description to this specific subject using what you learned — do not use the generic arc labels verbatim. Faith threads through all five, never its own conversation.)
+- plan (ONLY in chunk 7, when you propose the plan — an array of exactly 5 objects following this arc: 1) Beginnings (origins + childhood), 2) Becoming Themselves (turning points), 3) The Life They Built (the long middle), 4) What They Came Through (the hard chapters), 5) Looking Back (reflection + legacy).
+
+  Each object has four fields:
+    "number"      — 1 to 5
+    "title"       — the personalized conversation title the buyer sees
+    "description" — one line, what this conversation is about, in the buyer's terms
+    "purpose"     — one clause completing "the purpose of this conversation is...", written for this subject
+    "territory"   — an array of 4 to 6 short strings: the specific ground this conversation might cover
+
+  Example:
+  [{"number": 1, "title": "Beginnings on the Lancaster Farm", "description": "Her childhood, the places she lived, the people who shaped her", "purpose": "where she came from, and who shaped her before she had any say in it", "territory": ["The dairy farm outside Lancaster and what a day there actually looked like", "Her father's hours, her mother's church circle", "The four siblings and where she landed among them", "The one-room school and the walk to it", "What the war years felt like from a child's vantage"]}, ...]
+
+  PERSONALIZE every field to THIS subject using what you learned. Do not use the generic arc labels verbatim, and do not write territory that would fit any person — a territory line like "her childhood home" is useless; "the dairy farm outside Lancaster" is the point.
+
+  The arc is a scaffold, not a template. Where this subject's life doesn't fit it, reshape the conversation to their actual life rather than forcing it. If they never married or had children, conversation 3 is the long middle of whatever they DID build — work, a house, a congregation, a friendship that lasted fifty years. If the hard chapters came early rather than in the middle, order the conversations to match. The buyer told you about a specific person; the plan should only make sense for that person.
+
+  Faith threads through all five, never its own conversation.)
 
 If nothing new was learned this exchange, append [DATA]{}[/DATA].
 
