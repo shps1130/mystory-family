@@ -60,6 +60,28 @@ const CHUNKS = {
 
 const TOTAL_CHUNKS = 7;
 
+// The five-conversation arc. Grace personalizes these titles in chunk 7 and
+// stores them on project_plan; these are the fallbacks for projects that
+// predate the plan, or where generation failed.
+const TOTAL_CONVERSATIONS = 5;
+
+const DEFAULT_CONVERSATION_TITLES = {
+  1: 'Beginnings',
+  2: 'Becoming herself',
+  3: 'The life she built',
+  4: 'What she came through',
+  5: 'Looking back',
+};
+
+// Resolve a conversation's title: the buyer's personalized plan first, the
+// generic arc second.
+function conversationTitle(project, number) {
+  const planned = project?.project_plan?.conversations?.find(
+    c => Number(c.number) === Number(number)
+  )?.title;
+  return planned || DEFAULT_CONVERSATION_TITLES[number] || `Conversation ${number}`;
+}
+
 // Function to get the subject-aware chunk label
 function getChunkLabel(chunkNumber, subjectName, relationship) {
   if (chunkNumber === 3) {
@@ -128,6 +150,8 @@ export default function Interview() {
   const [project, setProject] = useState(null);
   const [view, setView] = useState('dashboard');
   const [entitled, setEntitled] = useState(null); // null = still checking
+  // Which conversation the guide and capture views are operating on.
+  const [activeConversation, setActiveConversation] = useState(1);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -226,6 +250,13 @@ export default function Interview() {
     return () => { cancelled = true; };
   }, [user]);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (project?.current_conversation) {
+      setActiveConversation(project.current_conversation);
+    }
+  }, [project?.current_conversation]);
+
   if (authLoading) return <LoadingScreen />;
   if (!user) return <SignInScreen />;
   if (entitled === null) return <LoadingScreen message="Checking your account..." />;
@@ -254,6 +285,7 @@ export default function Interview() {
     return (
       <InterviewerGuide
         project={project}
+        conversationNumber={activeConversation}
         onProjectUpdate={setProject}
         onReturnToDashboard={() => setView('dashboard')}
       />
@@ -263,6 +295,17 @@ export default function Interview() {
   if (view === 'capture') {
     return (
       <CaptureConversation
+        project={project}
+        conversationNumber={activeConversation}
+        onProjectUpdate={setProject}
+        onReturnToDashboard={() => setView('dashboard')}
+      />
+    );
+  }
+
+  if (view === 'foreword') {
+    return (
+      <Foreword
         project={project}
         onProjectUpdate={setProject}
         onReturnToDashboard={() => setView('dashboard')}
@@ -275,8 +318,9 @@ export default function Interview() {
       user={user}
       project={project}
       onBeginGettingStarted={() => setView('getting_started')}
-      onOpenGuide={() => setView('interviewer_guide')}
-      onOpenCapture={() => setView('capture')}
+      onOpenGuide={(n) => { setActiveConversation(n || project.current_conversation || 1); setView('interviewer_guide'); }}
+      onOpenCapture={(n) => { setActiveConversation(n || project.current_conversation || 1); setView('capture'); }}
+      onOpenForeword={() => setView('foreword')}
     />
   );
 }
@@ -428,8 +472,44 @@ function SignInScreen() {
 // ============================================================
 // Dashboard
 // ============================================================
-function Dashboard({ user, project, onBeginGettingStarted, onOpenGuide, onOpenCapture }) {
+function Dashboard({ user, project, onBeginGettingStarted, onOpenGuide, onOpenCapture, onOpenForeword }) {
   const subject = project.subject_name || 'your loved one';
+
+  // Which conversations exist and which are approved. The unlock chain is
+  // derived from this rather than stored, so it stays correct even if
+  // current_conversation drifts.
+  const [conversations, setConversations] = useState([]);
+  const [convLoading, setConvLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      const { data, error } = await supabase
+        .from('interview_conversations')
+        .select('conversation_number, title, approved, draft, recorded_on')
+        .eq('project_id', project.id)
+        .order('conversation_number', { ascending: true });
+      if (cancelled) return;
+      if (error) console.error('Could not load conversations:', error);
+      setConversations(data || []);
+      setConvLoading(false);
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [project.id]);
+
+  const byNumber = Object.fromEntries(conversations.map(c => [c.conversation_number, c]));
+  const isApproved = (n) => byNumber[n]?.approved === true;
+  const hasDraft = (n) => Boolean(byNumber[n]?.draft);
+
+  // Conversation 1 opens once the preparation step is done. Each one after
+  // that opens when the previous is approved — the book is written in order,
+  // and a half-finished conversation 2 shouldn't unlock 3.
+  const isUnlocked = (n) =>
+    n === 1 ? Boolean(project.interviewer_guide_complete) : isApproved(n - 1);
+
+  const approvedCount = conversations.filter(c => c.approved).length;
+  const allConversationsDone = approvedCount >= TOTAL_CONVERSATIONS;
   const buyerInitials = (project.buyer_name || user.email || '?')
     .split(' ').map(s => s[0]).join('').slice(0, 2).toUpperCase();
 
@@ -458,11 +538,13 @@ function Dashboard({ user, project, onBeginGettingStarted, onOpenGuide, onOpenCa
     ? 'capturing_conversations'
     : 'conversation_1';
 
-  const totalSteps = 8;
+  // Getting started, preparation, five conversations, foreword.
+  const totalSteps = 2 + TOTAL_CONVERSATIONS + 1;
   const completedSteps =
     (project.getting_started_complete ? 1 : 0) +
     (project.interviewer_guide_complete ? 1 : 0) +
-    (project.capturing_conversations_complete ? 1 : 0);
+    approvedCount +
+    (project.foreword_complete ? 1 : 0);
 
   return (
     <div style={{
@@ -544,15 +626,83 @@ function Dashboard({ user, project, onBeginGettingStarted, onOpenGuide, onOpenCa
           <Section
             barColor={colors.gray}
             title="Your conversations"
-            subtitle={!project.capturing_conversations_complete ? '— unlocks after preparation' : null}
+            subtitle={
+              !project.interviewer_guide_complete
+                ? '— unlocks after preparation'
+                : allConversationsDone
+                ? '— all five captured'
+                : `— ${approvedCount} of ${TOTAL_CONVERSATIONS} captured`
+            }
           >
             <CardGrid>
-              <LockedCard title="Beginnings" subtitle="Conversation 1" icon={<IconHouse />} locked />
-              <LockedCard title="Becoming herself" subtitle="Conversation 2" icon={<IconPerson />} locked />
-              <LockedCard title="The life she built" subtitle="Conversation 3" icon={<IconFamily />} locked />
-              <LockedCard title="What she came through" subtitle="Conversation 4" icon={<IconReflect />} locked />
-              <LockedCard title="Looking back" subtitle="Conversation 5" icon={<IconCross />} locked />
-              <LockedCard title="Add a topic" subtitle="Optional · After Conversation 5" icon={<IconPlus />} locked dashed />
+              {[1, 2, 3, 4, 5].map((n) => {
+                const unlocked = isUnlocked(n);
+                const approved = isApproved(n);
+                const drafted = hasDraft(n) && !approved;
+                const icon = CONVERSATION_ICONS[n];
+
+                // Approved conversations stay openable so the buyer can
+                // reread or revise; the guide is the entry point for one
+                // that's unlocked but not yet captured.
+                // Until the conversation rows load we don't know what's
+                // unlocked. Render inert rather than flashing "Locked" and
+                // then unlocking a moment later.
+                const onClick = convLoading || !unlocked
+                  ? null
+                  : approved || drafted
+                  ? () => onOpenCapture(n)
+                  : () => onOpenGuide(n);
+
+                const status = convLoading || !unlocked
+                  ? null
+                  : approved
+                  ? 'Approved'
+                  : drafted
+                  ? 'Draft ready'
+                  : 'Ready';
+
+                return (
+                  <LockedCard
+                    key={n}
+                    title={conversationTitle(project, n)}
+                    subtitle={`Conversation ${n}${status ? ` · ${status}` : ''}`}
+                    icon={icon}
+                    locked={!unlocked}
+                    onClick={onClick}
+                    suppressStatus
+                  />
+                );
+              })}
+              <LockedCard title="Add a topic" subtitle="Optional · After Conversation 5" icon={<IconPlus />} locked dashed suppressStatus />
+            </CardGrid>
+          </Section>
+
+          <Section
+            barColor={colors.gray}
+            title="The front of the book"
+            subtitle={
+              project.foreword_complete
+                ? '— written'
+                : approvedCount === 0
+                ? '— unlocks after your first conversation'
+                : null
+            }
+          >
+            <CardGrid>
+              <LockedCard
+                title="Foreword"
+                subtitle={
+                  project.foreword_complete
+                    ? 'Written · As told to'
+                    : approvedCount === 0
+                    ? 'As told to'
+                    : 'As told to · Ready'
+                }
+                icon={<IconBook locked={approvedCount === 0} />}
+                locked={approvedCount === 0}
+                onClick={approvedCount > 0 ? onOpenForeword : null}
+                suppressStatus
+              />
             </CardGrid>
           </Section>
 
@@ -741,7 +891,7 @@ function ActiveCard({ eyebrow, title, description, buttonText, onClick, icon }) 
   );
 }
 
-function LockedCard({ title, subtitle, icon, locked, dashed, onClick }) {
+function LockedCard({ title, subtitle, icon, locked, dashed, onClick, suppressStatus }) {
   return (
     <div onClick={onClick || undefined} style={{
       background: colors.creamLight,
@@ -758,7 +908,7 @@ function LockedCard({ title, subtitle, icon, locked, dashed, onClick }) {
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: '13px', fontWeight: 500, marginBottom: '2px' }}>{title}</div>
         <div style={{ fontSize: '11px', color: colors.textTertiary }}>
-          {subtitle}{locked ? ' · Locked' : onClick ? ' · Ready' : ''}
+          {subtitle}{suppressStatus ? '' : locked ? ' · Locked' : onClick ? ' · Ready' : ''}
         </div>
       </div>
     </div>
@@ -1967,8 +2117,8 @@ function CompletedChunkCard({ chunkNumber, subjectName, relationship }) {
 // Interviewer Guide page
 // Generates once, saves, loads instantly on return. Print-friendly.
 // ============================================================
-function InterviewerGuide({ project, onProjectUpdate, onReturnToDashboard }) {
-  const CONVERSATION_NUMBER = 1; // Conversation 1 (Beginnings) for now
+function InterviewerGuide({ project, conversationNumber, onProjectUpdate, onReturnToDashboard }) {
+  const CONVERSATION_NUMBER = conversationNumber || project.current_conversation || 1;
   const [guide, setGuide] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -1984,6 +2134,12 @@ function InterviewerGuide({ project, onProjectUpdate, onReturnToDashboard }) {
   )?.title;
 
   useEffect(() => {
+    // Keyed on the conversation number, not [], so moving between
+    // conversations loads the right guide instead of showing a stale one.
+    setGuide(null);
+    setNotes('');
+    setNotesSaved(true);
+
     const existingNotes = project.guide_notes?.[String(CONVERSATION_NUMBER)];
     if (existingNotes) setNotes(existingNotes);
 
@@ -1994,7 +2150,7 @@ function InterviewerGuide({ project, onProjectUpdate, onReturnToDashboard }) {
       generateGuide(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [CONVERSATION_NUMBER]);
 
   // Save the buyer's own questions (debounced so we're not writing every keystroke)
   useEffect(() => {
@@ -2389,8 +2545,8 @@ INTERVIEWER: Who took care of you all after that?
 
 MOM: I did, mostly. I was the oldest girl. My sister was nine and the boys were little. I made the lunches and I did the wash. My father worked. That's what he knew how to do. So I did the rest of it.`;
 
-function CaptureConversation({ project, onProjectUpdate, onReturnToDashboard }) {
-  const CONVERSATION_NUMBER = 1;
+function CaptureConversation({ project, conversationNumber, onProjectUpdate, onReturnToDashboard }) {
+  const CONVERSATION_NUMBER = conversationNumber || project.current_conversation || 1;
   const [conversation, setConversation] = useState(null);
   const [mode, setMode] = useState(null);          // null | 'paste' | 'audio'
   const [transcript, setTranscript] = useState('');
@@ -2403,14 +2559,28 @@ function CaptureConversation({ project, onProjectUpdate, onReturnToDashboard }) 
   const [audioFile, setAudioFile] = useState(null);
   const [stage, setStage] = useState(null); // 'uploading' | 'transcribing' | 'writing'
   const [uploadPct, setUploadPct] = useState(0);
+  // Provenance — asked at capture time, while it's still fresh. These are
+  // the facts the foreword is built from, and the ones a reader decades from
+  // now can't recover from the stories themselves.
+  const [recordedOn, setRecordedOn] = useState('');
+  const [recordedWhere, setRecordedWhere] = useState('');
+  const [othersPresent, setOthersPresent] = useState('');
 
   const subjectName = project.subject_name || 'your loved one';
   const plannedTitle = project.project_plan?.conversations?.find(
     c => Number(c.number) === CONVERSATION_NUMBER
-  )?.title || 'Beginnings';
+  )?.title || DEFAULT_CONVERSATION_TITLES[CONVERSATION_NUMBER] || `Conversation ${CONVERSATION_NUMBER}`;
 
   useEffect(() => {
     const load = async () => {
+      setLoadingRow(true);
+      setConversation(null);
+      setTranscript('');
+      setMode(null);
+      setRecordedOn('');
+      setRecordedWhere('');
+      setOthersPresent('');
+
       const { data } = await supabase
         .from('interview_conversations')
         .select('*')
@@ -2420,18 +2590,24 @@ function CaptureConversation({ project, onProjectUpdate, onReturnToDashboard }) 
       if (data) {
         setConversation(data);
         if (data.transcript) setTranscript(data.transcript);
+        if (data.recorded_on) setRecordedOn(data.recorded_on);
+        if (data.recorded_where) setRecordedWhere(data.recorded_where);
+        if (data.others_present) setOthersPresent(data.others_present);
       }
       setLoadingRow(false);
     };
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [project.id]);
+  }, [project.id, CONVERSATION_NUMBER]);
 
   const saveRow = async (fields) => {
     const payload = {
       project_id: project.id,
       conversation_number: CONVERSATION_NUMBER,
       title: plannedTitle,
+      recorded_on: recordedOn || null,
+      recorded_where: recordedWhere.trim() || null,
+      others_present: othersPresent.trim() || null,
       ...fields,
     };
     const { data, error: err } = await supabase
@@ -2562,17 +2738,32 @@ function CaptureConversation({ project, onProjectUpdate, onReturnToDashboard }) 
     try {
       await saveRow({
         transcript: transcript.trim(),
-        transcript_source: 'pasted',
+        // Don't overwrite transcript_source — an audio capture that gets
+        // approved was still an audio capture, and the foreword says so.
+        transcript_source: conversation?.transcript_source || 'pasted',
         draft: conversation.draft,
         status: 'approved',
         approved: true,
         approved_at: new Date().toISOString(),
       });
+
+      // Advance to the next conversation, but never backwards: a buyer
+      // re-approving an edited conversation 2 shouldn't drag them back from 4.
+      const nextConversation = Math.min(
+        Math.max(project.current_conversation || 1, CONVERSATION_NUMBER + 1),
+        TOTAL_CONVERSATIONS
+      );
+
+      const updates = {
+        capturing_conversations_complete: true,
+        current_conversation: nextConversation,
+      };
+
       await supabase
         .from('interview_projects')
-        .update({ capturing_conversations_complete: true })
+        .update(updates)
         .eq('id', project.id);
-      onProjectUpdate({ ...project, capturing_conversations_complete: true });
+      onProjectUpdate({ ...project, ...updates });
     } catch (err) {
       console.error(err);
       setError('Could not save your approval. Try again.');
@@ -2633,7 +2824,7 @@ function CaptureConversation({ project, onProjectUpdate, onReturnToDashboard }) 
               fontSize: '11px', color: colors.tan, fontWeight: 600,
               letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '8px',
             }}>
-              Conversation 1 · {conversation?.approved ? 'Approved' : hasDraft ? 'Draft ready' : 'Capture'}
+              Conversation {CONVERSATION_NUMBER} of {TOTAL_CONVERSATIONS} · {conversation?.approved ? 'Approved' : hasDraft ? 'Draft ready' : 'Capture'}
             </div>
             <div style={{ fontFamily: fonts.serif, fontSize: '25px', fontWeight: 500, lineHeight: 1.25 }}>
               {plannedTitle}
@@ -2786,6 +2977,16 @@ function CaptureConversation({ project, onProjectUpdate, onReturnToDashboard }) 
                           You've had the conversation. Now let's bring it into the book.
                           Two ways to do that — whichever fits how you recorded it.
                         </div>
+
+                        <ProvenanceFields
+                          recordedOn={recordedOn}
+                          setRecordedOn={setRecordedOn}
+                          recordedWhere={recordedWhere}
+                          setRecordedWhere={setRecordedWhere}
+                          othersPresent={othersPresent}
+                          setOthersPresent={setOthersPresent}
+                        />
+
                         <CardGrid>
                           <CapturePathCard
                             icon={<IconRecord />}
@@ -2994,6 +3195,480 @@ function CaptureConversation({ project, onProjectUpdate, onReturnToDashboard }) 
   );
 }
 
+// ============================================================
+// Foreword — the "as told to" record at the front of the book
+// ============================================================
+// The stories can speak for themselves. The circumstance can't: who asked,
+// how old everyone was, where they sat, over what span of weeks. That
+// information has no other home in the book, and nobody can reconstruct it
+// later. This screen collects it and turns it into the opening page.
+
+function Foreword({ project, onProjectUpdate, onReturnToDashboard }) {
+  const saved = project.foreword_details || {};
+
+  const [details, setDetails] = useState({
+    subject_full_name: saved.subject_full_name || project.subject_name || '',
+    subject_age: saved.subject_age || project.subject_age || '',
+    subject_birth_year: saved.subject_birth_year || '',
+    subject_birth_place: saved.subject_birth_place || '',
+    interviewer_full_name: saved.interviewer_full_name || project.buyer_name || '',
+    interviewer_age: saved.interviewer_age || '',
+    interviewer_relationship: saved.interviewer_relationship || project.buyer_relationship || '',
+    primary_location: saved.primary_location || '',
+    method: saved.method || '',
+    interviewer_note: saved.interviewer_note || '',
+  });
+
+  const [text, setText] = useState(project.foreword_text || '');
+  const [conversations, setConversations] = useState([]);
+  const [generating, setGenerating] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [editing, setEditing] = useState(false);
+
+  useEffect(() => {
+    const load = async () => {
+      const { data } = await supabase
+        .from('interview_conversations')
+        .select('conversation_number, title, recorded_on, recorded_where, others_present, approved')
+        .eq('project_id', project.id)
+        .eq('approved', true)
+        .order('conversation_number', { ascending: true });
+      setConversations(data || []);
+    };
+    load();
+  }, [project.id]);
+
+  const set = (key) => (e) => setDetails({ ...details, [key]: e.target.value });
+
+  const persist = async (fields) => {
+    await supabase.from('interview_projects').update(fields).eq('id', project.id);
+    onProjectUpdate({ ...project, ...fields });
+  };
+
+  const generate = async () => {
+    setGenerating(true);
+    setError('');
+    try {
+      // Save the facts before generating. If the request fails, the buyer
+      // shouldn't have to retype everything.
+      await persist({ foreword_details: details });
+
+      const res = await authedFetch('/api/claude-foreword', { project, details });
+      if (!res.ok) throw new Error(`API returned ${res.status}`);
+      const data = await res.json();
+      if (!data.foreword) throw new Error('No foreword returned');
+
+      setText(data.foreword);
+      await persist({ foreword_text: data.foreword });
+    } catch (err) {
+      console.error('Foreword error:', err);
+      setError("We couldn't write the foreword just now. Your details are saved — try again in a moment.");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const saveEdits = async () => {
+    setSaving(true);
+    try {
+      await persist({ foreword_text: text });
+      setEditing(false);
+    } catch (err) {
+      console.error(err);
+      setError('Could not save your changes. Try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const approve = async () => {
+    try {
+      await persist({ foreword_text: text, foreword_complete: true });
+    } catch (err) {
+      console.error(err);
+      setError('Could not save. Try again.');
+    }
+  };
+
+  const inputStyle = {
+    width: '100%', padding: '10px 12px', fontSize: '14px',
+    border: `0.5px solid ${colors.border}`, borderRadius: '8px',
+    fontFamily: 'inherit', color: colors.text, background: 'white',
+    boxSizing: 'border-box',
+  };
+  const labelStyle = {
+    display: 'block', fontSize: '12px', color: colors.textSecondary, marginBottom: '5px',
+  };
+  const subjectName = project.subject_name || 'your loved one';
+
+  return (
+    <div style={{ minHeight: '100vh', background: colors.cream, fontFamily: fonts.sans, color: colors.text }}>
+      <style>{`@media print { .no-print { display: none !important; } }`}</style>
+      <div style={{ maxWidth: '820px', margin: '0 auto', padding: '20px 16px 60px' }}>
+        <div style={{
+          background: 'white', borderRadius: '16px', overflow: 'hidden',
+          border: `0.5px solid ${colors.border}`,
+        }}>
+          <div className="no-print" style={{
+            background: colors.navy, padding: '14px 24px',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          }}>
+            <div style={{ color: colors.creamWarm, fontFamily: fonts.serif, fontSize: '15px' }}>
+              MyStory<span style={{ color: colors.gold }}>.</span>Family
+            </div>
+            <button onClick={onReturnToDashboard} style={{
+              background: 'none', border: 'none', color: colors.creamWarm,
+              fontSize: '13px', cursor: 'pointer', opacity: 0.85, fontFamily: 'inherit',
+            }}>
+              ← Dashboard
+            </button>
+          </div>
+
+          <div style={{
+            padding: '26px 32px 20px', background: colors.creamLight,
+            borderBottom: `0.5px solid ${colors.border}`,
+          }}>
+            <div style={{
+              fontSize: '11px', color: colors.tan, fontWeight: 600,
+              letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '8px',
+            }}>
+              The front of the book · {project.foreword_complete ? 'Complete' : text ? 'Draft ready' : 'As told to'}
+            </div>
+            <div style={{ fontFamily: fonts.serif, fontSize: '25px', fontWeight: 500, lineHeight: 1.25 }}>
+              Foreword
+            </div>
+            <div style={{ fontSize: '14px', color: colors.textSecondary, marginTop: '5px' }}>
+              How {subjectName}'s stories came to be written down
+            </div>
+          </div>
+
+          <div style={{ padding: '32px' }}>
+            <div style={{
+              fontSize: '15.5px', lineHeight: 1.75, color: colors.navy, marginBottom: '28px',
+            }}>
+              Someone will open this book long after everyone in it is gone. The
+              stories will still make sense. What won't survive is everything
+              around them — who asked the questions, how old you both were,
+              which room you sat in. That's what this page is for.
+            </div>
+
+            {error && (
+              <div style={{
+                background: '#FDF2EF', border: `0.5px solid ${colors.border}`,
+                borderRadius: '10px', padding: '12px 14px', marginBottom: '20px',
+                fontSize: '14px', color: colors.text, lineHeight: 1.6,
+              }}>
+                {error}
+              </div>
+            )}
+
+            {/* --- The facts --- */}
+            <div className="no-print" style={{ marginBottom: '30px' }}>
+              <SectionHeading label={`About ${subjectName}`} />
+              <div style={{ display: 'grid', gap: '14px', marginBottom: '26px' }}>
+                <div>
+                  <label style={labelStyle}>Her full name, as it should appear</label>
+                  <input type="text" value={details.subject_full_name}
+                    onChange={set('subject_full_name')}
+                    placeholder="Karen Louise Whitfield" style={inputStyle} />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                  <div>
+                    <label style={labelStyle}>Her age during the interviews</label>
+                    <input type="text" value={details.subject_age}
+                      onChange={set('subject_age')} placeholder="81" style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Year she was born</label>
+                    <input type="text" value={details.subject_birth_year}
+                      onChange={set('subject_birth_year')} placeholder="1945" style={inputStyle} />
+                  </div>
+                </div>
+                <div>
+                  <label style={labelStyle}>Where she was born</label>
+                  <input type="text" value={details.subject_birth_place}
+                    onChange={set('subject_birth_place')}
+                    placeholder="Lancaster, Pennsylvania" style={inputStyle} />
+                </div>
+              </div>
+
+              <SectionHeading label="About you" />
+              <div style={{ display: 'grid', gap: '14px', marginBottom: '26px' }}>
+                <div>
+                  <label style={labelStyle}>Your full name</label>
+                  <input type="text" value={details.interviewer_full_name}
+                    onChange={set('interviewer_full_name')}
+                    placeholder="Ethan Whitfield" style={inputStyle} />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                  <div>
+                    <label style={labelStyle}>Your age during the interviews</label>
+                    <input type="text" value={details.interviewer_age}
+                      onChange={set('interviewer_age')} placeholder="34" style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>How she's related to you</label>
+                    <input type="text" value={details.interviewer_relationship}
+                      onChange={set('interviewer_relationship')}
+                      placeholder="My grandmother" style={inputStyle} />
+                  </div>
+                </div>
+              </div>
+
+              <SectionHeading label="Where and how" />
+              <div style={{ display: 'grid', gap: '14px', marginBottom: '26px' }}>
+                <div>
+                  <label style={labelStyle}>Where most of the conversations happened</label>
+                  <input type="text" value={details.primary_location}
+                    onChange={set('primary_location')}
+                    placeholder="Her kitchen table in Lancaster" style={inputStyle} />
+                </div>
+                <div>
+                  <label style={labelStyle}>How you talked</label>
+                  <input type="text" value={details.method}
+                    onChange={set('method')}
+                    placeholder="In person, over four Sunday afternoons" style={inputStyle} />
+                </div>
+              </div>
+
+              {conversations.length > 0 && (
+                <div style={{
+                  background: colors.creamLight, border: `0.5px solid ${colors.border}`,
+                  borderRadius: '12px', padding: '16px 18px', marginBottom: '26px',
+                }}>
+                  <div style={{
+                    fontSize: '12px', color: colors.textSecondary, marginBottom: '10px',
+                  }}>
+                    From your conversations — edit these in each conversation if
+                    something's wrong.
+                  </div>
+                  {conversations.map(c => (
+                    <div key={c.conversation_number} style={{
+                      fontSize: '13.5px', color: colors.text, lineHeight: 1.7,
+                    }}>
+                      <strong style={{ fontWeight: 500 }}>{c.title || `Conversation ${c.conversation_number}`}</strong>
+                      {c.recorded_on ? ` · ${c.recorded_on}` : ''}
+                      {c.recorded_where ? ` · ${c.recorded_where}` : ''}
+                      {c.others_present ? ` · with ${c.others_present}` : ''}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <SectionHeading label="Anything you want said" />
+              <div style={{
+                fontSize: '13.5px', color: colors.textSecondary, lineHeight: 1.65, marginBottom: '10px',
+              }}>
+                Optional. Why you did this, what it was like, anything you want
+                the reader to know. A sentence or two is plenty.
+              </div>
+              <textarea
+                value={details.interviewer_note}
+                onChange={set('interviewer_note')}
+                placeholder="I started asking because I realized I'd never heard how she met my grandfather…"
+                style={{ ...inputStyle, minHeight: '110px', resize: 'vertical', lineHeight: 1.6 }}
+              />
+
+              <button
+                onClick={generate}
+                disabled={generating}
+                style={{
+                  marginTop: '22px', background: generating ? colors.tan : colors.gold,
+                  color: colors.navy, border: 'none', borderRadius: '100px',
+                  padding: '13px 30px', fontSize: '15px', fontFamily: fonts.serif,
+                  cursor: generating ? 'default' : 'pointer',
+                }}
+              >
+                {generating ? 'Writing…' : text ? 'Write it again' : 'Write the foreword'}
+              </button>
+            </div>
+
+            {/* --- The foreword --- */}
+            {text && (
+              <div style={{
+                borderTop: `0.5px solid ${colors.border}`, paddingTop: '28px',
+              }}>
+                {editing ? (
+                  <div className="no-print">
+                    <textarea
+                      value={text}
+                      onChange={(e) => setText(e.target.value)}
+                      style={{
+                        ...inputStyle, minHeight: '320px', resize: 'vertical',
+                        fontFamily: fonts.serif, fontSize: '16px', lineHeight: 1.8,
+                      }}
+                    />
+                    <div style={{ display: 'flex', gap: '10px', marginTop: '14px' }}>
+                      <button onClick={saveEdits} disabled={saving} style={{
+                        background: colors.gold, color: colors.navy, border: 'none',
+                        borderRadius: '100px', padding: '11px 26px', fontSize: '14px',
+                        fontFamily: fonts.serif, cursor: 'pointer',
+                      }}>
+                        {saving ? 'Saving…' : 'Save'}
+                      </button>
+                      <button onClick={() => { setText(project.foreword_text || ''); setEditing(false); }} style={{
+                        background: 'none', border: `0.5px solid ${colors.border}`,
+                        color: colors.textSecondary, borderRadius: '100px',
+                        padding: '11px 26px', fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit',
+                      }}>
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <SectionProse text={text} />
+                    <div className="no-print" style={{
+                      display: 'flex', gap: '10px', marginTop: '24px', flexWrap: 'wrap',
+                    }}>
+                      {!project.foreword_complete && (
+                        <button onClick={approve} style={{
+                          background: colors.gold, color: colors.navy, border: 'none',
+                          borderRadius: '100px', padding: '12px 28px', fontSize: '14.5px',
+                          fontFamily: fonts.serif, cursor: 'pointer',
+                        }}>
+                          This is right — add it to the book
+                        </button>
+                      )}
+                      <button onClick={() => setEditing(true)} style={{
+                        background: 'none', border: `0.5px solid ${colors.border}`,
+                        color: colors.textSecondary, borderRadius: '100px',
+                        padding: '12px 28px', fontSize: '14.5px', cursor: 'pointer', fontFamily: 'inherit',
+                      }}>
+                        Edit the wording
+                      </button>
+                    </div>
+                    {project.foreword_complete && (
+                      <div style={{
+                        marginTop: '18px', fontSize: '13.5px', color: colors.textSecondary,
+                      }}>
+                        This foreword is part of {subjectName}'s book.
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SectionHeading({ label }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+      <div style={{ width: '4px', height: '15px', background: colors.gold, borderRadius: '2px' }} />
+      <div style={{
+        fontFamily: fonts.serif, fontSize: '15px', fontWeight: 500, color: colors.textSecondary,
+      }}>
+        {label}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// Provenance fields — asked at capture time
+// ============================================================
+// The date, the room, and who else was there. None of this appears in the
+// stories themselves, and none of it is recoverable later: ask someone in
+// two years where the third conversation happened and you'll get a guess.
+// Asking now, in three optional fields, is the whole cost of a foreword
+// that still means something in fifty years.
+
+function ProvenanceFields({
+  recordedOn, setRecordedOn,
+  recordedWhere, setRecordedWhere,
+  othersPresent, setOthersPresent,
+}) {
+  const inputStyle = {
+    width: '100%',
+    padding: '10px 12px',
+    fontSize: '14px',
+    border: `0.5px solid ${colors.border}`,
+    borderRadius: '8px',
+    fontFamily: 'inherit',
+    color: colors.text,
+    background: 'white',
+    boxSizing: 'border-box',
+  };
+
+  const labelStyle = {
+    display: 'block',
+    fontSize: '12px',
+    color: colors.textSecondary,
+    marginBottom: '5px',
+  };
+
+  return (
+    <div style={{
+      background: colors.creamLight,
+      border: `0.5px solid ${colors.border}`,
+      borderRadius: '12px',
+      padding: '18px 20px',
+      marginBottom: '26px',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+        <div style={{ width: '4px', height: '15px', background: colors.gold, borderRadius: '2px' }} />
+        <div style={{
+          fontFamily: fonts.serif, fontSize: '15px', fontWeight: 500, color: colors.textSecondary,
+        }}>
+          For the record
+        </div>
+      </div>
+
+      <div style={{
+        fontSize: '13.5px', color: colors.textSecondary, lineHeight: 1.65, marginBottom: '16px',
+      }}>
+        A few details for the front of the book, so someone reading this in
+        fifty years knows how it came to exist. All optional, and you can
+        change them later.
+      </div>
+
+      <div style={{ display: 'grid', gap: '14px' }}>
+        <div>
+          <label style={labelStyle}>When did you have this conversation?</label>
+          <input
+            type="date"
+            value={recordedOn}
+            max={new Date().toISOString().slice(0, 10)}
+            onChange={(e) => setRecordedOn(e.target.value)}
+            style={{ ...inputStyle, maxWidth: '220px' }}
+          />
+        </div>
+
+        <div>
+          <label style={labelStyle}>Where were you?</label>
+          <input
+            type="text"
+            value={recordedWhere}
+            onChange={(e) => setRecordedWhere(e.target.value)}
+            placeholder="Her kitchen table on Vine Street"
+            style={inputStyle}
+          />
+          <div style={{ fontSize: '12px', color: colors.textTertiary, marginTop: '5px' }}>
+            Be specific if you can. "Her kitchen" outlives "her house."
+          </div>
+        </div>
+
+        <div>
+          <label style={labelStyle}>Anyone else there?</label>
+          <input
+            type="text"
+            value={othersPresent}
+            onChange={(e) => setOthersPresent(e.target.value)}
+            placeholder="My mother, for part of it"
+            style={inputStyle}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function CapturePathCard({ icon, title, body, note, onClick, disabled }) {
   return (
     <div onClick={disabled ? undefined : onClick} style={{
@@ -3164,3 +3839,17 @@ function IconBook({ locked }) {
     </svg>
   );
 }
+
+// ============================================================
+// Conversation icons
+// ============================================================
+// Defined at the bottom because the icon components are function
+// declarations — hoisted, so referencing them here is safe, and keeping the
+// map in one place beats scattering icons through the card markup.
+const CONVERSATION_ICONS = {
+  1: <IconHouse />,
+  2: <IconPerson />,
+  3: <IconFamily />,
+  4: <IconReflect />,
+  5: <IconCross />,
+};
