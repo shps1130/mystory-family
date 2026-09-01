@@ -1664,59 +1664,7 @@ export default function MyStoryFamily() {
 
       if (paymentSuccess) {
         const emailToUse = paidEmail || (raw ? JSON.parse(raw)?.user?.email : null);
-
-        // Mark paid in Supabase and localStorage regardless
-        if (emailToUse) {
-          localStorage.setItem("mystory_paid_" + emailToUse.toLowerCase(), "true");
-          fetch("/api/paid-status", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email: emailToUse }),
-          }).catch(() => {});
-        }
-
-        // Try localStorage first
-        if (raw) {
-          try {
-            const s = { ...JSON.parse(raw), hasPaid: true };
-            localStorage.setItem("mystory_session", JSON.stringify(s));
-            localStorage.removeItem("mystory_pending_email");
-            restoreSession(s, true);
-            setTimeout(() => {
-              announce("Payment confirmed — let's continue your story. ✦");
-              const bookChoice = localStorage.getItem("mystory_book_choice");
-              if (bookChoice && bookChoice !== "pdf") {
-                setPaywallBookChoice(bookChoice);
-                setShowPrintOrderAfterPay(true);
-              }
-              localStorage.removeItem("mystory_book_choice");
-            }, 600);
-            return;
-          } catch {}
-        }
-
-        // localStorage empty (mobile Safari) — load from Supabase
-        if (emailToUse) {
-          fetch(`/api/session-load?email=${encodeURIComponent(emailToUse)}`)
-            .then(r => r.json())
-            .then(data => {
-              if (data.session) {
-                const s = { ...data.session, hasPaid: true };
-                localStorage.setItem("mystory_session", JSON.stringify(s));
-                restoreSession(s, true);
-                setTimeout(() => {
-                  announce("Payment confirmed — let's continue your story. ✦");
-                  const bookChoice = localStorage.getItem("mystory_book_choice");
-                  if (bookChoice && bookChoice !== "pdf") {
-                    setPaywallBookChoice(bookChoice);
-                    setShowPrintOrderAfterPay(true);
-                  }
-                  localStorage.removeItem("mystory_book_choice");
-                }, 600);
-              }
-            })
-            .catch(() => {});
-        }
+        handlePaymentReturn(emailToUse, raw);
         return;
       }
 
@@ -1741,6 +1689,81 @@ export default function MyStoryFamily() {
       }
     } catch {}
   }, []);
+
+  // ── RETURN FROM STRIPE ────────────────────────────────────────────────────
+  // Paid access is granted by the Stripe webhook, never by the browser. The
+  // previous version POSTed to /api/paid-status to mark itself paid, which
+  // meant a crafted URL was worth the price of the book. That endpoint is
+  // now read-only, so we poll it until the webhook lands.
+
+  const PAID_POLL_DELAYS_MS = [0, 800, 1500, 2500, 4000, 6000];
+
+  const pollPaidStatus = async (email) => {
+    for (const delay of PAID_POLL_DELAYS_MS) {
+      if (delay) await new Promise(r => setTimeout(r, delay));
+      try {
+        const res = await fetch(`/api/paid-status?email=${encodeURIComponent(email)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.hasPaid === true) return true;
+        }
+      } catch {}
+    }
+    return false;
+  };
+
+  const handlePaymentReturn = async (emailToUse, raw) => {
+    // Get their session back on screen first — localStorage if we have it,
+    // Supabase otherwise (mobile Safari routinely clears it). Waiting on the
+    // webhook before rendering anything would leave them on a blank page
+    // straight after paying.
+    let restored = null;
+    if (raw) {
+      try { restored = JSON.parse(raw); } catch {}
+    }
+    if (!restored && emailToUse) {
+      try {
+        const res = await fetch(`/api/session-load?email=${encodeURIComponent(emailToUse)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.session) restored = data.session;
+        }
+      } catch {}
+    }
+
+    if (!emailToUse) {
+      if (restored) restoreSession(restored);
+      return;
+    }
+
+    const confirmed = await pollPaidStatus(emailToUse);
+
+    if (restored) {
+      const s = { ...restored, hasPaid: confirmed || restored.hasPaid === true };
+      localStorage.setItem("mystory_session", JSON.stringify(s));
+      localStorage.removeItem("mystory_pending_email");
+      restoreSession(s, confirmed);
+    } else if (confirmed) {
+      setHasPaid(true);
+    }
+
+    setTimeout(() => {
+      if (confirmed) {
+        announce("Payment confirmed — let's continue your story. ✦");
+        const bookChoice = localStorage.getItem("mystory_book_choice");
+        if (bookChoice && bookChoice !== "pdf") {
+          setPaywallBookChoice(bookChoice);
+          setShowPrintOrderAfterPay(true);
+        }
+        localStorage.removeItem("mystory_book_choice");
+      } else {
+        // Stripe took the payment but the webhook hasn't reached us yet, or
+        // it failed. Their work is safe either way — say so plainly rather
+        // than leaving them wondering whether the money went somewhere.
+        announce("Your payment is still going through — it can take a minute. Your story is saved. Refresh shortly, or reply to your receipt and we'll sort it out. ✦");
+      }
+    }, 600);
+  };
 
   // ── SAVE SESSION WHENEVER KEY STATE CHANGES ───────────────────────────────
   const saveSession = (overrides = {}) => {
@@ -1862,42 +1885,36 @@ export default function MyStoryFamily() {
       if (!res.ok) { setSigninError(data.error || "That email and password don't match."); return; }
       setSigninError("");
 
-      // Check paid status from every source
+      // Paid status comes from the server and nowhere else.
+      //
+      // This used to be `localHasPaid || paidKey || supabasePaid`, where
+      // paidKey was a localStorage flag. Anything a user can set in devtools
+      // could unlock the paywall, and a refund could never revoke access.
+      // data.hasPaid is read from mystory_users.has_paid, which only the
+      // Stripe webhook and gift redemption can write.
       const localRaw = localStorage.getItem("mystory_session");
-      let localHasPaid = false;
-      try {
-        const localSession = JSON.parse(localRaw);
-        // Only use local hasPaid if it belongs to this same user
-        if (localSession?.user?.email?.toLowerCase() === email.toLowerCase()) {
-          localHasPaid = localSession?.hasPaid === true;
-        }
-      } catch {}
-      const paidKey = localStorage.getItem("mystory_paid_" + email.toLowerCase()) === "true";
-      const supabasePaid = data.hasPaid === true;
-      const hasPaidFinal = localHasPaid || paidKey || supabasePaid;
+      const hasPaidFinal = data.hasPaid === true;
 
       if (data.session) {
-        const merged = { ...data.session, hasPaid: data.session.hasPaid || hasPaidFinal };
+        const merged = { ...data.session, hasPaid: hasPaidFinal };
         localStorage.setItem("mystory_session", JSON.stringify(merged));
         restoreSession(merged);
       } else if (localRaw) {
         try {
           const localSession = JSON.parse(localRaw);
           if (localSession.user?.email?.toLowerCase() === email.toLowerCase()) {
-            const merged = { ...localSession, hasPaid: localSession.hasPaid || hasPaidFinal };
+            const merged = { ...localSession, hasPaid: hasPaidFinal };
             localStorage.setItem("mystory_session", JSON.stringify(merged));
             restoreSession(merged);
             return;
           }
         } catch {}
         // No matching local session — start fresh but preserve paid status
-        if (hasPaidFinal) localStorage.setItem("mystory_paid_" + email.toLowerCase(), "true");
         setUser(data.user);
         setHasPaid(hasPaidFinal);
         setPersona(PERSONAS.grace);
         setScreen("reveal");
       } else {
-        if (hasPaidFinal) localStorage.setItem("mystory_paid_" + email.toLowerCase(), "true");
         setUser(data.user);
         setHasPaid(hasPaidFinal);
         setPersona(PERSONAS.grace);
@@ -1964,11 +1981,7 @@ export default function MyStoryFamily() {
 
   const handleSignout = () => {
     if (window.confirm("Sign out? Your progress is saved and you can continue any time.")) {
-      // Save paid status before clearing
-      if (hasPaid && user?.email) {
-        localStorage.setItem("mystory_paid_" + user.email.toLowerCase(), "true");
-      }
-      // Clear the session but keep the paid key
+      // Paid status lives on the server; signing back in re-reads it.
       localStorage.removeItem("mystory_session");
       setUser(null);
       setHasPaid(false);
@@ -2008,7 +2021,6 @@ export default function MyStoryFamily() {
       const userData = signupData.user || { firstName: giftName, lastName: "", email: giftEmail };
       setUser(userData);
       setHasPaid(true);
-      localStorage.setItem("mystory_paid_" + giftEmail.toLowerCase(), "true");
 
       // Step 4: Save session so their data persists
       saveSession({ user: userData, hasPaid: true });
@@ -2699,8 +2711,7 @@ export default function MyStoryFamily() {
 
   const continueFromPreview = () => {
     const nextC = previewChapter.chapterIndex + 1;
-    const paidKey = user?.email ? localStorage.getItem("mystory_paid_" + user.email.toLowerCase()) === "true" : false;
-    const isPaid = hasPaid || paidKey;
+    const isPaid = hasPaid;
     const isLastChapter = previewChapter.chapterIndex >= chapters.length - 1;
 
     if (isLastChapter || nextC >= chapters.length) {
