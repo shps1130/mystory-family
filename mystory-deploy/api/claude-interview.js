@@ -6,6 +6,7 @@
 // Your existing one keeps working untouched.
 
 import Anthropic from '@anthropic-ai/sdk';
+import { requireEntitlement, requireProject } from './_entitlement.js';
 
 const GRACE_SYSTEM_PROMPT = `You are Grace, the warm and thoughtful guide for buyers of MyStory.Family — a service that helps adult children capture the life stories of their parents and grandparents.
 
@@ -359,12 +360,24 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // Verify the caller holds the interview product. This route was previously
+  // open to anyone who found the URL.
+  const auth = await requireEntitlement(req, 'interview');
+  if (auth.error) return res.status(auth.status).json({ error: auth.error });
+
   try {
-    const { messages, project, currentChunk, mode } = req.body;
+    const { messages, project: clientProject, currentChunk, mode } = req.body;
 
     if (mode !== 'getting_started') {
       return res.status(400).json({ error: 'Unsupported mode' });
     }
+
+    // Load the project from the database instead of trusting the copy the
+    // client sent. Confirms the caller owns it, and stops a paying customer
+    // reading another customer's context by editing the request body.
+    const owned = await requireProject(auth.user.id, clientProject?.id);
+    if (owned.error) return res.status(owned.status).json({ error: owned.error });
+    const project = owned.project;
 
     const anthropic = new Anthropic({
       apiKey: process.env.ANTHROPIC_API_KEY,
