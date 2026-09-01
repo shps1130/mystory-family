@@ -307,6 +307,15 @@ export default function Interview() {
     );
   }
 
+  if (view === 'book') {
+    return (
+      <Book
+        project={project}
+        onReturnToDashboard={() => setView('dashboard')}
+      />
+    );
+  }
+
   if (view === 'foreword') {
     return (
       <Foreword
@@ -325,6 +334,7 @@ export default function Interview() {
       onOpenGuide={(n) => { setActiveConversation(n || project.current_conversation || 1); setView('interviewer_guide'); }}
       onOpenCapture={(n) => { setActiveConversation(n || project.current_conversation || 1); setView('capture'); }}
       onOpenForeword={() => setView('foreword')}
+      onOpenBook={() => setView('book')}
     />
   );
 }
@@ -476,7 +486,7 @@ function SignInScreen() {
 // ============================================================
 // Dashboard
 // ============================================================
-function Dashboard({ user, project, onBeginGettingStarted, onOpenGuide, onOpenCapture, onOpenForeword }) {
+function Dashboard({ user, project, onBeginGettingStarted, onOpenGuide, onOpenCapture, onOpenForeword, onOpenBook }) {
   const subject = project.subject_name || 'your loved one';
 
   // Which conversations exist and which are approved. The unlock chain is
@@ -710,7 +720,12 @@ function Dashboard({ user, project, onBeginGettingStarted, onOpenGuide, onOpenCa
             </CardGrid>
           </Section>
 
-          <BookFooter subject={subject} hasContent={!!project.capturing_conversations_complete} />
+          <BookFooter
+            subject={subject}
+            hasContent={approvedCount > 0}
+            approvedCount={approvedCount}
+            onClick={approvedCount > 0 ? onOpenBook : null}
+          />
         </div>
       </div>
     </div>
@@ -931,15 +946,16 @@ function CardGrid({ children }) {
   );
 }
 
-function BookFooter({ subject, hasContent }) {
+function BookFooter({ subject, hasContent, approvedCount = 0, onClick }) {
   return (
-    <div style={{
+    <div onClick={onClick || undefined} style={{
       borderTop: `0.5px solid ${colors.border}`,
       padding: '20px 24px',
       background: colors.creamLight,
       display: 'flex',
       alignItems: 'center',
       gap: '16px',
+      cursor: onClick ? 'pointer' : 'default',
     }}>
       <IconBook locked={!hasContent} />
       <div style={{ flex: 1 }}>
@@ -950,7 +966,7 @@ function BookFooter({ subject, hasContent }) {
         </div>
         <div style={{ fontSize: '12px', color: colors.textSecondary, lineHeight: 1.5 }}>
           {hasContent
-            ? "View what we've captured so far"
+            ? `Read it, print it, or share it — ${approvedCount} section${approvedCount === 1 ? '' : 's'} so far`
             : 'Begins taking shape after your first conversation'}
         </div>
       </div>
@@ -3192,6 +3208,286 @@ function CaptureConversation({ project, conversationNumber, onProjectUpdate, onR
                 {error}
               </div>
             )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// The book
+// ============================================================
+// Reads live from the approved conversations and the foreword rather than
+// storing a snapshot, so a corrected typo shows up here immediately.
+//
+// Print CSS targets a 6x9in trim with an asymmetric margin — the inner edge
+// is wider to survive the gutter once it's bound. Browser print-to-PDF gets
+// a proof, not a press-ready file; see the deploy notes.
+
+function Book({ project, onReturnToDashboard }) {
+  const [conversations, setConversations] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [book, setBook] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [error, setError] = useState('');
+
+  const subjectName =
+    project.foreword_details?.subject_full_name ||
+    project.subject_name ||
+    'Their story';
+
+  useEffect(() => {
+    const load = async () => {
+      const [{ data: convs }, { data: books }] = await Promise.all([
+        supabase
+          .from('interview_conversations')
+          .select('conversation_number, title, draft, approved')
+          .eq('project_id', project.id)
+          .eq('approved', true)
+          .order('conversation_number', { ascending: true }),
+        supabase
+          .from('interview_books')
+          .select('*')
+          .eq('project_id', project.id)
+          .maybeSingle(),
+      ]);
+      setConversations(convs || []);
+      setBook(books || null);
+      setLoading(false);
+    };
+    load();
+  }, [project.id]);
+
+  const shareUrl = book?.share_id ? `${window.location.origin}/story/${book.share_id}` : null;
+  const isShared = book?.visibility === 'link';
+
+  const makeShareId = () => {
+    // 16 hex chars of crypto randomness. Guessing one is not a realistic
+    // attack; forwarding the link to the wrong person is, which is why the
+    // UI below says plainly what sharing means.
+    const bytes = new Uint8Array(8);
+    crypto.getRandomValues(bytes);
+    return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+  };
+
+  const setVisibility = async (visibility) => {
+    setBusy(true);
+    setError('');
+    try {
+      // Keep any existing share_id when unsharing, so re-sharing restores
+      // the same URL instead of breaking a link already sent to family.
+      const share_id = book?.share_id || makeShareId();
+      const row = {
+        project_id: project.id,
+        share_id,
+        visibility,
+        updated_at: new Date().toISOString(),
+      };
+      const { data, error: err } = await supabase
+        .from('interview_books')
+        .upsert(row, { onConflict: 'project_id' })
+        .select()
+        .single();
+      if (err) throw err;
+      setBook(data);
+    } catch (err) {
+      console.error('Share error:', err);
+      setError("Couldn't update sharing just now. Try again in a moment.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2200);
+    } catch {
+      setError('Copy that link from the address bar — clipboard access was blocked.');
+    }
+  };
+
+  if (loading) return <LoadingScreen message="Gathering the book..." />;
+
+  return (
+    <div style={{ minHeight: '100vh', background: colors.cream, fontFamily: fonts.sans }}>
+      <style>{`
+        @page { size: 6in 9in; margin: 0.75in 0.6in 0.8in 0.85in; }
+        @media print {
+          .no-print { display: none !important; }
+          body { background: #fff !important; }
+          .book-shell { max-width: none !important; margin: 0 !important; padding: 0 !important; }
+          .book-sheet { border: none !important; border-radius: 0 !important; box-shadow: none !important; }
+          .book-body { padding: 0 !important; }
+          .book-title { page-break-after: always; padding-top: 2.2in; border: none !important; }
+          .book-chapter { page-break-before: always; }
+          .book-chapter h2 { page-break-after: avoid; }
+          .book-prose p { font-size: 11.5pt; line-height: 1.62; orphans: 3; widows: 3; }
+        }
+      `}</style>
+
+      <div className="book-shell" style={{ maxWidth: '820px', margin: '0 auto', padding: '20px 16px 60px' }}>
+        <div className="book-sheet" style={{
+          background: 'white', borderRadius: '16px', overflow: 'hidden',
+          border: `0.5px solid ${colors.border}`,
+        }}>
+          <div className="no-print" style={{
+            background: colors.navy, padding: '14px 24px',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          }}>
+            <div style={{ color: colors.creamWarm, fontFamily: fonts.serif, fontSize: '15px' }}>
+              MyStory<span style={{ color: colors.gold }}>.</span>Family
+            </div>
+            <button onClick={onReturnToDashboard} style={{
+              background: 'none', border: 'none', color: colors.creamWarm,
+              fontSize: '13px', cursor: 'pointer', opacity: 0.85, fontFamily: 'inherit',
+            }}>
+              ← Dashboard
+            </button>
+          </div>
+
+          {/* --- Controls --- */}
+          <div className="no-print" style={{
+            padding: '22px 32px', background: colors.creamLight,
+            borderBottom: `0.5px solid ${colors.border}`,
+          }}>
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '16px' }}>
+              <button onClick={() => window.print()} style={{
+                background: colors.gold, color: colors.navy, border: 'none',
+                borderRadius: '100px', padding: '11px 26px', fontSize: '14.5px',
+                fontFamily: fonts.serif, cursor: 'pointer',
+              }}>
+                Print or save as PDF
+              </button>
+              <button onClick={() => setVisibility(isShared ? 'private' : 'link')} disabled={busy} style={{
+                background: 'none', border: `0.5px solid ${colors.border}`,
+                color: colors.textSecondary, borderRadius: '100px',
+                padding: '11px 26px', fontSize: '14.5px', cursor: busy ? 'default' : 'pointer',
+                fontFamily: 'inherit',
+              }}>
+                {busy ? 'Saving…' : isShared ? 'Stop sharing' : 'Share with family'}
+              </button>
+            </div>
+
+            {isShared && shareUrl && (
+              <div style={{
+                background: 'white', border: `0.5px solid ${colors.border}`,
+                borderRadius: '10px', padding: '14px 16px',
+              }}>
+                <div style={{
+                  fontSize: '13px', color: colors.textSecondary, lineHeight: 1.6, marginBottom: '10px',
+                }}>
+                  Anyone with this link can read the book. It isn't listed
+                  anywhere or indexed by search engines, but it isn't password
+                  protected either — treat it like handing someone a copy.
+                </div>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <code style={{
+                    fontSize: '12.5px', color: colors.navy, background: colors.creamLight,
+                    padding: '7px 10px', borderRadius: '6px', wordBreak: 'break-all', flex: 1,
+                  }}>
+                    {shareUrl}
+                  </code>
+                  <button onClick={copyLink} style={{
+                    background: 'none', border: `0.5px solid ${colors.border}`,
+                    color: colors.textSecondary, borderRadius: '100px',
+                    padding: '7px 16px', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit',
+                  }}>
+                    {copied ? 'Copied' : 'Copy'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {!project.foreword_complete && (
+              <div style={{
+                marginTop: '14px', fontSize: '13px', color: colors.textSecondary, lineHeight: 1.6,
+              }}>
+                The foreword isn't finished yet. It's the page that tells a
+                reader who gathered these stories and when — worth doing before
+                you print.
+              </div>
+            )}
+
+            {error && (
+              <div style={{ marginTop: '12px', fontSize: '13.5px', color: colors.text }}>{error}</div>
+            )}
+          </div>
+
+          {/* --- The book --- */}
+          <div className="book-body" style={{ padding: '48px 40px 60px' }}>
+            <div className="book-title" style={{
+              textAlign: 'center', paddingBottom: '40px', marginBottom: '44px',
+              borderBottom: `0.5px solid ${colors.border}`,
+            }}>
+              <div style={{
+                fontSize: '11px', letterSpacing: '2.4px', textTransform: 'uppercase',
+                color: colors.textTertiary, marginBottom: '14px',
+              }}>
+                In their own words
+              </div>
+              <div style={{
+                fontFamily: fonts.serif, fontSize: '38px', fontWeight: 400,
+                fontStyle: 'italic', lineHeight: 1.15, color: colors.navy,
+              }}>
+                {subjectName}
+              </div>
+            </div>
+
+            {project.foreword_text && (
+              <div className="book-chapter" style={{ marginBottom: '52px' }}>
+                <div style={{
+                  fontSize: '11px', letterSpacing: '2.2px', textTransform: 'uppercase',
+                  color: colors.textTertiary, marginBottom: '14px',
+                }}>
+                  Foreword
+                </div>
+                <div className="book-prose" style={{
+                  fontFamily: fonts.serif, fontSize: '15.5px', lineHeight: 1.85,
+                  color: colors.textSecondary, fontStyle: 'italic',
+                }}>
+                  {project.foreword_text.split(/\n{2,}/).filter(Boolean).map((para, i) => (
+                    <p key={i} style={{ marginBottom: '14px' }}>{para.trim()}</p>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {conversations.length === 0 && (
+              <div style={{ color: colors.textSecondary, fontSize: '15px', lineHeight: 1.7 }}>
+                Nothing here yet. Approve your first conversation and it'll
+                appear as the opening chapter.
+              </div>
+            )}
+
+            {conversations.filter(c => c.draft).map((c) => (
+              <div className="book-chapter" key={c.conversation_number} style={{ marginBottom: '52px' }}>
+                <div style={{
+                  fontSize: '11px', letterSpacing: '2.2px', textTransform: 'uppercase',
+                  color: colors.textTertiary, marginBottom: '8px',
+                }}>
+                  Chapter {c.conversation_number}
+                </div>
+                <h2 style={{
+                  fontFamily: fonts.serif, fontSize: '26px', fontWeight: 500,
+                  lineHeight: 1.25, color: colors.navy, marginBottom: '22px',
+                }}>
+                  {c.title || `Conversation ${c.conversation_number}`}
+                </h2>
+                <div className="book-prose" style={{
+                  fontFamily: fonts.serif, fontSize: '17px', lineHeight: 1.8, color: colors.text,
+                }}>
+                  {c.draft.split(/\n{2,}/).filter(Boolean).map((para, i) => (
+                    <p key={i} style={{ marginBottom: '16px', textIndent: i === 0 ? 0 : '1.4em' }}>
+                      {para.trim()}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
