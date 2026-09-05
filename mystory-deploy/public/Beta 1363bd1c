@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Be one of the first — MyStory.Family</title>
+
+<!-- Unlisted. Not linked from anywhere on the site, and asked to stay out of
+     search results. This is obscurity, not security: anyone with the URL can
+     read it, and anyone it's forwarded to can too. Don't put anything here
+     you'd mind a stranger seeing. -->
+<meta name="robots" content="noindex, nofollow, noarchive">
+<meta name="referrer" content="no-referrer">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --navy:#2C3E50; --gold:#D4A574; --gold-dark:#B08856;
+    --cream:#F8F5F0; --cream-light:#FBF8F3; --cream-warm:#FFFBF5;
+    --border:#E8E0D0; --text:#1A2330; --text-2:#5C6470; --text-3:#8B8478;
+    --serif:'Playfair Display', Georgia, 'Times New Roman', serif;
+    --sans:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--cream); color:var(--text); font-family:var(--sans);
+         line-height:1.7; -webkit-font-smoothing:antialiased; }
+  .wrap { max-width:640px; margin:0 auto; padding:0 20px 80px; }
+
+  header { background:var(--navy); padding:14px 0; margin-bottom:40px; }
+  header .inner { max-width:640px; margin:0 auto; padding:0 20px;
+                  color:var(--cream-warm); font-family:var(--serif); font-size:15px; }
+  header .dot { color:var(--gold); }
+
+  .kicker { font-size:11px; letter-spacing:2.4px; text-transform:uppercase;
+            color:var(--text-3); margin-bottom:14px; }
+  h1 { font-family:var(--serif); font-size:clamp(30px,6vw,42px); font-weight:400;
+       line-height:1.18; color:var(--navy); margin-bottom:18px; }
+  .lede { font-size:17.5px; color:var(--text-2); margin-bottom:36px; }
+
+  h2 { font-family:var(--serif); font-size:22px; font-weight:500;
+       color:var(--navy); margin:38px 0 14px; }
+  p { font-size:16px; color:var(--text-2); margin-bottom:16px; }
+  strong { color:var(--text); font-weight:600; }
+
+  ul { margin:0 0 16px 0; padding-left:0; list-style:none; }
+  li { font-size:16px; color:var(--text-2); margin-bottom:12px;
+       padding-left:26px; position:relative; }
+  li:before { content:''; position:absolute; left:6px; top:11px;
+              width:6px; height:6px; border-radius:50%; background:var(--gold); }
+
+  .panel { background:var(--cream-warm); border:1px solid var(--border);
+           border-radius:14px; padding:24px 26px; margin:28px 0; }
+  .panel h2 { margin-top:0; }
+  .panel p:last-child, .panel ul:last-child { margin-bottom:0; }
+
+  .plain { background:none; border-left:3px solid var(--gold);
+           border-radius:0; padding:4px 0 4px 20px; margin:26px 0; }
+  .plain p { font-size:15.5px; margin-bottom:10px; }
+  .plain p:last-child { margin-bottom:0; }
+
+  form { margin-top:8px; }
+  label { display:block; font-size:13px; color:var(--text-2); margin-bottom:6px; }
+  input, textarea, select {
+    width:100%; padding:12px 14px; font-size:16px; font-family:inherit;
+    color:var(--text); background:#fff; border:1px solid var(--border);
+    border-radius:10px; margin-bottom:18px; }
+  textarea { min-height:96px; resize:vertical; line-height:1.6; }
+  input:focus, textarea:focus, select:focus { outline:2px solid var(--gold); outline-offset:1px; }
+
+  /* Honeypot: real people never see this, bots fill it in. */
+  .hp { position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden; }
+
+  button { background:var(--gold-dark); color:var(--cream-warm); border:none;
+           border-radius:100px; padding:15px 36px; font-size:16.5px;
+           font-family:var(--serif); letter-spacing:.3px; cursor:pointer; }
+  button[disabled] { background:var(--gold); cursor:default; }
+
+  .msg { font-size:15px; line-height:1.65; margin-top:16px; }
+  .msg.err { color:#A6503B; }
+  .msg.ok  { color:var(--navy); }
+
+  .done { background:var(--cream-warm); border:1px solid var(--border);
+          border-radius:14px; padding:32px 28px; text-align:center; }
+  .done h2 { margin-top:0; }
+
+  footer { margin-top:56px; padding-top:24px; border-top:1px solid var(--border);
+           font-size:13.5px; color:var(--text-3); }
+  a { color:var(--gold-dark); }
+</style>
+</head>
+<body>
+
+<header><div class="inner">MyStory<span class="dot">.</span>Family</div></header>
+
+<div class="wrap">
+
+  <div class="kicker">By invitation</div>
+  <h1>Sit down with someone before the stories are gone.</h1>
+  <p class="lede">
+    I've built something and I need a handful of families to use it properly
+    before anyone pays for it. If that sounds like you, here's exactly what
+    you'd be signing up for — including the parts that aren't finished.
+  </p>
+
+  <h2>What it is</h2>
+  <p>
+    Most services in this space send your mother weekly emails and hope she
+    writes back. Most people don't. This works the other way around:
+    <strong>you</strong> interview <strong>her</strong>.
+  </p>
+  <p>
+    A guide named Grace spends about twenty minutes learning who you're
+    interviewing and what matters to your family. Then she builds you a plan
+    for five conversations and prepares you for each one — what to ask, what
+    to listen for, what to leave alone. You have the conversation, record it
+    or type up notes, and each one becomes a chapter. At the end it's a
+    hardcover book.
+  </p>
+
+  <h2>What I'm asking of you</h2>
+  <ul>
+    <li><strong>Interview someone real.</strong> A parent, a grandparent, an
+      aunt, a neighbour, someone from your church. Someone whose stories you'd
+      actually want written down.</li>
+    <li><strong>Give it real time.</strong> Twenty minutes of setup, then five
+      conversations. Most run 45 to 90 minutes. Expect six to ten hours
+      spread across a month or two — this isn't something you finish in an
+      evening.</li>
+    <li><strong>Tell me the truth about it.</strong> Where it was confusing,
+      where Grace got it wrong, where you nearly gave up. The complaints are
+      worth more to me than the compliments.</li>
+    <li><strong>Tell me if you stop.</strong> If you get to conversation two
+      and stall, that's not a failure — it's the single most useful thing I
+      could learn. Just tell me where and why.</li>
+  </ul>
+
+  <h2>What you get</h2>
+  <ul>
+    <li>The whole thing free, including a printed hardcover copy.</li>
+    <li>Extra copies at cost if other family members want one.</li>
+    <li>Your stories stay yours. They're not used to train anything, not
+      shared, not published. If you want everything deleted afterwards, say
+      the word and it's gone.</li>
+  </ul>
+
+  <div class="plain">
+    <p><strong>Things you should know before you say yes.</strong></p>
+    <p>This is early software. You will hit bugs. Something will break at an
+      inconvenient moment and I'll be fixing it while you wait.</p>
+    <p>The writing is done by AI from your recording or transcript. It's good,
+      but it's not a person, and you'll want to read every chapter before it
+      goes in the book. You can edit anything.</p>
+    <p>Please ask the person you're interviewing whether they're comfortable
+      being recorded, and mean it. Some of what comes up in these conversations
+      is private, and they should get to decide what's in the book.</p>
+  </div>
+
+  <h2>If you're in</h2>
+  <p>
+    Fill this in and I'll email you a code within a day or two. There's no
+    payment step and nothing to cancel.
+  </p>
+
+  <div id="formPanel" class="panel">
+    <form id="betaForm" novalidate>
+      <label for="name">Your name</label>
+      <input type="text" id="name" name="name" autocomplete="name" required>
+
+      <label for="email">Your email</label>
+      <input type="email" id="email" name="email" autocomplete="email" required>
+
+      <label for="subject">Who would you interview?</label>
+      <input type="text" id="subject" name="subject"
+             placeholder="My grandmother Karen, she's 81">
+
+      <label for="notes">Anything else I should know? (optional)</label>
+      <textarea id="notes" name="notes"
+                placeholder="How soon you could start, whether they live nearby, anything you're unsure about."></textarea>
+
+      <div class="hp" aria-hidden="true">
+        <label for="company">Company</label>
+        <input type="text" id="company" name="company" tabindex="-1" autocomplete="off">
+      </div>
+
+      <button type="submit" id="submitBtn">Count me in</button>
+      <div id="msg" class="msg"></div>
+    </form>
+  </div>
+
+  <footer>
+    Questions, or you'd rather just reply to a human?
+    Email <a href="mailto:tim@mystory.family">tim@mystory.family</a>.<br>
+    This page is unlisted. Feel free to pass it to someone you think would be
+    good at this.
+  </footer>
+
+</div>
+
+<script>
+(function () {
+  var form = document.getElementById('betaForm');
+  var btn  = document.getElementById('submitBtn');
+  var msg  = document.getElementById('msg');
+
+  form.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    msg.className = 'msg';
+    msg.textContent = '';
+
+    var name  = document.getElementById('name').value.trim();
+    var email = document.getElementById('email').value.trim();
+
+    if (!name)  { fail('Please add your name.'); return; }
+    if (!email || email.indexOf('@') === -1) { fail('Please check your email address.'); return; }
+
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+
+    try {
+      var res = await fetch('/api/beta-signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: name,
+          email: email,
+          subject: document.getElementById('subject').value.trim(),
+          notes: document.getElementById('notes').value.trim(),
+          company: document.getElementById('company').value
+        })
+      });
+
+      if (!res.ok) throw new Error('status ' + res.status);
+
+      document.getElementById('formPanel').innerHTML =
+        '<div class="done"><h2>Thank you.</h2>' +
+        '<p>I\'ll email you a code within a day or two, along with a bit of ' +
+        'guidance on getting the first conversation set up.</p>' +
+        '<p style="margin-bottom:0">If you don\'t hear from me, check your spam ' +
+        'folder and then email me directly.</p></div>';
+    } catch (err) {
+      fail('That didn\'t go through. Email me at tim@mystory.family and I\'ll sort it out.');
+      btn.disabled = false;
+      btn.textContent = 'Count me in';
+    }
+  });
+
+  function fail(text) {
+    msg.className = 'msg err';
+    msg.textContent = text;
+  }
+})();
+</script>
+
+</body>
+</html>
