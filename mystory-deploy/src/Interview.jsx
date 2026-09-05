@@ -261,6 +261,17 @@ export default function Interview() {
     }
   }, [project?.current_conversation]);
 
+  // Several dashboard cards pass these handlers straight to onClick, so the
+  // first argument is a click event, not a number. Coerce rather than trust
+  // it: storing an event object here renders as `Conversation [object]` and
+  // takes the whole view down with "Objects are not valid as a React child".
+  const openConversation = (n, nextView) => {
+    const parsed = Number(n);
+    const valid = Number.isInteger(parsed) && parsed >= 1 && parsed <= TOTAL_CONVERSATIONS;
+    setActiveConversation(valid ? parsed : (project?.current_conversation || 1));
+    setView(nextView);
+  };
+
   if (authLoading) return <LoadingScreen />;
   if (!user) return <SignInScreen />;
   if (entitled === null) return <LoadingScreen message="Checking your account..." />;
@@ -280,7 +291,7 @@ export default function Interview() {
         project={project}
         onProjectUpdate={setProject}
         onReturnToDashboard={() => setView('dashboard')}
-        onOpenGuide={() => setView('interviewer_guide')}
+        onOpenGuide={() => openConversation(null, 'interviewer_guide')}
       />
     );
   }
@@ -331,8 +342,8 @@ export default function Interview() {
       user={user}
       project={project}
       onBeginGettingStarted={() => setView('getting_started')}
-      onOpenGuide={(n) => { setActiveConversation(n || project.current_conversation || 1); setView('interviewer_guide'); }}
-      onOpenCapture={(n) => { setActiveConversation(n || project.current_conversation || 1); setView('capture'); }}
+      onOpenGuide={(n) => openConversation(n, 'interviewer_guide')}
+      onOpenCapture={(n) => openConversation(n, 'capture')}
       onOpenForeword={() => setView('foreword')}
       onOpenBook={() => setView('book')}
     />
@@ -2138,7 +2149,12 @@ function CompletedChunkCard({ chunkNumber, subjectName, relationship }) {
 // Generates once, saves, loads instantly on return. Print-friendly.
 // ============================================================
 function InterviewerGuide({ project, conversationNumber, onProjectUpdate, onReturnToDashboard }) {
-  const CONVERSATION_NUMBER = conversationNumber || project.current_conversation || 1;
+  const CONVERSATION_NUMBER = (() => {
+    const n = Number(conversationNumber);
+    if (Number.isInteger(n) && n >= 1 && n <= TOTAL_CONVERSATIONS) return n;
+    const fallback = Number(project.current_conversation);
+    return Number.isInteger(fallback) && fallback >= 1 ? fallback : 1;
+  })();
   const [guide, setGuide] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -2566,7 +2582,12 @@ INTERVIEWER: Who took care of you all after that?
 MOM: I did, mostly. I was the oldest girl. My sister was nine and the boys were little. I made the lunches and I did the wash. My father worked. That's what he knew how to do. So I did the rest of it.`;
 
 function CaptureConversation({ project, conversationNumber, onProjectUpdate, onReturnToDashboard }) {
-  const CONVERSATION_NUMBER = conversationNumber || project.current_conversation || 1;
+  const CONVERSATION_NUMBER = (() => {
+    const n = Number(conversationNumber);
+    if (Number.isInteger(n) && n >= 1 && n <= TOTAL_CONVERSATIONS) return n;
+    const fallback = Number(project.current_conversation);
+    return Number.isInteger(fallback) && fallback >= 1 ? fallback : 1;
+  })();
   const [conversation, setConversation] = useState(null);
   const [mode, setMode] = useState(null);          // null | 'paste' | 'audio'
   const [transcript, setTranscript] = useState('');
