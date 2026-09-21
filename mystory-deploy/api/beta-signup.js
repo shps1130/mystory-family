@@ -18,10 +18,9 @@ function clean(value, limit) {
   return value.trim().slice(0, limit);
 }
 
-// Every email failure is now logged with the response body. The previous
-// version awaited the fetch without checking the result, so a rejection from
-// Resend — unverified domain, bad key, sandbox restrictions — vanished
-// silently and left no way to tell a delivery problem from a code problem.
+// Every email failure is logged with the response body, so a rejection from
+// Resend — unverified domain, bad key, sandbox restrictions — shows up in
+// Vercel's logs instead of vanishing.
 async function sendEmail({ to, subject, text, html, label }) {
   if (!RESEND_API_KEY) {
     console.error(`[email:${label}] RESEND_API_KEY is not set — skipping send to ${to}`);
@@ -83,21 +82,42 @@ export default async function handler(req, res) {
     status: 'new',
   };
 
+  // Repeat signups are success, not failure.
+  //
+  // The previous version asked for merge-duplicates but never told PostgREST
+  // which column to match on. Without on_conflict it only checks the primary
+  // key, so a second signup with the same email hit the unique constraint on
+  // email and came back 409 — and the form showed "That didn't go through" to
+  // someone who was already signed up.
+  //
+  // ignore-duplicates (rather than merge) keeps the original row untouched.
+  // Merging would reset status back to 'new' on someone you've already
+  // invited, just because they filled the form in twice.
+  let repeat = false;
   try {
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/beta_signups`, {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/beta_signups?on_conflict=email`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'apikey': SUPABASE_SERVICE_KEY,
         'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
-        'Prefer': 'resolution=merge-duplicates,return=minimal',
+        'Prefer': 'resolution=ignore-duplicates,return=representation',
       },
       body: JSON.stringify(row),
     });
 
-    if (!r.ok) {
+    if (r.status === 409) {
+      // Belt and braces: if the conflict still surfaces, treat it as a repeat.
+      repeat = true;
+      console.log(`beta-signup: ${email} already signed up (409)`);
+    } else if (!r.ok) {
       console.error('beta-signup insert failed:', r.status, await r.text());
       return res.status(502).json({ error: 'Could not save signup' });
+    } else {
+      // With ignore-duplicates, a skipped row comes back as an empty array.
+      const inserted = await r.json().catch(() => []);
+      repeat = Array.isArray(inserted) && inserted.length === 0;
+      if (repeat) console.log(`beta-signup: ${email} already signed up`);
     }
   } catch (err) {
     console.error('beta-signup error:', err);
@@ -107,6 +127,10 @@ export default async function handler(req, res) {
   // Both emails are best-effort. The signup is already saved, and making
   // someone re-submit a form that worked is worse than finding them in the
   // table later. Failures are logged, not surfaced.
+  //
+  // A repeat signup still gets the confirmation — they probably resubmitted
+  // because they never saw the first one. Your notification is flagged so you
+  // don't mistake it for a new person.
   const [confirmed, notified] = await Promise.all([
     sendEmail({
       label: 'confirmation',
@@ -118,15 +142,16 @@ export default async function handler(req, res) {
     sendEmail({
       label: 'notify',
       to: NOTIFY_EMAIL,
-      subject: `Beta signup: ${name}`,
+      subject: repeat ? `Beta signup (repeat): ${name}` : `Beta signup: ${name}`,
       text:
+        (repeat ? `Already in the table — this is a second submission.\n\n` : '') +
         `${name}\n${email}\n\n` +
         `Interviewing: ${row.subject_note || '(not said)'}\n\n` +
         `Notes: ${row.notes || '(none)'}\n`,
     }),
   ]);
 
-  console.log(`beta-signup: ${email} saved. confirmation=${confirmed} notify=${notified}`);
+  console.log(`beta-signup: ${email} ${repeat ? 'repeat' : 'saved'}. confirmation=${confirmed} notify=${notified}`);
 
   return res.status(200).json({ ok: true });
 }
@@ -134,9 +159,9 @@ export default async function handler(req, res) {
 // --- Confirmation email --------------------------------------------------
 // Sent to the person who signed up. Without it they get a thank-you screen
 // and then silence, which reads as broken and produces "did that work?"
-// emails. It also does real work: it repeats the time commitment while
-// they're still deciding, and asks them to line up the person they'll
-// interview — the step most likely to stall a beta tester.
+// emails. It also repeats the time commitment while they're still deciding,
+// and asks them to line up the person they'll interview — the step most
+// likely to stall a beta tester.
 
 function confirmationText(name) {
   return `${name},
