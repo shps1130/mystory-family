@@ -625,7 +625,7 @@ function ContentsPage({ departments, project, sessions }) {
 // ============================================================
 // Dashboard sub-components
 // ============================================================
-function Header({ buyerInitials, buyerName, onBack, backLabel, rightText }) {
+function Header({ buyerInitials, buyerName, onBack, backLabel, rightText, right }) {
   return (
     <div style={{
       background: colors.navy, padding: '14px 24px',
@@ -647,6 +647,7 @@ function Header({ buyerInitials, buyerName, onBack, backLabel, rightText }) {
         </div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+        {right}
         {rightText && <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.65)' }}>{rightText}</div>}
         {buyerName && <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.75)' }}>{buyerName}</div>}
         {buyerInitials && (
@@ -1489,7 +1490,12 @@ function SessionRevealCard({ session, index }) {
 }
 
 // ============================================================
-// Session guide — generates once per session, saves, loads instantly
+// Session guide — a field card, not an essay. Two views:
+//   Before you sit down: read once on the couch.
+//   At the table: phone face up next to the box — the one move, the back
+//   pocket, a running tally, and capture (snap a photo, catch a saying).
+// The guide generates once per afternoon and saves as parts (JSON) in
+// interviewer_guides[n]. Older string guides still render.
 // ============================================================
 function SessionGuide({ project, sessionNumber, onProjectUpdate, onReturnToDashboard, onOpenCapture }) {
   const key = String(sessionNumber);
@@ -1497,7 +1503,11 @@ function SessionGuide({ project, sessionNumber, onProjectUpdate, onReturnToDashb
   const [guide, setGuide] = useState(saved);
   const [loading, setLoading] = useState(!saved);
   const [error, setError] = useState('');
+  const [view, setView] = useState('before');
   const title = sessionTitle(project, sessionNumber);
+  const rel = project.buyer_relationship;
+  const S = subjectPronoun(rel);
+  const her = S === 'He' ? 'his' : S === 'They' ? 'their' : 'her';
 
   useEffect(() => {
     if (saved) { setGuide(saved); setLoading(false); return; }
@@ -1510,10 +1520,10 @@ function SessionGuide({ project, sessionNumber, onProjectUpdate, onReturnToDashb
         if (!res.ok) throw new Error(`API returned ${res.status}`);
         const data = await res.json();
         if (cancelled) return;
-        const text = (data.guide || '').trim();
-        if (!text) throw new Error('Empty guide');
-        setGuide(text);
-        const guides = { ...(project.interviewer_guides || {}), [key]: text };
+        const g = data.guide;
+        if (!g || (typeof g === 'object' && !g.job)) throw new Error('Empty guide');
+        setGuide(g);
+        const guides = { ...(project.interviewer_guides || {}), [key]: g };
         await supabase.from('interview_projects').update({ interviewer_guides: guides }).eq('id', project.id);
         onProjectUpdate({ ...project, interviewer_guides: guides });
       } catch (err) {
@@ -1537,59 +1547,401 @@ function SessionGuide({ project, sessionNumber, onProjectUpdate, onReturnToDashb
     setLoading(true);
   };
 
+  const isParts = guide && typeof guide === 'object';
+
   return (
     <div style={{ minHeight: '100vh', background: colors.cream, fontFamily: fonts.sans, color: colors.text }}>
       <div style={{ maxWidth: '900px', margin: '0 auto', padding: '20px 16px' }}>
         <div style={{ background: 'white', borderRadius: '16px', overflow: 'hidden', border: `0.5px solid ${colors.border}` }}>
-          <Header onBack={onReturnToDashboard} />
-          <div style={{ padding: '28px 32px 8px', borderBottom: `0.5px solid ${colors.border}`, background: colors.creamLight }}>
-            <div style={{ fontSize: '11px', color: colors.tan, fontWeight: 500, letterSpacing: '0.8px', textTransform: 'uppercase', marginBottom: '6px' }}>
-              Session {sessionNumber} of {TOTAL_SESSIONS} · Your guide
+          <Header
+            onBack={onReturnToDashboard}
+            right={isParts && (
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <button onClick={() => setView('before')} style={{ fontSize: '12px', padding: '6px 12px', minHeight: '32px', background: view === 'before' ? 'white' : 'rgba(255,255,255,0.1)', color: view === 'before' ? colors.navy : 'white', border: view === 'before' ? 'none' : '0.5px solid rgba(255,255,255,0.25)', borderRadius: '999px', fontFamily: 'inherit', fontWeight: view === 'before' ? 600 : 400, cursor: 'pointer' }}>Before you sit down</button>
+                <button onClick={() => setView('table')} style={{ fontSize: '12px', padding: '6px 12px', minHeight: '32px', background: view === 'table' ? 'white' : 'rgba(255,255,255,0.1)', color: view === 'table' ? colors.navy : 'white', border: view === 'table' ? 'none' : '0.5px solid rgba(255,255,255,0.25)', borderRadius: '999px', fontFamily: 'inherit', fontWeight: view === 'table' ? 600 : 400, cursor: 'pointer' }}>At the table</button>
+              </div>
+            )}
+          />
+
+          {loading && (
+            <div style={{ padding: '40px 32px', display: 'flex', gap: '18px', alignItems: 'center' }}>
+              <GraceAvatar />
+              <div style={{ fontSize: '15px', color: colors.textSecondary }}>Grace is writing your guide for this afternoon…</div>
             </div>
-            <h1 style={{ fontFamily: fonts.serif, fontSize: '26px', fontWeight: 500, margin: '0 0 8px', lineHeight: 1.2 }}>{title}</h1>
-            <p style={{ fontSize: '14px', color: colors.textSecondary, lineHeight: 1.6, margin: '0 0 18px', maxWidth: '600px' }}>
-              Read this before you sit down{project.subject_name ? ` with ${project.subject_name}` : ''}. Print it if you like — it's meant to be glanced at mid-conversation.
-            </p>
-          </div>
-          <div style={{ padding: '28px 32px 36px' }} className="guide-body">
-            {loading && (
-              <div style={{ display: 'flex', gap: '18px', alignItems: 'center' }}>
-                <GraceAvatar />
-                <div style={{ fontSize: '15px', color: colors.textSecondary }}>Grace is writing your guide for this session…</div>
+          )}
+
+          {!loading && error && (
+            <div style={{ margin: '24px 32px', padding: '14px 16px', background: '#FBE9E7', color: '#B8543D', borderRadius: '8px', fontSize: '14px' }}>
+              {error} <button onClick={regenerate} style={{ marginLeft: '8px', fontSize: '13px', background: 'transparent', border: 'none', color: '#B8543D', textDecoration: 'underline', cursor: 'pointer', fontFamily: 'inherit' }}>Try again</button>
+            </div>
+          )}
+
+          {!loading && guide && !isParts && (
+            <div style={{ padding: '28px 32px' }}>
+              <GuideText text={guide} />
+              <div style={{ marginTop: '24px', display: 'flex', gap: '10px' }}>
+                <button onClick={regenerate} style={{ fontSize: '13px', padding: '9px 18px', background: 'transparent', border: `0.5px solid ${colors.border}`, borderRadius: '999px', cursor: 'pointer', color: colors.textSecondary, fontFamily: 'inherit' }}>Rewrite as a field card</button>
               </div>
-            )}
-            {!loading && error && (
-              <div style={{ padding: '14px 16px', background: '#FBE9E7', color: '#B8543D', borderRadius: '8px', fontSize: '14px' }}>
-                {error} <button onClick={regenerate} style={{ marginLeft: '8px', fontSize: '13px', background: 'transparent', border: 'none', color: '#B8543D', textDecoration: 'underline', cursor: 'pointer', fontFamily: 'inherit' }}>Try again</button>
-              </div>
-            )}
-            {!loading && guide && <GuideText text={guide} />}
-            {!loading && guide && (
-              <div style={{ marginTop: '32px', paddingTop: '22px', borderTop: `0.5px solid ${colors.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
-                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                  <button onClick={() => window.print()} style={{ fontSize: '13px', padding: '9px 18px', background: 'transparent', border: `0.5px solid ${colors.border}`, borderRadius: '999px', cursor: 'pointer', color: colors.textSecondary, fontFamily: 'inherit' }}>Print</button>
-                  <button onClick={regenerate} style={{ fontSize: '13px', padding: '9px 18px', background: 'transparent', border: `0.5px solid ${colors.border}`, borderRadius: '999px', cursor: 'pointer', color: colors.textSecondary, fontFamily: 'inherit' }}>Rewrite the guide</button>
-                </div>
-                <button onClick={onOpenCapture} style={{ fontSize: '14px', padding: '11px 26px', background: colors.navy, color: 'white', border: 'none', borderRadius: '999px', cursor: 'pointer', fontWeight: 500, fontFamily: 'inherit' }}>
-                  I've had the session →
-                </button>
-              </div>
-            )}
-          </div>
-          <style>{`
-            @media print {
-              body { background: white !important; }
-              .guide-body { padding: 0 !important; }
-              button { display: none !important; }
-            }
-          `}</style>
+            </div>
+          )}
+
+          {!loading && isParts && view === 'before' && (
+            <GuideBefore guide={guide} sessionNumber={sessionNumber} title={title} project={project} her={her} onRegenerate={regenerate} onOpenCapture={onOpenCapture} onAtTable={() => setView('table')} />
+          )}
+
+          {!loading && isParts && view === 'table' && (
+            <GuideAtTable guide={guide} sessionNumber={sessionNumber} project={project} onOpenCapture={onOpenCapture} />
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-// Renders the guide's markdown-lite: ## headings, - bullets, paragraphs.
+function Eyebrow({ children, light }) {
+  return <div style={{ fontSize: '11px', letterSpacing: '1px', textTransform: 'uppercase', color: light ? colors.gold : colors.tan, fontWeight: 600, marginBottom: '10px' }}>{children}</div>;
+}
+
+function GuideBefore({ guide, sessionNumber, title, project, her, onRegenerate, onOpenCapture, onAtTable }) {
+  const subject = project.subject_name || 'her';
+  return (
+    <div className="guide-before">
+      {/* Hero */}
+      <div style={{ padding: '28px 32px 24px', background: colors.creamLight, borderBottom: `0.5px solid ${colors.border}`, display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 300px)', gap: '28px', alignItems: 'start' }} className="guide-hero">
+        <div>
+          <Eyebrow>Afternoon {sessionNumber} of {TOTAL_SESSIONS} · {title}</Eyebrow>
+          <h1 style={{ margin: '0 0 10px', fontFamily: fonts.serif, fontSize: '30px', fontWeight: 500, lineHeight: 1.15 }}>Here's the whole job today.</h1>
+          <p style={{ margin: 0, fontSize: '17px', lineHeight: 1.55, color: colors.navy, maxWidth: '560px' }}>{guide.job}</p>
+          {guide.chips?.length > 0 && (
+            <div style={{ marginTop: '16px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              {guide.chips.map((c, i) => <span key={i} style={{ fontSize: '13px', padding: '7px 12px', background: 'white', border: `1px solid ${colors.border}`, borderRadius: '999px', color: colors.textSecondary }}>{c}</span>)}
+            </div>
+          )}
+        </div>
+        {guide.opener && (
+          <div style={{ background: 'white', border: `2px solid ${colors.gold}`, borderRadius: '12px', padding: '18px 20px' }}>
+            <Eyebrow>Say this to start</Eyebrow>
+            <p style={{ margin: 0, fontFamily: fonts.serif, fontStyle: 'italic', fontSize: '16px', lineHeight: 1.5 }}>"{guide.opener.replace(/^"|"$/g, '')}"</p>
+          </div>
+        )}
+      </div>
+
+      <div style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+        {guide.reassurance && (
+          <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
+            <GraceAvatar />
+            <p style={{ margin: 0, fontSize: '15px', lineHeight: 1.6, color: colors.navy, maxWidth: '680px', paddingTop: '6px' }}>{guide.reassurance}</p>
+          </div>
+        )}
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
+          <div style={{ background: colors.creamLight, border: `0.5px solid ${colors.border}`, borderRadius: '12px', padding: '18px 20px' }}>
+            <Eyebrow>What you're collecting</Eyebrow>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '9px' }}>
+              {guide.collecting.map((c, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14.5px' }}>
+                  <span style={{ width: '20px', height: '20px', borderRadius: '50%', border: `1.5px solid ${colors.gray}`, flexShrink: 0 }} />
+                  <span style={{ flex: 1 }}>{c.title}</span>
+                  <span style={{ fontSize: '12.5px', color: colors.textSecondary, textAlign: 'right' }}>{c.target}</span>
+                </div>
+              ))}
+            </div>
+            {guide.collecting_note && <div style={{ marginTop: '12px', fontSize: '12.5px', color: colors.textTertiary, lineHeight: 1.5 }}>{guide.collecting_note}</div>}
+          </div>
+
+          <div style={{ background: colors.navy, color: 'white', borderRadius: '12px', padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <Eyebrow light>Your opening move</Eyebrow>
+            <div style={{ fontFamily: fonts.serif, fontSize: '21px', lineHeight: 1.3 }}>{guide.opening_move.line}</div>
+            {guide.opening_move.why && <div style={{ fontSize: '13.5px', lineHeight: 1.5, color: 'rgba(255,255,255,0.82)' }}>{guide.opening_move.why}</div>}
+            {guide.opening_move.mechanics && <div style={{ marginTop: 'auto', fontSize: '12.5px', color: 'rgba(255,255,255,0.72)', borderTop: '0.5px solid rgba(255,255,255,0.2)', paddingTop: '10px' }}>{guide.opening_move.mechanics}</div>}
+          </div>
+        </div>
+
+        {guide.doors?.length > 0 && (
+          <div style={{ background: colors.creamLight, border: `0.5px solid ${colors.border}`, borderRadius: '12px', padding: '18px 20px' }}>
+            <Eyebrow>Doors to open when you need one</Eyebrow>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              {guide.doors.map((d, i) => <span key={i} style={{ fontSize: '14px', padding: '10px 14px', background: 'white', border: `1px solid ${colors.gray}`, borderRadius: '999px' }}>{d.replace(/^"|"$/g, '') ? `"${d.replace(/^"|"$/g, '')}"` : ''}</span>)}
+            </div>
+          </div>
+        )}
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
+          {guide.short_answer?.she && (
+            <div style={{ background: colors.creamLight, border: `0.5px solid ${colors.border}`, borderRadius: '12px', padding: '18px 20px' }}>
+              <Eyebrow>When the answer is short</Eyebrow>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 600, color: colors.textTertiary, width: '34px', flexShrink: 0, paddingTop: '3px' }}>{S_LABEL(project.buyer_relationship)}</span>
+                  <span style={{ fontSize: '14.5px', background: 'white', border: `0.5px solid ${colors.border}`, borderRadius: '8px', padding: '9px 12px' }}>"{guide.short_answer.she.replace(/^"|"$/g, '')}"</span>
+                </div>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 600, color: colors.textTertiary, width: '34px', flexShrink: 0, paddingTop: '3px' }}>YOU</span>
+                  <span style={{ fontSize: '14.5px', background: colors.navy, color: 'white', borderRadius: '8px', padding: '9px 12px' }}>"{guide.short_answer.you.replace(/^"|"$/g, '')}"</span>
+                </div>
+                {guide.short_answer.then && <div style={{ fontSize: '13px', color: colors.textSecondary, lineHeight: 1.5, paddingLeft: '44px' }}>{guide.short_answer.then}</div>}
+              </div>
+            </div>
+          )}
+          <div style={{ background: colors.creamWarm, border: `2px solid ${colors.gold}`, borderRadius: '12px', padding: '18px 20px' }}>
+            <Eyebrow>Back pocket</Eyebrow>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '7px', fontSize: '14px' }}>
+              {guide.back_pocket.map((b, i) => (
+                <div key={i}><span style={{ fontWeight: 600 }}>"{b.phrase.replace(/^"|"$/g, '')}"</span>{b.why && <span style={{ color: colors.textSecondary }}> — {b.why}</span>}</div>
+              ))}
+            </div>
+            {guide.silence && <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: `1px solid ${colors.border}`, fontFamily: fonts.serif, fontStyle: 'italic', fontSize: '15px', color: colors.navy }}>{guide.silence}</div>}
+          </div>
+        </div>
+
+        {guide.situations?.length > 0 && (
+          <div>
+            <Eyebrow>If something comes up</Eyebrow>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '10px' }}>
+              {guide.situations.map((s, i) => (
+                <div key={i} style={{ background: 'white', border: `0.5px solid ${colors.border}`, borderRadius: '10px', padding: '12px 14px' }}>
+                  <div style={{ fontSize: '13.5px', fontWeight: 600, marginBottom: '4px' }}>{s.title}</div>
+                  <div style={{ fontSize: '12.5px', color: colors.textSecondary, lineHeight: 1.45 }}>{s.what}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '14px', borderTop: `0.5px solid ${colors.border}`, gap: '12px', flexWrap: 'wrap' }}>
+          <div style={{ fontSize: '13px', color: colors.textSecondary, fontStyle: 'italic' }}>{guide.closing}</div>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <button onClick={() => window.print()} style={{ fontSize: '13px', padding: '9px 16px', minHeight: '44px', background: 'white', border: `1px solid ${colors.gray}`, borderRadius: '999px', cursor: 'pointer', color: colors.textSecondary, fontFamily: 'inherit' }}>Print</button>
+            <button onClick={onRegenerate} style={{ fontSize: '13px', padding: '9px 16px', minHeight: '44px', background: 'white', border: `1px solid ${colors.gray}`, borderRadius: '999px', cursor: 'pointer', color: colors.textSecondary, fontFamily: 'inherit' }}>Rewrite</button>
+            <button onClick={onAtTable} style={{ fontSize: '14px', padding: '10px 22px', minHeight: '44px', background: colors.navy, color: 'white', border: 'none', borderRadius: '999px', cursor: 'pointer', fontWeight: 500, fontFamily: 'inherit' }}>At the table →</button>
+          </div>
+        </div>
+      </div>
+
+      <style>{`
+        @media (max-width: 720px) { .guide-hero { grid-template-columns: 1fr !important; } }
+        @media print {
+          body { background: white !important; }
+          button { display: none !important; }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+function S_LABEL(relationship) {
+  const S = subjectPronoun(relationship);
+  return S === 'He' ? 'HE' : S === 'They' ? 'THEY' : 'SHE';
+}
+
+// At the table: the one move, the back pocket, a running tally, and capture.
+function GuideAtTable({ guide, sessionNumber, project, onOpenCapture }) {
+  const [photos, setPhotos] = useState([]);
+  const [notes, setNotes] = useState([]);
+  const [sessionRow, setSessionRow] = useState(null);
+  const [busy, setBusy] = useState('');
+  const [sayingDraft, setSayingDraft] = useState('');
+  const [sayingOpen, setSayingOpen] = useState(false);
+  const [photoNote, setPhotoNote] = useState('');
+  const [pendingFile, setPendingFile] = useState(null);
+  const [openSituation, setOpenSituation] = useState(null);
+  const [error, setError] = useState('');
+  const fileRef = useRef(null);
+
+  // Load what's already been captured for this afternoon.
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      const { data: s } = await supabase
+        .from('interview_sessions')
+        .select('id, session_number, quick_notes')
+        .eq('project_id', project.id)
+        .eq('session_number', sessionNumber)
+        .maybeSingle();
+      const { data: p } = await supabase
+        .from('interview_photos')
+        .select('id, note, storage_path, created_at')
+        .eq('project_id', project.id)
+        .eq('session_number', sessionNumber)
+        .order('created_at', { ascending: true });
+      if (cancelled) return;
+      setSessionRow(s || null);
+      setNotes(Array.isArray(s?.quick_notes) ? s.quick_notes : []);
+      setPhotos(p || []);
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [project.id, sessionNumber]);
+
+  const ensureSession = async () => {
+    if (sessionRow) return sessionRow;
+    const { data, error: err } = await supabase
+      .from('interview_sessions')
+      .upsert({ project_id: project.id, session_number: sessionNumber, title: sessionTitle(project, sessionNumber) }, { onConflict: 'project_id,session_number' })
+      .select('id, session_number, quick_notes')
+      .single();
+    if (err) throw err;
+    setSessionRow(data);
+    return data;
+  };
+
+  const onPickFile = (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setPendingFile(f);
+    setPhotoNote('');
+    e.target.value = '';
+  };
+
+  const savePhoto = async () => {
+    if (!pendingFile) return;
+    setBusy('photo');
+    setError('');
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not signed in');
+      await ensureSession();
+      const ext = (pendingFile.name.split('.').pop() || 'jpg').toLowerCase();
+      const id = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now()}`;
+      const path = `${user.id}/${project.id}/${id}.${ext}`;
+      const { error: upErr } = await supabase.storage.from('session-photos').upload(path, pendingFile, { upsert: false, contentType: pendingFile.type || undefined });
+      if (upErr) throw upErr;
+      const { data: row, error: insErr } = await supabase
+        .from('interview_photos')
+        .insert({ project_id: project.id, session_number: sessionNumber, storage_path: path, note: photoNote.trim() || null, sort_order: photos.length })
+        .select('id, note, storage_path, created_at')
+        .single();
+      if (insErr) throw insErr;
+      setPhotos([...photos, row]);
+      setPendingFile(null);
+      setPhotoNote('');
+    } catch (e) {
+      console.error('Photo save failed:', e);
+      setError("That photo didn't save. Try again.");
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const saveSaying = async () => {
+    const text = sayingDraft.trim();
+    if (!text) return;
+    setBusy('saying');
+    setError('');
+    try {
+      const row = await ensureSession();
+      const next = [...notes, { type: 'saying', text, at: new Date().toISOString() }];
+      const { error: err } = await supabase.from('interview_sessions').update({ quick_notes: next }).eq('id', row.id);
+      if (err) throw err;
+      setNotes(next);
+      setSayingDraft('');
+      setSayingOpen(false);
+    } catch (e) {
+      console.error('Saying save failed:', e);
+      setError("That didn't save. Try again.");
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const sayings = notes.filter(n => n.type === 'saying');
+  const isShoebox = guide.session?.collects?.includes('shoebox');
+
+  return (
+    <div style={{ background: colors.creamLight }}>
+      <div style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: '520px', margin: '0 auto' }}>
+        <div style={{ background: colors.navy, color: 'white', borderRadius: '12px', padding: '16px' }}>
+          <Eyebrow light>The one move</Eyebrow>
+          <div style={{ fontFamily: fonts.serif, fontSize: '21px', lineHeight: 1.25 }}>{guide.opening_move.line}</div>
+        </div>
+
+        <div style={{ background: colors.creamWarm, border: `2px solid ${colors.gold}`, borderRadius: '12px', padding: '14px 16px' }}>
+          <Eyebrow>When the answer is short</Eyebrow>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '16px', lineHeight: 1.3 }}>
+            {guide.back_pocket.slice(0, 5).map((b, i) => <div key={i}>"{b.phrase.replace(/^"|"$/g, '')}"</div>)}
+          </div>
+          {guide.silence && <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: `1px solid ${colors.border}`, fontFamily: fonts.serif, fontStyle: 'italic', fontSize: '14px', color: colors.navy }}>{guide.silence}</div>}
+        </div>
+
+        {guide.doors?.length > 0 && (
+          <div>
+            <Eyebrow>Doors to open</Eyebrow>
+            <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
+              {guide.doors.map((d, i) => <span key={i} style={{ fontSize: '14px', padding: '10px 12px', minHeight: '44px', display: 'flex', alignItems: 'center', background: 'white', border: `1px solid ${colors.gray}`, borderRadius: '999px', whiteSpace: 'nowrap' }}>"{d.replace(/^"|"$/g, '')}"</span>)}
+            </div>
+          </div>
+        )}
+
+        <div style={{ background: 'white', border: `0.5px solid ${colors.border}`, borderRadius: '12px', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <Eyebrow>So far</Eyebrow>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}><span>Photos snapped</span><span style={{ fontWeight: 600 }}>{photos.length}</span></div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}><span>Sayings caught</span><span style={{ fontWeight: 600 }}>{sayings.length}</span></div>
+          {sayings.length > 0 && (
+            <div style={{ borderTop: `0.5px solid ${colors.border}`, paddingTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              {sayings.slice(-3).map((s, i) => <div key={i} style={{ fontSize: '13px', fontStyle: 'italic', color: colors.textSecondary }}>"{s.text}"</div>)}
+            </div>
+          )}
+        </div>
+
+        {guide.situations?.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {guide.situations.map((s, i) => (
+              <div key={i}>
+                <button onClick={() => setOpenSituation(openSituation === i ? null : i)} style={{ width: '100%', textAlign: 'left', fontSize: '14px', padding: '11px 14px', minHeight: '44px', background: 'white', border: `0.5px solid ${colors.border}`, borderRadius: '10px', fontFamily: 'inherit', color: colors.text, display: 'flex', justifyContent: 'space-between', cursor: 'pointer' }}>
+                  <span>{s.title}</span><span style={{ color: colors.textTertiary }}>{openSituation === i ? '–' : '›'}</span>
+                </button>
+                {openSituation === i && <div style={{ padding: '8px 14px 4px', fontSize: '13.5px', color: colors.textSecondary, lineHeight: 1.5 }}>{s.what}</div>}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {error && <div style={{ padding: '10px 14px', background: '#FBE9E7', color: '#B8543D', borderRadius: '6px', fontSize: '13px' }}>{error}</div>}
+
+        {/* Capture */}
+        {pendingFile && (
+          <div style={{ background: 'white', border: `2px solid ${colors.gold}`, borderRadius: '12px', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <Eyebrow>Photo ready — one quick note so Grace can match it later</Eyebrow>
+            <TextInput value={photoNote} onChange={setPhotoNote} placeholder="the barn picture · Mom and Aunt Jo, 1962" onEnter={savePhoto} />
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button onClick={savePhoto} disabled={busy === 'photo'} style={{ flex: 1, fontSize: '15px', padding: '12px', minHeight: '48px', background: colors.navy, color: 'white', border: 'none', borderRadius: '10px', fontFamily: 'inherit', cursor: 'pointer' }}>{busy === 'photo' ? 'Saving…' : 'Save photo'}</button>
+              <button onClick={() => setPendingFile(null)} style={{ fontSize: '14px', padding: '12px 16px', minHeight: '48px', background: 'white', border: `1px solid ${colors.gray}`, borderRadius: '10px', fontFamily: 'inherit', color: colors.textSecondary, cursor: 'pointer' }}>Cancel</button>
+            </div>
+          </div>
+        )}
+        {sayingOpen && (
+          <div style={{ background: 'white', border: `2px solid ${colors.gold}`, borderRadius: '12px', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <Eyebrow>Word for word</Eyebrow>
+            <TextInput value={sayingDraft} onChange={setSayingDraft} placeholder={'"If you’re going to do a thing, do it."'} onEnter={saveSaying} />
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button onClick={saveSaying} disabled={busy === 'saying'} style={{ flex: 1, fontSize: '15px', padding: '12px', minHeight: '48px', background: colors.navy, color: 'white', border: 'none', borderRadius: '10px', fontFamily: 'inherit', cursor: 'pointer' }}>{busy === 'saying' ? 'Saving…' : 'Save saying'}</button>
+              <button onClick={() => { setSayingOpen(false); setSayingDraft(''); }} style={{ fontSize: '14px', padding: '12px 16px', minHeight: '48px', background: 'white', border: `1px solid ${colors.gray}`, borderRadius: '10px', fontFamily: 'inherit', color: colors.textSecondary, cursor: 'pointer' }}>Cancel</button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div style={{ position: 'sticky', bottom: 0, padding: '12px 20px 18px', background: colors.creamLight, borderTop: `0.5px solid ${colors.border}` }}>
+        <div style={{ maxWidth: '520px', margin: '0 auto', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+          <input ref={fileRef} type="file" accept="image/*" capture="environment" onChange={onPickFile} style={{ display: 'none' }} aria-label="Snap a photo" />
+          <button onClick={() => fileRef.current?.click()} style={{ fontSize: '15px', padding: '14px', minHeight: '52px', background: 'white', border: `1px solid ${colors.gray}`, borderRadius: '10px', fontFamily: 'inherit', color: colors.text, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer' }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={colors.navy} strokeWidth="1.8" aria-hidden="true"><path d="M4 7h3l2-3h6l2 3h3v12H4z" /><circle cx="12" cy="13" r="3.5" /></svg>
+            {isShoebox ? 'Snap a photo' : 'Add a photo'}
+          </button>
+          <button onClick={() => setSayingOpen(true)} style={{ fontSize: '15px', padding: '14px', minHeight: '52px', background: colors.navy, color: 'white', border: 'none', borderRadius: '10px', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer' }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.8" aria-hidden="true"><path d="M4 20h16M6 16l10-10 2 2L8 18H6z" /></svg>
+            Catch a saying
+          </button>
+        </div>
+        <div style={{ maxWidth: '520px', margin: '10px auto 0', textAlign: 'center' }}>
+          <button onClick={onOpenCapture} style={{ fontSize: '13px', background: 'transparent', border: 'none', color: colors.textSecondary, textDecoration: 'underline', fontFamily: 'inherit', cursor: 'pointer', minHeight: '44px' }}>We're done — bring in the recording →</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Renders an older prose guide (markdown-lite). Kept for guides written before the field-card layout.
 function GuideText({ text }) {
   const lines = text.split('\n');
   const blocks = [];
