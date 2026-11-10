@@ -54,10 +54,10 @@ const fonts = {
 // ============================================================
 const CHUNKS = {
   1: { name: 'welcome', label: 'Welcome' },
-  2: { name: 'about_you', label: 'About you' },
+  2: { name: 'masthead', label: 'The masthead' },
   3: { name: 'about_subject', label: 'About your mom' },
   4: { name: 'sensitivities', label: 'Sensitivities' },
-  5: { name: 'departments', label: 'Filling the issue' },
+  5: { name: 'pages', label: 'The pages' },
   6: { name: 'logistics', label: 'Logistics' },
   7: { name: 'issue', label: 'Your issue' },
 };
@@ -104,6 +104,8 @@ function subjectPronoun(relationship) {
 function departmentTitle(dept, project) {
   const planned = project?.issue_plan?.departments?.find(d => d?.id === dept.id)?.title;
   if (planned) return planned;
+  const renamed = project?.department_titles?.[dept.id];
+  if (renamed) return renamed;
   const rel = project?.buyer_relationship;
   if (dept.id === 'sayings') return `Things ${subjectPronoun(rel)} Always Said`;
   if (dept.id === 'kitchen') return `From ${possessive(rel)} Kitchen`;
@@ -118,7 +120,7 @@ function activeDepartments(project) {
     return plan.map(d => ({ id: d.id, title: d.title || departmentTitle(DEPARTMENTS.find(x => x.id === d.id) || { id: d.id, title: d.id }, project), target: d.target || null, state: 'planned' }));
   }
   const answers = (project?.departments && typeof project.departments === 'object') ? project.departments : {};
-  return DEPARTMENTS.map(d => {
+  const standard = DEPARTMENTS.map(d => {
     const a = (answers[d.id] || '').toString().toLowerCase();
     let state = 'unknown';
     if (d.always) state = 'in';
@@ -128,6 +130,13 @@ function activeDepartments(project) {
     if (d.id === 'shoebox' && (project?.has_photos || '').toLowerCase().startsWith('no')) state = 'out';
     return { id: d.id, title: departmentTitle(d, project), target: null, state };
   });
+  // Pages the buyer invented sit after Family Stories, before the small departments.
+  const custom = (Array.isArray(project?.custom_departments) ? project.custom_departments : [])
+    .filter(c => c && c.id)
+    .map(c => ({ id: c.id, title: c.title || c.id, target: null, state: 'in', custom: true }));
+  if (!custom.length) return standard;
+  const idx = standard.findIndex(d => d.id === 'family_stories');
+  return [...standard.slice(0, idx + 1), ...custom, ...standard.slice(idx + 1)];
 }
 
 function getChunkLabel(chunkNumber, subjectName, relationship) {
@@ -143,16 +152,21 @@ function getChunkLabel(chunkNumber, subjectName, relationship) {
 // Chunk 1 — scripted welcome (issue model)
 // ============================================================
 const CHUNK_1_WELCOME = (buyerName) => [
-  { type: 'heading', text: `Hello, ${buyerName || 'there'}. I'm Grace.` },
-  { type: 'paragraph', text: "I'm glad you're here. Before we go any further, I want to tell you what we're making together — and what you can expect from me." },
-  { type: 'paragraph', text: "We're going to make an issue. Not a book — an issue, like the magazines your family grew up with. A cover with a photograph and the contents on the front. One long story the whole family knows. A few short ones. And the small things: the sayings everyone can hear in her voice, the joke that gets told every holiday, the photographs from the shoebox with the story behind each one, a recipe, and what she'd tell the grandchildren." },
-  { type: 'paragraph', text: "Over the next fifteen minutes or so, we'll fill in the contents page together. I'll ask about who they are and what we should be careful with, then I'll name the departments one at a time and you'll tell me which ones fit. Then we'll plan four afternoons to go collect it all." },
-  { type: 'paragraph', text: "Two things up front." },
-  { type: 'paragraph', text: "First: there are no wrong answers. You can pause anytime and come back — I'll save where we are." },
-  { type: 'paragraph', text: "Second — and this matters: I'm not here to tell their story for them. Their story is theirs, in their own words, when you sit down together. What we're doing right now is making sure you know exactly what we're collecting, so you can relax and just have the conversation." },
-  { type: 'paragraph', text: "Most people think about doing this for years before they actually start. You started. Let's keep going." },
-  { type: 'paragraph', text: "Ready when you are." },
+  { type: 'heading', text: `Hello, ${buyerName || 'there'}. I'm Grace, and I'm going to be your editor.` },
+  { type: 'paragraph', text: "Here's the idea. Your family is getting its own magazine — one issue, about one person, made by you. A real one: a cover photograph, a contents page, a big story, a page of the things she always says, the pictures from the shoebox with the stories behind them. The kind of thing that sits on the coffee table at Thanksgiving and gets passed around." },
+  { type: 'paragraph', text: "You're the publisher. You decide what goes in it and what it's called. I'll keep you organized, I'll help you figure out what to ask, and when you bring back a recording, I'll write it up — in her words, not mine — and you can change anything you don't like." },
+  { type: 'paragraph', text: "Nothing today is hard. We'll name the magazine, I'll get to know her a little, and we'll decide together what pages it should have. Then you go have a few good afternoons with her." },
+  { type: 'paragraph', text: "So — what should we call it?" },
 ];
+
+// Account names arrive as "timothy" when they came from an email address.
+function prettyName(name) {
+  if (!name || typeof name !== 'string') return '';
+  const trimmed = name.trim();
+  if (!trimmed) return '';
+  if (/[A-Z]/.test(trimmed)) return trimmed;
+  return trimmed.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
 
 // ============================================================
 // Authenticated fetch
@@ -454,15 +468,16 @@ function Dashboard({ user, project, onBeginGettingStarted, onOpenGuide, onOpenCa
   const buyerInitials = (project.buyer_name || user.email || '?')
     .split(' ').map(s => s[0]).join('').slice(0, 2).toUpperCase();
 
+  const niceName = prettyName(project.buyer_name);
   const greeting = !project.getting_started_complete
     ? {
-        eyebrow: project.subject_name ? `${project.subject_name}'s issue` : 'A new issue',
-        heading: `Welcome${project.buyer_name ? `, ${project.buyer_name}` : ''}.`,
-        body: "Let's fill in the contents page together. Start with Getting Started below.",
+        eyebrow: project.issue_title || (project.subject_name ? `${project.subject_name}'s issue` : 'Your family\'s magazine'),
+        heading: `Welcome${niceName ? `, ${niceName}` : ''}.`,
+        body: "Your family is getting its own magazine. Start with Getting Started below — the first thing we do is name it.",
       }
     : {
-        eyebrow: `${subject}'s issue · Vol. 1`,
-        heading: `Welcome back${project.buyer_name ? `, ${project.buyer_name}` : ''}.`,
+        eyebrow: `${project.issue_title || `${subject}'s issue`} · Vol. 1`,
+        heading: `Welcome back${niceName ? `, ${niceName}` : ''}.`,
         body: approvedCount === 0
           ? 'Your first session is ready when you are. Bring the box.'
           : `${approvedCount} of ${TOTAL_SESSIONS} sessions filed. The issue is taking shape.`,
@@ -477,7 +492,7 @@ function Dashboard({ user, project, onBeginGettingStarted, onOpenGuide, onOpenCa
     <div style={{ minHeight: '100vh', background: colors.cream, fontFamily: fonts.sans, color: colors.text }}>
       <div style={{ maxWidth: '900px', margin: '0 auto', padding: '20px 16px' }}>
         <div style={{ background: 'white', borderRadius: '16px', overflow: 'hidden', border: `0.5px solid ${colors.border}` }}>
-          <Header buyerInitials={buyerInitials} buyerName={project.buyer_name} />
+          <Header buyerInitials={buyerInitials} buyerName={niceName} />
           <Hero greeting={greeting} />
           <ProgressBar completed={completedSteps} total={totalSteps} />
 
@@ -486,7 +501,7 @@ function Dashboard({ user, project, onBeginGettingStarted, onOpenGuide, onOpenCa
               <ActiveCard
                 eyebrow="Begin"
                 title="Getting started"
-                description="Together we'll fill in the contents page of the issue and plan four afternoons to collect it. About 15 minutes."
+                description="Name the magazine, decide what pages it has, and plan a few afternoons to go collect it. You're the publisher; Grace is your editor."
                 buttonText="Begin →"
                 onClick={onBeginGettingStarted}
                 icon={<IconContents />}
@@ -605,7 +620,7 @@ function ContentsPage({ departments, project, sessions }) {
     }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: '12px' }}>
         <div style={{ fontFamily: fonts.serif, fontSize: '16px', fontWeight: 500 }}>
-          {project.subject_name ? `The ${project.subject_name.split(' ').slice(-1)[0]} Family` : 'The Family'} · Vol. 1
+          {project.issue_title || (project.subject_name ? `${project.subject_name}'s Issue` : 'Your Family Issue')} · Vol. 1
         </div>
         <div style={{ fontSize: '11px', color: colors.textTertiary, letterSpacing: '0.8px', textTransform: 'uppercase' }}>
           Contents
@@ -855,7 +870,9 @@ function GettingStarted({ project, onProjectUpdate, onReturnToDashboard, onOpenG
           const chunkHasGraceMsg = (msgs || []).some(
             m => m.chunk_number === firstIncomplete.chunk_number && m.role === 'grace'
           );
-          if (firstIncomplete.chunk_number > 1 && !chunkHasGraceMsg) {
+          // Chunk 2 opens on the buyer's answer to the welcome's question
+          // ("what should we call it?"), so Grace doesn't speak first there.
+          if (firstIncomplete.chunk_number > 2 && !chunkHasGraceMsg) {
             setKickstartChunk(firstIncomplete.chunk_number);
           }
         } else if (chunks.length > 0) {
@@ -888,13 +905,14 @@ function GettingStarted({ project, onProjectUpdate, onReturnToDashboard, onOpenG
     }, { onConflict: 'project_id,chunk_number' });
   };
 
+  // The welcome ends on a question — "what should we call it?" — so chunk 2
+  // opens with the buyer's answer, not with Grace speaking again.
   const handleBegin = async () => {
     setHasStarted(true);
     setCurrentChunk(2);
     await upsertChunk(1, 'complete');
     await upsertChunk(2, 'in_progress');
     setChunkStatuses(prev => ({ ...prev, 1: 'complete', 2: 'in_progress' }));
-    await sendToGrace(null, 2);
   };
 
   const sendToGrace = async (userMessage, chunkNumber) => {
@@ -973,6 +991,7 @@ function GettingStarted({ project, onProjectUpdate, onReturnToDashboard, onOpenG
   // Save fields Grace extracted via the DATA block. Whitelisted columns only.
   const applyExtractedData = async (extracted) => {
     const TEXT = [
+      'issue_title',
       'buyer_name', 'buyer_relationship', 'buyer_motivation',
       'subject_name', 'subject_living_situation',
       'subject_communication_style', 'subject_one_thing_to_know',
@@ -993,6 +1012,21 @@ function GettingStarted({ project, onProjectUpdate, onReturnToDashboard, onOpenG
     if (extracted.departments && typeof extracted.departments === 'object' && !Array.isArray(extracted.departments)) {
       const existing = (currentProject.departments && typeof currentProject.departments === 'object') ? currentProject.departments : {};
       updates.departments = { ...existing, ...extracted.departments };
+    }
+    // department_titles: the buyer's renames, merged key by key
+    if (extracted.department_titles && typeof extracted.department_titles === 'object' && !Array.isArray(extracted.department_titles)) {
+      const existing = (currentProject.department_titles && typeof currentProject.department_titles === 'object') ? currentProject.department_titles : {};
+      updates.department_titles = { ...existing, ...extracted.department_titles };
+    }
+    // custom_departments: pages the buyer invented; Grace sends the full array
+    if (Array.isArray(extracted.custom_departments)) {
+      updates.custom_departments = extracted.custom_departments
+        .filter(c => c && typeof c === 'object' && (c.id || c.title))
+        .map(c => ({
+          id: String(c.id || c.title).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, ''),
+          title: String(c.title || c.id),
+          note: c.note ? String(c.note) : '',
+        }));
     }
     // feature_candidates: Grace sends the full array whenever it changes
     if (Array.isArray(extracted.feature_candidates)) {
@@ -1032,7 +1066,7 @@ function GettingStarted({ project, onProjectUpdate, onReturnToDashboard, onOpenG
     await sendToGrace(null, nextChunk);
   };
 
-  const buyerName = currentProject.buyer_name || '';
+  const buyerName = prettyName(currentProject.buyer_name);
   const subjectName = currentProject.subject_name;
   const relationship = currentProject.buyer_relationship;
 
@@ -1114,7 +1148,7 @@ function WelcomeScreen({ welcomeContent, onBegin }) {
             background: colors.navy, color: 'white', border: 'none', borderRadius: '999px',
             cursor: 'pointer', fontWeight: 500, fontFamily: 'inherit',
           }}>
-            Let's begin →
+            Let's name it →
           </button>
         </div>
       </div>
@@ -1129,7 +1163,13 @@ function ConversationArea({
 }) {
   const currentChunkLabel = getChunkLabel(currentChunk, subjectName, relationship);
   const currentChunkMessages = messages.filter(m => m.chunk_number === currentChunk);
-  const hasGraceMessageThisChunk = currentChunkMessages.some(m => m.role === 'grace');
+  // Chunk 2 opens on the buyer's answer to the welcome's closing question, so
+  // the input shows before Grace has said anything in that chunk.
+  const hasGraceMessageThisChunk = currentChunkMessages.some(m => m.role === 'grace')
+    || (currentChunk === 2 && currentChunkMessages.length === 0);
+  const placeholder = currentChunk === 2 && currentChunkMessages.length === 0
+    ? 'A name for the magazine — or "not sure yet" is a fine answer'
+    : 'Type your answer here...';
 
   return (
     <div>
@@ -1212,7 +1252,7 @@ function ConversationArea({
           <textarea
             value={input}
             onChange={(e) => onInputChange(e.target.value)}
-            placeholder="Type your answer here..."
+            placeholder={placeholder}
             onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) onSubmit(); }}
             style={{
               width: '100%', minHeight: '110px', padding: '14px 16px',
@@ -1255,10 +1295,10 @@ function ConversationArea({
 function NamedChunkIndicator({ current, statuses, subjectName, relationship }) {
   const stepLabels = [
     { num: 1, label: 'Welcome' },
-    { num: 2, label: 'You' },
+    { num: 2, label: 'The name' },
     { num: 3, label: relationship ? `Your ${relationship}` : (subjectName || 'Your mom') },
     { num: 4, label: 'Sensitivities' },
-    { num: 5, label: 'The issue' },
+    { num: 5, label: 'The pages' },
     { num: 6, label: 'Logistics' },
     { num: 7, label: 'Your sessions' },
   ];
@@ -1306,7 +1346,7 @@ function ContentsPanel({ project, currentChunk }) {
   const departments = activeDepartments(project);
   const answered = Object.keys((project.departments && typeof project.departments === 'object') ? project.departments : {}).length;
   const fieldsToTrack = [
-    project.buyer_relationship, project.subject_name, project.subject_age,
+    project.issue_title, project.buyer_relationship, project.subject_name, project.subject_age,
     project.subject_communication_style || project.subject_living_situation,
     project.sensitivities, project.has_photos, answered > 0, project.issue_plan,
   ];
@@ -1324,7 +1364,9 @@ function ContentsPanel({ project, currentChunk }) {
           The issue, in progress
         </div>
         <div style={{ fontFamily: fonts.serif, fontSize: '18px', fontWeight: 500, color: colors.text, marginBottom: '12px', lineHeight: 1.3 }}>
-          {pct < 30 ? "We're just getting started." : pct < 60 ? 'Filling in the contents page.' : pct < 100 ? 'Almost there.' : 'Your issue is planned.'}
+          {project.issue_title
+            ? project.issue_title
+            : pct < 30 ? "We're just getting started." : pct < 60 ? 'Taking shape.' : pct < 100 ? 'Almost there.' : 'Your issue is planned.'}
         </div>
         <div style={{ height: '4px', background: colors.borderSubtle, borderRadius: '2px', overflow: 'hidden' }}>
           <div style={{ width: `${pct}%`, height: '100%', background: colors.gold, transition: 'width 0.5s ease' }} />
@@ -1360,7 +1402,7 @@ function ContentsPanel({ project, currentChunk }) {
               color: d.state === 'out' ? colors.gray : d.state === 'unknown' ? colors.textTertiary : colors.text,
               textDecoration: d.state === 'out' ? 'line-through' : 'none',
             }}>
-              {d.title}{d.state === 'threaded' ? ' (threaded)' : ''}
+              {d.title}{d.state === 'threaded' ? ' (threaded)' : ''}{d.custom ? ' · yours' : ''}
             </span>
           </div>
         ))}
