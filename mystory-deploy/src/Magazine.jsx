@@ -52,15 +52,6 @@ const fonts = {
 // ============================================================
 // Chunks — same seven as the arc product; 5 and 7 mean something new
 // ============================================================
-// Five short parts. The buyer should be done in eight to ten messages.
-const CHUNKS = {
-  1: { name: 'welcome', label: 'Welcome' },
-  2: { name: 'basics', label: 'The basics' },
-  3: { name: 'care', label: 'Care' },
-  4: { name: 'pages', label: 'The pages' },
-  5: { name: 'plan', label: 'The plan' },
-};
-const TOTAL_CHUNKS = 5;
 const TOTAL_SESSIONS = 4;
 
 // The departments of every issue. Order = contents-page order. Titles are
@@ -137,26 +128,6 @@ function activeDepartments(project) {
   const idx = standard.findIndex(d => d.id === 'family_stories');
   return [...standard.slice(0, idx + 1), ...custom, ...standard.slice(idx + 1)];
 }
-
-function getChunkLabel(chunkNumber, subjectName, relationship) {
-  if (chunkNumber === 2) {
-    if (subjectName) return `The name, and ${subjectName}`;
-    if (relationship) return `The name, and your ${relationship}`;
-    return 'The name, and her';
-  }
-  return CHUNKS[chunkNumber]?.label || `Part ${chunkNumber}`;
-}
-
-// ============================================================
-// Chunk 1 — scripted welcome (issue model)
-// ============================================================
-const CHUNK_1_WELCOME = (buyerName) => [
-  { type: 'heading', text: `Hello, ${buyerName || 'there'}. I'm Grace, and I'm going to be your editor.` },
-  { type: 'paragraph', text: "Here's the idea. Your family is getting its own magazine — one issue, about one person, made by you. A real one: a cover photograph, a contents page, a big story, a page of the things she always says, the pictures from the shoebox with the stories behind them. The kind of thing that sits on the coffee table at Thanksgiving and gets passed around." },
-  { type: 'paragraph', text: "You're the publisher. You decide what goes in it and what it's called. I'll keep you organized, I'll help you figure out what to ask, and when you bring back a recording, I'll write it up — in her words, not mine — and you can change anything you don't like." },
-  { type: 'paragraph', text: "Nothing today is hard, and it's short: a handful of questions — about eight — so we build your magazine and not a generic one. We'll name it, I'll get to know her a little, and we'll decide what pages it should have. Then you go have a few good afternoons with her." },
-  { type: 'paragraph', text: "So — what should we call it?" },
-];
 
 // Account names arrive as "timothy" when they came from an email address.
 function prettyName(name) {
@@ -472,7 +443,7 @@ function Dashboard({ user, project, onBeginGettingStarted, onOpenGuide, onOpenCa
     ? {
         eyebrow: project.issue_title || (project.subject_name ? `${project.subject_name}'s issue` : 'Your family\'s magazine'),
         heading: `Welcome${niceName ? `, ${niceName}` : ''}.`,
-        body: "Your family is getting its own magazine. Start with Getting Started below — the first thing we do is name it.",
+        body: /^gs:\d$/.test(project.current_step || "") ? "You're partway through Getting Started. Pick up where you left off." : "Your family is getting its own magazine. Start with Getting Started below — the first thing we do is name it.",
       }
     : {
         eyebrow: `${project.issue_title || `${subject}'s issue`} · Vol. 1`,
@@ -498,10 +469,10 @@ function Dashboard({ user, project, onBeginGettingStarted, onOpenGuide, onOpenCa
           <Section barColor={colors.gold} title={!project.getting_started_complete ? 'Start here' : 'Continue where you left off'}>
             {!project.getting_started_complete && (
               <ActiveCard
-                eyebrow="Begin"
+                eyebrow={/^gs:\d$/.test(project.current_step || "") ? "Continue" : "Begin"}
                 title="Getting started"
                 description="Name the magazine, decide what pages it has, and plan a few afternoons to go collect it. You're the publisher; Grace is your editor."
-                buttonText="Begin →"
+                buttonText={/^gs:\d$/.test(project.current_step || "") ? "Continue →" : "Begin →"}
                 onClick={onBeginGettingStarted}
                 icon={<IconContents />}
               />
@@ -654,7 +625,7 @@ function ContentsPage({ departments, project, sessions }) {
 // ============================================================
 // Dashboard sub-components
 // ============================================================
-function Header({ buyerInitials, buyerName, onBack, backLabel }) {
+function Header({ buyerInitials, buyerName, onBack, backLabel, rightText }) {
   return (
     <div style={{
       background: colors.navy, padding: '14px 24px',
@@ -676,6 +647,7 @@ function Header({ buyerInitials, buyerName, onBack, backLabel }) {
         </div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+        {rightText && <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.65)' }}>{rightText}</div>}
         {buyerName && <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.75)' }}>{buyerName}</div>}
         {buyerInitials && (
           <div style={{
@@ -812,367 +784,544 @@ function IssueFooter({ subject, hasContent, approvedCount = 0, onClick }) {
 }
 
 // ============================================================
-// Getting Started — seven chunks against /api/claude-magazine
+// Getting Started — six screens in Grace's voice.
+// Tap what applies and it opens up. Every Save & Continue writes the
+// buyer's choices straight to interview_projects. One API call at the end
+// (Review) asks Grace to propose the four afternoons.
 // ============================================================
+const GS_STEPS = [
+  { n: 1, key: 'name', label: 'The name' },
+  { n: 2, key: 'her', label: 'Her' },
+  { n: 3, key: 'care', label: 'Care' },
+  { n: 4, key: 'pages', label: 'The pages' },
+  { n: 5, key: 'afternoons', label: 'The afternoons' },
+  { n: 6, key: 'review', label: 'Review' },
+];
+const GS_MINUTES = { 1: 6, 2: 5, 3: 4, 4: 3, 5: 2, 6: 0 };
+
+const RELATIONSHIPS = [
+  { id: 'mom', label: 'Mom' },
+  { id: 'dad', label: 'Dad' },
+  { id: 'grandmother', label: 'Grandma' },
+  { id: 'grandfather', label: 'Grandpa' },
+];
+
+const TALK_STYLES = [
+  { id: 'opens', label: 'Opens right up', value: 'Opens right up; tells complete stories once started', note: "Then your job is mostly to open a door and get out of the way. We'll plan longer afternoons with fewer questions." },
+  { id: 'slow', label: 'Takes her time, then it comes', value: 'Takes her time; the stories come after a pause', note: "Then your guide will lean on silence — ask one small thing, count to five, let her get there. Shorter afternoons, and they'll go deeper." },
+  { id: 'short', label: 'Short answers', value: 'Brief answers; needs a specific follow-up to open up', note: "Then specifics are everything. 'What did the kitchen look like?' gets a story where 'tell me about the house' gets a shrug. Your guide will be full of small doors." },
+  { id: 'wanders', label: 'Wanders, wonderfully', value: 'Wanders between memories; tangents are where the good material is', note: "Then we let her. In a magazine a tangent is just a different page filling itself in. Your guide will show you how to steer back gently when you need to." },
+];
+
+const PHOTO_OPTIONS = [
+  { id: 'yes', label: 'Yes, I know where', value: 'yes', note: "Then the first afternoon is built around them. Holding up a picture and waiting is the easiest conversation you'll ever have with her." },
+  { id: 'some', label: 'Some, scattered', value: 'some', note: "That's enough. Bring whatever you can find to the first afternoon — even a handful does the work." },
+  { id: 'no', label: 'Not really', value: 'no', note: "That's fine. The first afternoon starts with the sayings and the short stories instead, and the shoebox page comes off the contents." },
+];
+
+// The page cards. `always` pages aren't shown as choices; they're in.
+const PAGE_CARDS = [
+  { id: 'sayings', title: 'Things She Always Said', why: 'Usually the page the grandchildren read first.', opens: 'rename' },
+  { id: 'shoebox', title: 'From the Shoebox', why: 'Photographs, each with who, where, when — and a line in her words.', opens: 'photos' },
+  { id: 'feature', title: 'The Feature', why: 'The one story everyone knows. Name it now, or decide after the first afternoon.', opens: 'feature', fixed: true },
+  { id: 'laughter', title: 'Laughter, Around Our Table', why: 'The jokes and stories told every holiday whether anyone asked.', opens: 'rename' },
+  { id: 'kitchen', title: 'From Her Kitchen', why: 'One recipe, the way she actually makes it. The page that gets used.', opens: 'rename' },
+  { id: 'faith', title: 'Her Faith', why: 'Its own pages, or running through every story — your call.', opens: 'faith' },
+  { id: 'know_now', title: 'What I Know Now', why: 'Advice for the grandchildren, in her words.', opens: 'rename', fixed: true },
+];
+
+function pageTitleFor(id, relationship, titles) {
+  if (titles?.[id]) return titles[id];
+  const card = PAGE_CARDS.find(c => c.id === id);
+  const base = card ? card.title : id;
+  const S = subjectPronoun(relationship);
+  const P = possessive(relationship);
+  return base.replace('She', S).replace('Her', P);
+}
+
 function GettingStarted({ project, onProjectUpdate, onReturnToDashboard, onOpenGuide }) {
-  const [currentChunk, setCurrentChunk] = useState(1);
-  const [chunkStatuses, setChunkStatuses] = useState({});
-  const [messages, setMessages] = useState([]);
-  const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [hasStarted, setHasStarted] = useState(false);
+  // Resume where they left off: current_step is "gs:<n>" while in progress.
+  const resumeStep = (() => {
+    const m = /^gs:(\d)$/.exec(project.current_step || '');
+    const n = m ? Number(m[1]) : 1;
+    return Math.min(6, Math.max(1, n));
+  })();
+  const [step, setStep] = useState(resumeStep);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [currentProject, setCurrentProject] = useState(project);
-  const [awaitingContinue, setAwaitingContinue] = useState(null);
-  const [allComplete, setAllComplete] = useState(false);
-  const [kickstartChunk, setKickstartChunk] = useState(null);
-  const messagesEndRef = useRef(null);
-  const messagesRef = useRef([]);
-  const setMessagesSafe = (updater) => {
-    setMessages(prev => {
-      const next = typeof updater === 'function' ? updater(prev) : updater;
-      messagesRef.current = next;
-      return next;
-    });
-  };
+  const [savedAt, setSavedAt] = useState(null);
+  const [current, setCurrent] = useState(project);
 
-  useEffect(() => {
-    if (kickstartChunk && !loading) {
-      const chunk = kickstartChunk;
-      setKickstartChunk(null);
-      sendToGrace(null, chunk);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kickstartChunk]);
+  // Local form state, seeded from the project.
+  const [title, setTitle] = useState(project.issue_title || '');
+  const [relationship, setRelationship] = useState(project.buyer_relationship || '');
+  const [relationshipOther, setRelationshipOther] = useState(
+    project.buyer_relationship && !RELATIONSHIPS.some(r => r.id === project.buyer_relationship) ? project.buyer_relationship : ''
+  );
+  const [subjectName, setSubjectName] = useState(project.subject_name || '');
+  const [subjectAge, setSubjectAge] = useState(project.subject_age ? String(project.subject_age) : '');
+  const [talk, setTalk] = useState(() => TALK_STYLES.find(t => t.value === project.subject_communication_style)?.id || '');
+  const [oneThing, setOneThing] = useState(project.subject_one_thing_to_know || '');
+  const [careChoice, setCareChoice] = useState(project.sensitivities ? (project.sensitivities === 'None named' ? 'no' : 'yes') : '');
+  const [careText, setCareText] = useState(project.sensitivities && project.sensitivities !== 'None named' ? project.sensitivities : '');
+  const [pages, setPages] = useState(() => {
+    const d = (project.departments && typeof project.departments === 'object') ? project.departments : {};
+    const on = {};
+    PAGE_CARDS.forEach(c => { on[c.id] = c.fixed ? true : ['yes', 'some', 'own', 'threaded'].includes(String(d[c.id] || '').toLowerCase()); });
+    if (!project.departments || Object.keys(d).length === 0) { on.sayings = true; on.shoebox = true; }
+    return on;
+  });
+  const [openCard, setOpenCard] = useState(null);
+  const [titles, setTitles] = useState((project.department_titles && typeof project.department_titles === 'object') ? project.department_titles : {});
+  const [photos, setPhotos] = useState(() => {
+    const v = String(project.has_photos || '').toLowerCase();
+    return v.startsWith('yes') ? 'yes' : v.startsWith('some') ? 'some' : v.startsWith('no') ? 'no' : '';
+  });
+  const [featureText, setFeatureText] = useState(Array.isArray(project.feature_candidates) ? project.feature_candidates.join('\n') : '');
+  const [faithMode, setFaithMode] = useState(() => {
+    const v = String(project.departments?.faith || '').toLowerCase();
+    return v === 'yes' || v === 'own' ? 'own' : v === 'threaded' ? 'threaded' : '';
+  });
+  const [custom, setCustom] = useState(Array.isArray(project.custom_departments) ? project.custom_departments : []);
+  const [customDraft, setCustomDraft] = useState('');
+  const [hopes, setHopes] = useState(project.hopes_territory || '');
+  const [format, setFormat] = useState(project.logistics_format || '');
+  const [firstWhen, setFirstWhen] = useState(project.logistics_first_conversation || '');
+  const [others, setOthers] = useState(project.logistics_others || '');
+  // Review
+  const [proposal, setProposal] = useState(project.issue_plan ? { synthesis: project.issue_synthesis || '', issue_plan: project.issue_plan } : null);
+  const [proposing, setProposing] = useState(false);
 
-  useEffect(() => {
-    const loadProgress = async () => {
-      const { data: chunks } = await supabase
-        .from('interview_orientation_chunks')
-        .select('*')
-        .eq('project_id', project.id)
-        .order('chunk_number');
-      const { data: msgs } = await supabase
-        .from('interview_messages')
-        .select('*')
-        .eq('project_id', project.id)
-        .order('created_at');
+  const rel = relationship === 'other' ? relationshipOther : relationship;
+  const S = subjectPronoun(rel);
+  const her = S === 'He' ? 'him' : S === 'They' ? 'them' : 'her';
+  const sheIs = S === 'He' ? 'he' : S === 'They' ? 'they' : 'she';
+  const displayName = subjectName.trim() || (S === 'He' ? 'him' : S === 'They' ? 'them' : 'her');
 
-      if (chunks) {
-        const statusMap = {};
-        chunks.forEach(c => { statusMap[c.chunk_number] = c.status; });
-        setChunkStatuses(statusMap);
-        const firstIncomplete = chunks.find(c => c.status !== 'complete');
-        if (firstIncomplete) {
-          setCurrentChunk(firstIncomplete.chunk_number);
-          setHasStarted(firstIncomplete.chunk_number > 1);
-          const chunkHasGraceMsg = (msgs || []).some(
-            m => m.chunk_number === firstIncomplete.chunk_number && m.role === 'grace'
-          );
-          // Chunk 2 opens on the buyer's answer to the welcome's question
-          // ("what should we call it?"), so Grace doesn't speak first there.
-          if (firstIncomplete.chunk_number > 2 && !chunkHasGraceMsg) {
-            setKickstartChunk(firstIncomplete.chunk_number);
-          }
-        } else if (chunks.length > 0) {
-          setCurrentChunk(TOTAL_CHUNKS);
-          setHasStarted(true);
-          setAllComplete(true);
-        }
-      }
-      if (msgs) setMessagesSafe(msgs);
-    };
-    loadProgress();
-  }, [project.id]);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, loading]);
-
-  const refreshProject = async () => {
-    const { data } = await supabase.from('interview_projects').select('*').eq('id', project.id).single();
-    if (data) {
-      setCurrentProject(data);
-      onProjectUpdate(data);
-    }
-  };
-
-  const upsertChunk = async (n, status) => {
-    const stamp = status === 'complete' ? { completed_at: new Date().toISOString() } : { started_at: new Date().toISOString() };
-    await supabase.from('interview_orientation_chunks').upsert({
-      project_id: project.id, chunk_number: n, chunk_name: CHUNKS[n].name, status, ...stamp,
-    }, { onConflict: 'project_id,chunk_number' });
-  };
-
-  // The welcome ends on a question — "what should we call it?" — so chunk 2
-  // opens with the buyer's answer, not with Grace speaking again.
-  const handleBegin = async () => {
-    setHasStarted(true);
-    setCurrentChunk(2);
-    await upsertChunk(1, 'complete');
-    await upsertChunk(2, 'in_progress');
-    setChunkStatuses(prev => ({ ...prev, 1: 'complete', 2: 'in_progress' }));
-  };
-
-  const sendToGrace = async (userMessage, chunkNumber) => {
-    setLoading(true);
+  const saveProject = async (updates, nextStep) => {
+    setSaving(true);
     setError('');
     try {
-      if (userMessage) {
-        const { data: savedMsg } = await supabase
-          .from('interview_messages')
-          .insert({ project_id: project.id, chunk_number: chunkNumber, role: 'buyer', content: userMessage })
-          .select().single();
-        if (savedMsg) setMessagesSafe(prev => [...prev, savedMsg]);
-      }
-
-      const history = messagesRef.current.map(m => ({
-        role: m.role === 'grace' ? 'assistant' : 'user',
-        content: m.content,
-      }));
-      if (userMessage) {
-        history.push({ role: 'user', content: userMessage });
-      } else {
-        // A new part is starting and the buyer hasn't typed anything yet.
-        // Phrase this so Grace speaks to the buyer, never about the note.
-        history.push({
-          role: 'user',
-          content: `(The buyer is ready for the next part. Speak to them directly — ask this part's opening question now, in one plain message. Do not mention this note, parts, or what you are waiting for.)`,
-        });
-      }
-
-      const response = await authedFetch('/api/claude-magazine', {
-        messages: history,
-        project: currentProject,
-        currentChunk: chunkNumber,
-        mode: 'getting_started',
-      });
-      if (!response.ok) throw new Error(`API returned ${response.status}`);
-
-      const data = await response.json();
-      let graceResponse = data.response || data.content || '';
-      const isComplete = graceResponse.includes('[CHUNK_COMPLETE]');
-      if (isComplete) graceResponse = graceResponse.replace('[CHUNK_COMPLETE]', '').trim();
-      graceResponse = graceResponse.replace(/\*\*/g, '');
-
-      const { data: savedGrace } = await supabase
-        .from('interview_messages')
-        .insert({ project_id: project.id, chunk_number: chunkNumber, role: 'grace', content: graceResponse })
-        .select().single();
-      if (savedGrace) setMessagesSafe(prev => [...prev, savedGrace]);
-
-      if (data.data && Object.keys(data.data).length > 0) {
-        await applyExtractedData(data.data);
-      }
-
-      if (isComplete) {
-        await upsertChunk(chunkNumber, 'complete');
-        setChunkStatuses(prev => ({ ...prev, [chunkNumber]: 'complete' }));
-        if (chunkNumber < TOTAL_CHUNKS) {
-          setAwaitingContinue(chunkNumber);
-        } else {
-          await supabase
-            .from('interview_projects')
-            .update({ getting_started_complete: true, current_step: 'session_1' })
-            .eq('id', project.id);
-          const done = { ...currentProject, getting_started_complete: true, current_step: 'session_1' };
-          setCurrentProject(done);
-          onProjectUpdate(done);
-          setAllComplete(true);
-        }
-      }
-    } catch (err) {
-      console.error('Error talking to Grace:', err);
-      setError('Something went wrong. Please try again, or come back later — your progress is saved.');
+      const payload = { ...updates };
+      if (nextStep) payload.current_step = nextStep === 'done' ? 'session_1' : `gs:${nextStep}`;
+      const { error: err } = await supabase.from('interview_projects').update(payload).eq('id', project.id);
+      if (err) throw err;
+      const merged = { ...current, ...payload };
+      setCurrent(merged);
+      onProjectUpdate(merged);
+      setSavedAt(new Date());
+      return merged;
+    } catch (e) {
+      console.error('Save failed:', e);
+      setError("That didn't save. Check your connection and try again.");
+      return null;
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
-  // Save fields Grace extracted via the DATA block. Whitelisted columns only.
-  const applyExtractedData = async (extracted) => {
-    const TEXT = [
-      'issue_title',
-      'buyer_name', 'buyer_relationship', 'buyer_motivation',
-      'subject_name', 'subject_living_situation',
-      'subject_communication_style', 'subject_one_thing_to_know',
-      'sensitivities', 'hopes_territory', 'has_photos',
-      'logistics_format', 'logistics_cadence', 'logistics_first_conversation',
-      'logistics_setting', 'logistics_others', 'logistics_bring_photos',
-    ];
-    const updates = {};
-    for (const key of TEXT) {
-      if (extracted[key] !== undefined && extracted[key] !== null && extracted[key] !== '') {
-        updates[key] = String(extracted[key]);
-      }
-    }
-    if (extracted.subject_age !== undefined && extracted.subject_age !== null && extracted.subject_age !== '') {
-      updates.subject_age = parseInt(extracted.subject_age) || null;
-    }
-    // departments: merge into the existing object, key by key
-    if (extracted.departments && typeof extracted.departments === 'object' && !Array.isArray(extracted.departments)) {
-      const existing = (currentProject.departments && typeof currentProject.departments === 'object') ? currentProject.departments : {};
-      updates.departments = { ...existing, ...extracted.departments };
-    }
-    // department_titles: the buyer's renames, merged key by key
-    if (extracted.department_titles && typeof extracted.department_titles === 'object' && !Array.isArray(extracted.department_titles)) {
-      const existing = (currentProject.department_titles && typeof currentProject.department_titles === 'object') ? currentProject.department_titles : {};
-      updates.department_titles = { ...existing, ...extracted.department_titles };
-    }
-    // custom_departments: pages the buyer invented; Grace sends the full array
-    if (Array.isArray(extracted.custom_departments)) {
-      updates.custom_departments = extracted.custom_departments
-        .filter(c => c && typeof c === 'object' && (c.id || c.title))
-        .map(c => ({
-          id: String(c.id || c.title).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, ''),
-          title: String(c.title || c.id),
-          note: c.note ? String(c.note) : '',
-        }));
-    }
-    // feature_candidates: Grace sends the full array whenever it changes
-    if (Array.isArray(extracted.feature_candidates)) {
-      updates.feature_candidates = extracted.feature_candidates.filter(c => typeof c === 'string' && c.trim());
-    }
-    // issue_plan: only in chunk 7
-    if (extracted.issue_plan && typeof extracted.issue_plan === 'object' && Array.isArray(extracted.issue_plan.sessions)) {
-      updates.issue_plan = extracted.issue_plan;
-    }
-    if (Object.keys(updates).length > 0) {
-      await supabase.from('interview_projects').update(updates).eq('id', project.id);
-      await refreshProject();
-    }
+  const goTo = (n) => { setStep(n); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+
+  // ---- Step handlers --------------------------------------------------
+  const saveName = async () => {
+    const ok = await saveProject({ issue_title: title.trim() || null }, 2);
+    if (ok) goTo(2);
   };
 
-  const handleSubmit = async (e) => {
-    e?.preventDefault();
-    if (!input.trim() || loading) return;
-    const message = input.trim();
-    setInput('');
-    await sendToGrace(message, currentChunk);
+  const saveHer = async () => {
+    const style = TALK_STYLES.find(t => t.id === talk)?.value || null;
+    const ok = await saveProject({
+      buyer_relationship: rel || null,
+      subject_name: subjectName.trim() || null,
+      subject_age: parseInt(subjectAge, 10) || null,
+      subject_communication_style: style,
+      subject_one_thing_to_know: oneThing.trim() || null,
+    }, 3);
+    if (ok) goTo(3);
   };
 
-  // Wipe this conversation and everything Grace learned from it, so the
-  // buyer can begin again from the welcome. Sessions and photographs are
-  // untouched; this only resets Getting Started.
-  const handleStartOver = async () => {
-    if (loading) return;
-    const ok = window.confirm('Start Getting Started over from the beginning? Everything Grace learned in this conversation will be cleared.');
-    if (!ok) return;
-    setLoading(true);
+  const saveCare = async () => {
+    const value = careChoice === 'yes' ? (careText.trim() || 'None named') : 'None named';
+    const ok = await saveProject({ sensitivities: value }, 4);
+    if (ok) goTo(4);
+  };
+
+  const savePages = async () => {
+    const departments = {};
+    PAGE_CARDS.forEach(c => {
+      if (c.id === 'faith') departments.faith = pages.faith ? (faithMode === 'threaded' ? 'threaded' : 'own') : 'no';
+      else if (c.id === 'shoebox') departments.shoebox = photos === 'no' ? 'no' : pages.shoebox ? 'yes' : 'no';
+      else departments[c.id] = pages[c.id] ? 'yes' : 'no';
+    });
+    departments.family_stories = 'yes';
+    const candidates = featureText.split(/\n|;/).map(s => s.trim()).filter(Boolean);
+    const ok = await saveProject({
+      departments,
+      department_titles: titles,
+      custom_departments: custom,
+      has_photos: photos || 'unknown',
+      feature_candidates: candidates,
+      hopes_territory: hopes.trim() || null,
+    }, 5);
+    if (ok) goTo(5);
+  };
+
+  const saveAfternoons = async (skip) => {
+    const updates = skip ? {} : {
+      logistics_format: format || null,
+      logistics_first_conversation: firstWhen || null,
+      logistics_others: others || null,
+      logistics_bring_photos: photos === 'no' ? 'n/a' : 'yes',
+    };
+    const ok = await saveProject(updates, 6);
+    if (ok) { goTo(6); if (!proposal) propose(ok); }
+  };
+
+  const propose = async (proj) => {
+    setProposing(true);
+    setError('');
     try {
-      await supabase.from('interview_messages').delete().eq('project_id', project.id);
-      await supabase.from('interview_orientation_chunks').delete().eq('project_id', project.id);
-      const cleared = {
-        issue_title: null, buyer_relationship: null, buyer_motivation: null,
-        subject_name: null, subject_age: null, subject_living_situation: null,
-        subject_communication_style: null, subject_one_thing_to_know: null,
-        sensitivities: null, hopes_territory: null, has_photos: null,
-        departments: {}, department_titles: {}, custom_departments: [], feature_candidates: [],
-        logistics_format: null, logistics_cadence: null, logistics_first_conversation: null,
-        logistics_setting: null, logistics_others: null, logistics_bring_photos: null,
-        issue_plan: null, feature_title: null, interviewer_guides: null,
-        getting_started_complete: false, current_step: null,
-      };
-      await supabase.from('interview_projects').update(cleared).eq('id', project.id);
-      const fresh = { ...currentProject, ...cleared };
-      setCurrentProject(fresh);
-      onProjectUpdate(fresh);
-      setMessagesSafe([]);
-      setChunkStatuses({});
-      setCurrentChunk(1);
-      setHasStarted(false);
-      setAwaitingContinue(null);
-      setAllComplete(false);
-      setError('');
-    } catch (err) {
-      console.error('Start over failed:', err);
-      setError("We couldn't reset just now. Try again in a moment.");
+      const res = await authedFetch('/api/claude-magazine', { project: proj || current, mode: 'propose_issue' });
+      if (!res.ok) throw new Error(`API returned ${res.status}`);
+      const data = await res.json();
+      if (!data.issue_plan) throw new Error('No plan');
+      setProposal(data);
+      await saveProject({ issue_plan: data.issue_plan, issue_synthesis: data.synthesis || null });
+    } catch (e) {
+      console.error('Proposal failed:', e);
+      setError("Grace couldn't put the afternoons together just now. Try again in a moment.");
     } finally {
-      setLoading(false);
+      setProposing(false);
     }
   };
 
-  const handleSkip = async () => {
-    if (loading) return;
-    await sendToGrace('[The buyer wants to skip this. Acknowledge gently and move on.]', currentChunk);
+  const confirmIssue = async () => {
+    const ok = await saveProject({ getting_started_complete: true }, 'done');
+    if (ok) onOpenGuide();
   };
 
-  const handleContinue = async () => {
-    const completedChunk = awaitingContinue;
-    if (!completedChunk || loading) return;
-    const nextChunk = completedChunk + 1;
-    setAwaitingContinue(null);
-    setCurrentChunk(nextChunk);
-    await upsertChunk(nextChunk, 'in_progress');
-    setChunkStatuses(prev => ({ ...prev, [nextChunk]: 'in_progress' }));
-    await sendToGrace(null, nextChunk);
+  const addCustom = () => {
+    const t = customDraft.trim();
+    if (!t) return;
+    const id = t.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || `page_${custom.length + 1}`;
+    if (custom.some(c => c.id === id)) { setCustomDraft(''); return; }
+    setCustom([...custom, { id, title: t, note: '' }]);
+    setCustomDraft('');
   };
 
-  const buyerName = prettyName(currentProject.buyer_name);
-  const subjectName = currentProject.subject_name;
-  const relationship = currentProject.buyer_relationship;
+  const togglePage = (id) => {
+    const card = PAGE_CARDS.find(c => c.id === id);
+    if (card?.fixed) { setOpenCard(openCard === id ? null : id); return; }
+    const next = !pages[id];
+    setPages({ ...pages, [id]: next });
+    setOpenCard(next ? id : null);
+  };
+
+  // ---- Shared bits -----------------------------------------------------
+  const minutesLeft = GS_MINUTES[step];
+  const headline = title.trim() ? title.trim() : 'Getting started';
+  const eyebrow = step === 6 ? `${headline} · last step` : step === 1 ? `Getting started · about ${minutesLeft} minutes` : `${headline} · about ${minutesLeft} minutes left`;
 
   return (
     <div style={{ minHeight: '100vh', background: colors.cream, fontFamily: fonts.sans, color: colors.text }}>
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '20px 16px' }}>
+      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '20px 16px' }}>
         <div style={{ background: 'white', borderRadius: '16px', overflow: 'hidden', border: `0.5px solid ${colors.border}` }}>
-          <Header onBack={onReturnToDashboard} backLabel={hasStarted ? '← Save & exit' : '← Dashboard'} />
+          <Header onBack={onReturnToDashboard} backLabel="← Save & exit" rightText={savedAt ? 'Saved · just now' : 'Saves as you go'} />
 
-          <div style={{ padding: '16px 24px', background: colors.creamLight, borderBottom: `0.5px solid ${colors.border}` }}>
-            <div style={{ marginBottom: '12px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
-              <div>
-                <div style={{ fontSize: '11px', color: colors.textTertiary, letterSpacing: '0.8px', textTransform: 'uppercase', marginBottom: '3px' }}>
-                  Before the first afternoon
-                </div>
-                <div style={{ fontFamily: fonts.serif, fontSize: '16px', fontWeight: 500 }}>Getting started</div>
-              </div>
-              {hasStarted && (
-                <button onClick={handleStartOver} disabled={loading} style={{
-                  fontSize: '12px', padding: '6px 12px', background: 'transparent',
-                  border: `0.5px solid ${colors.border}`, borderRadius: '999px',
-                  cursor: loading ? 'not-allowed' : 'pointer', color: colors.textSecondary, fontFamily: 'inherit',
-                }}>
-                  Start over
-                </button>
-              )}
+          {/* Step bar */}
+          <div style={{ padding: '18px 24px 0', background: colors.creamLight, borderBottom: `0.5px solid ${colors.border}` }}>
+            <div style={{ textAlign: 'center', fontSize: '11px', letterSpacing: '1.2px', textTransform: 'uppercase', color: colors.tan, fontWeight: 600, marginBottom: '14px' }}>{eyebrow}</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, minmax(0, 1fr))' }}>
+              {GS_STEPS.map(s => {
+                const done = s.n < step;
+                const active = s.n === step;
+                const label = s.key === 'her' && rel ? (RELATIONSHIPS.find(r => r.id === rel)?.label || 'Her') : s.label;
+                return (
+                  <button key={s.n} onClick={() => done ? goTo(s.n) : null} disabled={!done} style={{
+                    background: 'transparent', border: 'none', borderBottom: `3px solid ${done ? colors.olive : active ? colors.navy : colors.border}`,
+                    padding: '0 0 12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px',
+                    cursor: done ? 'pointer' : 'default', fontFamily: 'inherit',
+                  }}>
+                    <span style={{
+                      width: '22px', height: '22px', borderRadius: '50%',
+                      background: done ? colors.olive : active ? colors.navy : 'white',
+                      border: done || active ? 'none' : `1px solid ${colors.gray}`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', color: done || active ? 'white' : colors.textSecondary, fontSize: '11px', fontWeight: 600,
+                    }}>
+                      {done ? <svg width="11" height="11" viewBox="0 0 12 12"><path d="M3 6l2 2 4-4" stroke="white" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg> : s.n}
+                    </span>
+                    <span style={{ fontSize: '12px', fontWeight: active ? 600 : 400, color: done || active ? colors.text : colors.textSecondary, whiteSpace: 'nowrap' }}>{label}</span>
+                  </button>
+                );
+              })}
             </div>
-            <NamedChunkIndicator current={currentChunk} statuses={chunkStatuses} subjectName={subjectName} relationship={relationship} />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', gap: 0 }} className="getting-started-layout">
-            <div style={{ padding: '36px 32px 32px', minWidth: 0 }}>
-              {!hasStarted && <WelcomeScreen welcomeContent={CHUNK_1_WELCOME(buyerName)} onBegin={handleBegin} />}
-              {hasStarted && (
-                <ConversationArea
-                  chunkStatuses={chunkStatuses}
-                  currentChunk={currentChunk}
-                  messages={messages}
-                  loading={loading}
-                  input={input}
-                  error={error}
-                  onInputChange={setInput}
-                  onSubmit={handleSubmit}
-                  onSkip={handleSkip}
-                  subjectName={subjectName}
-                  relationship={relationship}
-                  messagesEndRef={messagesEndRef}
-                  plan={currentProject.issue_plan}
-                  awaitingContinue={awaitingContinue}
-                  allComplete={allComplete}
-                  onOpenGuide={onOpenGuide}
-                  subjectNameForDone={currentProject.subject_name}
-                  onBackToDashboard={onReturnToDashboard}
-                  onContinue={handleContinue}
-                />
+          {/* Body */}
+          <div style={{ padding: '28px 32px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+            {step === 1 && (
+              <>
+                <GraceSays heading="Your family is getting its own magazine. Let's name it." text="Whatever you call it goes on the cover. A working title is fine — it can change once there's a cover photo." />
+                <Panel>
+                  <FieldLabel htmlFor="gs-title">What should we call it?</FieldLabel>
+                  <TextInput id="gs-title" value={title} onChange={setTitle} placeholder="The Johnson Family Gazette" big />
+                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <span style={{ fontSize: '12px', color: colors.textTertiary }}>Or tap one:</span>
+                    {[`The ${(current.buyer_name || 'Family').split(' ').slice(-1)[0]} Family Quarterly`, `${RELATIONSHIPS.find(r => r.id === rel)?.label || 'Mom'}'s Pages`, 'Decide later'].map(s => (
+                      <Chip key={s} onClick={() => setTitle(s === 'Decide later' ? '' : s)}>{s}</Chip>
+                    ))}
+                  </div>
+                  <CoverPreview title={title.trim() || 'Your title here'} />
+                </Panel>
+              </>
+            )}
+
+            {step === 2 && (
+              <>
+                <GraceSays heading="Now, who is it about?" text="Not the stories yet — just who they are, so the afternoons fit how they actually talk." />
+                <Panel>
+                  <FieldLabel>This magazine is about my…</FieldLabel>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '10px' }}>
+                    {RELATIONSHIPS.map(r => <ChoiceCard key={r.id} selected={relationship === r.id} onClick={() => setRelationship(r.id)}>{r.label}</ChoiceCard>)}
+                    <ChoiceCard dashed selected={relationship === 'other'} onClick={() => setRelationship('other')}>Someone else</ChoiceCard>
+                  </div>
+                  {relationship === 'other' && (
+                    <TextInput value={relationshipOther} onChange={setRelationshipOther} placeholder="aunt, godfather, neighbor, …" />
+                  )}
+                  {relationship && (
+                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '14px' }}>
+                      <div>
+                        <FieldLabel htmlFor="gs-name" hint="how you'd like it in the magazine">{S === 'He' ? 'His' : S === 'They' ? 'Their' : 'Her'} name</FieldLabel>
+                        <TextInput id="gs-name" value={subjectName} onChange={setSubjectName} placeholder="Dot" />
+                      </div>
+                      <div>
+                        <FieldLabel htmlFor="gs-age" hint="roughly is fine">{S === 'He' ? 'His' : S === 'They' ? 'Their' : 'Her'} age</FieldLabel>
+                        <TextInput id="gs-age" value={subjectAge} onChange={setSubjectAge} placeholder="84" />
+                      </div>
+                    </div>
+                  )}
+                </Panel>
+                {relationship && (
+                  <Panel>
+                    <FieldLabel>When {displayName} talks about the past, {sheIs}…</FieldLabel>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px' }}>
+                      {TALK_STYLES.map(t => <ChoiceCard key={t.id} tall selected={talk === t.id} onClick={() => setTalk(t.id)}>{t.label}</ChoiceCard>)}
+                    </div>
+                    {talk && <GraceNote text={TALK_STYLES.find(t => t.id === talk).note.replace(/\bher\b/g, her).replace(/\bshe\b/g, sheIs)} />}
+                    <div>
+                      <FieldLabel htmlFor="gs-onething" hint="optional">Anything about {her} that's hard to put in a question?</FieldLabel>
+                      <TextInput id="gs-onething" value={oneThing} onChange={setOneThing} placeholder={`${S} makes ${S === 'He' ? 'his' : S === 'They' ? 'their' : 'her'} own life sound smaller than it was.`} />
+                    </div>
+                  </Panel>
+                )}
+              </>
+            )}
+
+            {step === 3 && (
+              <>
+                <GraceSays heading="One thing before the fun part." text={`Some things belong in ${displayName}'s magazine only on ${S === 'He' ? 'his' : S === 'They' ? 'their' : 'her'} terms. Some don't belong at all. You point; I'll hold it.`} />
+                <Panel>
+                  <FieldLabel>Is there anything we should be careful with?</FieldLabel>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 220px))', gap: '10px' }}>
+                    <ChoiceCard tall selected={careChoice === 'yes'} onClick={() => setCareChoice('yes')}>Yes, a few things</ChoiceCard>
+                    <ChoiceCard tall selected={careChoice === 'no'} onClick={() => setCareChoice('no')}>Nothing I can think of</ChoiceCard>
+                  </div>
+                  {careChoice === 'yes' && (
+                    <>
+                      <div>
+                        <FieldLabel htmlFor="gs-care">Just name them. No need to explain.</FieldLabel>
+                        <TextArea id="gs-care" value={careText} onChange={setCareText} placeholder="The year my brother passed." />
+                      </div>
+                      <GraceNote text={`I'll hold that. Nothing you name here shows up in what I prepare for you. If ${sheIs} opens that door ${S === 'He' ? 'himself' : S === 'They' ? 'themselves' : 'herself'}, it's ${S === 'He' ? 'his' : S === 'They' ? 'theirs' : 'hers'} to open.`} />
+                    </>
+                  )}
+                  {careChoice === 'no' && <GraceNote text="Good. If something comes to mind later, you can tell me any time." />}
+                </Panel>
+              </>
+            )}
+
+            {step === 4 && (
+              <>
+                <GraceSays heading="Now the good part — what's in it." text={`Tap the pages that fit ${displayName}. Each one opens up so you can make it yours. You're the publisher; I'll suggest, you decide.`} />
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px' }}>
+                  {PAGE_CARDS.map(card => {
+                    const on = pages[card.id];
+                    const open = openCard === card.id;
+                    const t = pageTitleFor(card.id, rel, titles);
+                    return (
+                      <div key={card.id} style={{
+                        gridColumn: open ? '1 / -1' : 'auto',
+                        background: on ? colors.creamWarm : colors.creamLight,
+                        border: on ? `2px solid ${colors.gold}` : `1px solid ${colors.border}`,
+                        borderRadius: '12px', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: '12px',
+                      }}>
+                        <button onClick={() => togglePage(card.id)} style={{ textAlign: 'left', background: 'transparent', border: 'none', padding: 0, display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', fontFamily: 'inherit', color: colors.text, minHeight: '44px' }}>
+                          <span style={{ width: '24px', height: '24px', borderRadius: '50%', flexShrink: 0, background: on ? colors.olive : 'white', border: on ? 'none' : `1px solid ${colors.gray}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            {on && <svg width="12" height="12" viewBox="0 0 12 12"><path d="M3 6l2 2 4-4" stroke="white" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+                          </span>
+                          <span style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                            <span style={{ fontFamily: fonts.serif, fontSize: '16px', fontWeight: 500 }}>{t}{card.fixed ? '' : ''}</span>
+                            <span style={{ fontSize: '13px', color: colors.textSecondary, lineHeight: 1.45 }}>{card.why}</span>
+                          </span>
+                        </button>
+
+                        {open && card.opens === 'rename' && (
+                          <div style={{ paddingLeft: '36px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', alignItems: 'end' }}>
+                            <div>
+                              <FieldLabel small htmlFor={`gs-title-${card.id}`}>What would you call this page?</FieldLabel>
+                              <TextInput id={`gs-title-${card.id}`} value={titles[card.id] || ''} onChange={v => setTitles({ ...titles, [card.id]: v })} placeholder={t} />
+                            </div>
+                            <div style={{ fontSize: '13px', color: colors.textSecondary, lineHeight: 1.5, paddingBottom: '8px' }}>
+                              {card.id === 'sayings' ? `${S === 'He' ? 'His' : S === 'They' ? 'Their' : 'Her'} lines run through the whole issue as little fillers, each with when ${sheIs} said it.` : card.id === 'kitchen' ? "You'll pick which recipe after the first afternoon." : card.id === 'know_now' ? `One piece of advice at a time, close to word for word.` : 'Told, not described — the whole thing, even if everyone knows the ending.'}
+                            </div>
+                          </div>
+                        )}
+
+                        {open && card.opens === 'photos' && (
+                          <div style={{ paddingLeft: '36px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            <FieldLabel small>Are there pictures, and do you know where they are?</FieldLabel>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '10px', maxWidth: '600px' }}>
+                              {PHOTO_OPTIONS.map(o => <ChoiceCard key={o.id} selected={photos === o.id} onClick={() => { setPhotos(o.id); if (o.id === 'no') setPages({ ...pages, shoebox: false }); }}>{o.label}</ChoiceCard>)}
+                            </div>
+                            {photos && <GraceNote text={PHOTO_OPTIONS.find(o => o.id === photos).note.replace(/\bher\b/g, her)} />}
+                          </div>
+                        )}
+
+                        {open && card.opens === 'feature' && (
+                          <div style={{ paddingLeft: '36px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            <FieldLabel small htmlFor="gs-feature" hint="one per line — or leave it and decide after the first afternoon">Is there one story the whole family knows?</FieldLabel>
+                            <TextArea id="gs-feature" value={featureText} onChange={setFeatureText} placeholder={'The flood in ’58\nHow she met Dad at the county fair'} rows={3} />
+                            <div style={{ fontSize: '13px', color: colors.textSecondary }}>Hold the story itself — that one's {S === 'He' ? 'his' : S === 'They' ? 'theirs' : 'hers'} to tell. Just the name of it.</div>
+                          </div>
+                        )}
+
+                        {open && card.opens === 'faith' && (
+                          <div style={{ paddingLeft: '36px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            <FieldLabel small>How should faith run through the issue?</FieldLabel>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px', maxWidth: '520px' }}>
+                              <ChoiceCard tall selected={faithMode === 'threaded'} onClick={() => setFaithMode('threaded')}>Through the stories, where {sheIs} put it</ChoiceCard>
+                              <ChoiceCard tall selected={faithMode === 'own'} onClick={() => setFaithMode('own')}>Its own pages — it's the center of who {sheIs} is</ChoiceCard>
+                            </div>
+                            {faithMode === 'own' && <GraceNote text={`Then it gets real room in the last afternoon: the verse on the refrigerator, how ${sheIs} prays, what ${sheIs}'d want the grandchildren to hold onto.`} />}
+                            {faithMode === 'threaded' && <GraceNote text="That's usually the truest way. It'll show up where it belongs — in the hard years, in the kitchen, wherever it was." />}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {custom.map(c => (
+                    <div key={c.id} style={{ background: colors.creamWarm, border: `2px solid ${colors.gold}`, borderRadius: '12px', padding: '16px 18px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <span style={{ width: '24px', height: '24px', borderRadius: '50%', background: colors.olive, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <svg width="12" height="12" viewBox="0 0 12 12"><path d="M3 6l2 2 4-4" stroke="white" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                      </span>
+                      <span style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                        <span style={{ fontFamily: fonts.serif, fontSize: '16px', fontWeight: 500 }}>{c.title}</span>
+                        <span style={{ fontSize: '13px', color: colors.textSecondary }}>A page of your own. It's in.</span>
+                      </span>
+                      <button onClick={() => setCustom(custom.filter(x => x.id !== c.id))} aria-label={`Remove ${c.title}`} style={{ background: 'transparent', border: 'none', color: colors.textTertiary, cursor: 'pointer', fontSize: '13px', fontFamily: 'inherit', minHeight: '44px' }}>Remove</button>
+                    </div>
+                  ))}
+
+                  <div style={{ background: 'white', border: `1px dashed ${colors.gray}`, borderRadius: '12px', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: '8px', gridColumn: custom.length || openCard ? '1 / -1' : 'auto' }}>
+                    <span style={{ fontFamily: fonts.serif, fontSize: '16px', fontWeight: 500, color: colors.navy }}>+ A page of your own</span>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <TextInput value={customDraft} onChange={setCustomDraft} placeholder={'"All Her Moves," "Grandpa’s Garage" — anything'} onEnter={addCustom} />
+                      <button onClick={addCustom} style={{ fontSize: '14px', padding: '0 18px', minHeight: '44px', background: colors.navy, color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>Add</button>
+                    </div>
+                  </div>
+                </div>
+                <div style={{ fontSize: '13px', color: colors.textTertiary }}>Always in: the Feature, Family Stories, What I Know Now, and {S === 'He' ? 'his' : S === 'They' ? 'their' : 'her'} last word. Everything else is yours to keep, drop, or rename.</div>
+                <Panel>
+                  <FieldLabel htmlFor="gs-hopes" hint="optional">Anything else that deserves pages — a place, a job, a person, a stretch of years?</FieldLabel>
+                  <TextInput id="gs-hopes" value={hopes} onChange={setHopes} placeholder="Her years as a nurse. The lake house." />
+                </Panel>
+              </>
+            )}
+
+            {step === 5 && (
+              <>
+                <GraceSays heading="Last thing — and you can skip it." text="Families who finish usually pick a window for the first afternoon. Nothing here is binding." />
+                <Panel>
+                  <FieldLabel>How will you do it?</FieldLabel>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px', maxWidth: '560px' }}>
+                    {[['in_person', 'In person'], ['video', 'Video call'], ['phone', 'Phone']].map(([v, l]) => <ChoiceCard key={v} selected={format === v} onClick={() => setFormat(v)}>{l}</ChoiceCard>)}
+                  </div>
+                  <div style={{ fontSize: '13px', color: colors.textSecondary }}>{photos === 'no' ? 'In person usually gets the most.' : 'In person is the only way to go through the box together.'}</div>
+                  <FieldLabel>When could the first one realistically happen?</FieldLabel>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px', maxWidth: '640px' }}>
+                    {['This week', 'Next week', 'This month', 'Not sure yet'].map(v => <ChoiceCard key={v} selected={firstWhen === v} onClick={() => setFirstWhen(v)}>{v}</ChoiceCard>)}
+                  </div>
+                  <FieldLabel>Just the two of you?</FieldLabel>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', maxWidth: '420px' }}>
+                    {[['Just the two of us', 'Yes'], ['Others will be there', 'Others will be there']].map(([v, l]) => <ChoiceCard key={v} selected={others === v} onClick={() => setOthers(v)}>{l}</ChoiceCard>)}
+                  </div>
+                  <div style={{ fontSize: '13px', color: colors.textSecondary }}>One-on-one usually gets more. With a room, {sheIs} plays to the room.</div>
+                  {photos !== 'no' && <GraceNote text="One practical thing: bring the box. Not to sort — just to have on the table." />}
+                </Panel>
+              </>
+            )}
+
+            {step === 6 && (
+              <>
+                {proposing && (
+                  <GraceSays heading="Putting your issue together…" text="One moment. I'm laying out the contents page and the four afternoons from what you told me." />
+                )}
+                {!proposing && proposal && (
+                  <>
+                    <GraceSays heading="Here's your issue." text={proposal.synthesis || 'Tap anything to change it.'} />
+                    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 280px) minmax(0, 1fr)', gap: '20px' }} className="gs-review">
+                      <ContentsPreview title={title.trim()} subject={subjectName.trim()} relationship={rel} departments={proposal.issue_plan.departments} onEdit={() => goTo(4)} />
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        <div style={{ fontSize: '11px', letterSpacing: '1px', textTransform: 'uppercase', color: colors.tan, fontWeight: 600 }}>Here's how I'd collect it — four afternoons</div>
+                        {proposal.issue_plan.sessions.map((s, i) => <SessionRevealCard key={s.number || i} session={s} index={i} />)}
+                        <div style={{ fontSize: '13px', color: colors.textSecondary, lineHeight: 1.55, marginTop: '4px' }}>About an hour each, at your pace. Most people think about doing this for years. You started.</div>
+                        <button onClick={() => propose()} style={{ alignSelf: 'flex-start', fontSize: '13px', background: 'transparent', border: 'none', color: colors.textSecondary, textDecoration: 'underline', cursor: 'pointer', fontFamily: 'inherit', padding: '6px 0', minHeight: '44px' }}>Ask Grace for a different arrangement</button>
+                      </div>
+                    </div>
+                  </>
+                )}
+                {!proposing && !proposal && !error && (
+                  <GraceSays heading="Almost there." text="Tap Save & Continue and I'll put your issue together." />
+                )}
+              </>
+            )}
+
+            {error && (
+              <div style={{ padding: '10px 14px', background: '#FBE9E7', color: '#B8543D', borderRadius: '6px', fontSize: '13px' }}>{error}</div>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div style={{ padding: '18px 32px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: `0.5px solid ${colors.border}`, gap: '12px', flexWrap: 'wrap' }}>
+            <button onClick={() => step > 1 ? goTo(step - 1) : onReturnToDashboard()} disabled={saving} style={{ fontSize: '15px', padding: '12px 22px', minHeight: '48px', background: 'white', border: `1px solid ${colors.gray}`, borderRadius: '8px', fontFamily: 'inherit', color: colors.textSecondary, cursor: 'pointer' }}>
+              {step > 1 ? 'Previous' : 'Dashboard'}
+            </button>
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+              {step === 5 && (
+                <button onClick={() => saveAfternoons(true)} disabled={saving} style={{ fontSize: '14px', padding: '12px 14px', minHeight: '48px', background: 'transparent', border: 'none', fontFamily: 'inherit', color: colors.textSecondary, textDecoration: 'underline', cursor: 'pointer' }}>Skip this for now</button>
+              )}
+              {step < 6 && (
+                <PrimaryButton
+                  disabled={saving || (step === 2 && !relationship) || (step === 3 && !careChoice)}
+                  onClick={step === 1 ? saveName : step === 2 ? saveHer : step === 3 ? saveCare : step === 4 ? savePages : () => saveAfternoons(false)}
+                >
+                  {saving ? 'Saving…' : 'Save & Continue'}
+                </PrimaryButton>
+              )}
+              {step === 6 && !proposal && !proposing && (
+                <PrimaryButton onClick={() => propose()}>Put my issue together</PrimaryButton>
+              )}
+              {step === 6 && proposal && (
+                <PrimaryButton disabled={saving || proposing} onClick={confirmIssue}>This is my issue → open the first guide</PrimaryButton>
               )}
             </div>
-            <ContentsPanel project={currentProject} currentChunk={currentChunk} />
           </div>
 
           <style>{`
-            @media (max-width: 900px) {
-              .getting-started-layout { grid-template-columns: 1fr !important; }
-              .contents-panel { border-left: none !important; border-top: 0.5px solid ${colors.border} !important; }
+            @media (max-width: 760px) {
+              .gs-review { grid-template-columns: 1fr !important; }
             }
           `}</style>
         </div>
@@ -1181,360 +1330,132 @@ function GettingStarted({ project, onProjectUpdate, onReturnToDashboard, onOpenG
   );
 }
 
-function WelcomeScreen({ welcomeContent, onBegin }) {
+// ---- Getting Started building blocks ------------------------------------
+function GraceSays({ heading, text }) {
   return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '24px' }}>
-        <div style={{ width: '4px', height: '16px', background: colors.gold, borderRadius: '2px' }} />
-        <div style={{ fontFamily: fonts.serif, fontSize: '14px', fontWeight: 500, color: colors.textSecondary, letterSpacing: '0.3px' }}>Welcome</div>
-      </div>
-      <div style={{ display: 'flex', gap: '18px' }}>
-        <GraceAvatar size="large" />
-        <div style={{ flex: 1 }}>
-          {welcomeContent.map((block, i) => block.type === 'heading' ? (
-            <div key={i} style={{ fontFamily: fonts.serif, fontSize: '24px', fontWeight: 500, color: colors.navy, marginBottom: '16px', lineHeight: 1.3 }}>{block.text}</div>
-          ) : (
-            <div key={i} style={{ fontSize: '16px', lineHeight: 1.7, color: colors.navy, marginBottom: '14px' }}>{block.text}</div>
-          ))}
-          <button onClick={onBegin} style={{
-            marginTop: '10px', fontSize: '15px', padding: '12px 30px',
-            background: colors.navy, color: 'white', border: 'none', borderRadius: '999px',
-            cursor: 'pointer', fontWeight: 500, fontFamily: 'inherit',
-          }}>
-            Let's name it →
-          </button>
-        </div>
+    <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
+      <GraceAvatar size="large" />
+      <div style={{ fontSize: '16px', lineHeight: 1.6, color: colors.navy, maxWidth: '660px' }}>
+        <div style={{ fontFamily: fonts.serif, fontSize: '24px', fontWeight: 500, marginBottom: '6px', lineHeight: 1.25 }}>{heading}</div>
+        {text}
       </div>
     </div>
   );
 }
 
-function ConversationArea({
-  chunkStatuses, currentChunk, messages, loading, input, error,
-  onInputChange, onSubmit, onSkip, subjectName, relationship, messagesEndRef, plan,
-  awaitingContinue, onContinue, allComplete, onOpenGuide, subjectNameForDone, onBackToDashboard,
-}) {
-  const currentChunkLabel = getChunkLabel(currentChunk, subjectName, relationship);
-  const currentChunkMessages = messages.filter(m => m.chunk_number === currentChunk);
-  // Chunk 2 opens on the buyer's answer to the welcome's closing question, so
-  // the input shows before Grace has said anything in that chunk.
-  const hasGraceMessageThisChunk = currentChunkMessages.some(m => m.role === 'grace')
-    || (currentChunk === 2 && currentChunkMessages.length === 0);
-  const placeholder = currentChunk === 2 && currentChunkMessages.length === 0
-    ? 'A name for the magazine — or "not sure yet" is a fine answer'
-    : 'Type your answer here...';
-
+function GraceNote({ text }) {
   return (
-    <div>
-      {[1, 2, 3, 4].filter(n => chunkStatuses[n] === 'complete' && n !== currentChunk).map(n => (
-        <CompletedChunkCard key={n} chunkNumber={n} subjectName={subjectName} relationship={relationship} />
-      ))}
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '18px' }}>
-        <div style={{ width: '4px', height: '16px', background: colors.gold, borderRadius: '2px' }} />
-        <div style={{ fontFamily: fonts.serif, fontSize: '14px', fontWeight: 500, color: colors.textSecondary, letterSpacing: '0.3px' }}>{currentChunkLabel}</div>
-      </div>
-
-      {currentChunkMessages.map((msg, i) => <Message key={msg.id || i} message={msg} />)}
-
-      {/* Session cards — rendered when the issue plan has been proposed (last part) */}
-      {currentChunk === TOTAL_CHUNKS && plan?.sessions?.length > 0 && (
-        <div style={{ marginLeft: '54px', marginBottom: '24px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {plan.sessions.map((s, i) => <SessionRevealCard key={s.number || i} session={s} index={i} />)}
-        </div>
-      )}
-
-      {loading && <TypingIndicator />}
-      <div ref={messagesEndRef} />
-
-      {!loading && awaitingContinue === currentChunk && (
-        <div style={{
-          marginLeft: '54px', marginTop: '24px', paddingTop: '20px', borderTop: `0.5px solid ${colors.border}`,
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px',
-        }}>
-          <div style={{ fontSize: '13px', color: colors.textTertiary }}>Take your time. Continue when you're ready.</div>
-          <button onClick={onContinue} style={{
-            fontSize: '14px', padding: '11px 28px', background: colors.navy, color: 'white',
-            border: 'none', borderRadius: '999px', cursor: 'pointer', fontWeight: 500, fontFamily: 'inherit',
-          }}>
-            Continue →
-          </button>
-        </div>
-      )}
-
-      {!loading && allComplete && (
-        <div style={{
-          marginLeft: '54px', marginTop: '28px', background: colors.creamWarm,
-          border: `1.5px solid ${colors.gold}`, borderRadius: '14px', padding: '26px 28px',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
-            <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: colors.olive, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <svg width="14" height="14" viewBox="0 0 14 14"><path d="M3.5 7l2.5 2.5L10.5 4.5" stroke="white" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
-            </div>
-            <div style={{ fontSize: '11px', color: colors.tan, fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase' }}>Getting started · Complete</div>
-          </div>
-          <div style={{ fontFamily: fonts.serif, fontSize: '22px', fontWeight: 500, lineHeight: 1.35, marginBottom: '10px' }}>
-            You have a contents page{subjectNameForDone ? ` for ${subjectNameForDone}'s issue` : ''}.
-          </div>
-          <div style={{ fontSize: '15px', color: colors.textSecondary, lineHeight: 1.7, marginBottom: '20px' }}>
-            Your guide for the first session is ready — what you're collecting, how to open, and what to do if something comes up. Read it before you sit down together.
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
-            <button onClick={onOpenGuide} style={{
-              fontSize: '15px', padding: '12px 30px', background: colors.navy, color: 'white',
-              border: 'none', borderRadius: '999px', cursor: 'pointer', fontWeight: 500, fontFamily: 'inherit',
-            }}>
-              Open your guide →
-            </button>
-            <button onClick={onBackToDashboard} style={{
-              fontSize: '13px', padding: '10px 18px', background: 'transparent', border: `0.5px solid ${colors.border}`,
-              borderRadius: '999px', cursor: 'pointer', color: colors.textSecondary, fontFamily: 'inherit',
-            }}>
-              Back to dashboard
-            </button>
-          </div>
-        </div>
-      )}
-
-      {!loading && !allComplete && awaitingContinue !== currentChunk && !hasGraceMessageThisChunk && (
-        <div style={{ marginLeft: '54px', marginTop: '20px' }}><TypingIndicator /></div>
-      )}
-
-      {!loading && !allComplete && awaitingContinue !== currentChunk && hasGraceMessageThisChunk && (
-        <div style={{ marginLeft: '54px', marginTop: '20px' }}>
-          <textarea
-            value={input}
-            onChange={(e) => onInputChange(e.target.value)}
-            placeholder={placeholder}
-            onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) onSubmit(); }}
-            style={{
-              width: '100%', minHeight: '110px', padding: '14px 16px',
-              border: `0.5px solid ${colors.border}`, borderRadius: '8px',
-              fontFamily: 'inherit', fontSize: '15px', lineHeight: 1.6, color: colors.text,
-              background: 'white', resize: 'vertical', boxSizing: 'border-box',
-            }}
-          />
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '14px', flexWrap: 'wrap', gap: '12px' }}>
-            <button onClick={onSkip} style={{
-              fontSize: '13px', padding: '7px 14px', background: 'transparent',
-              border: `0.5px solid ${colors.border}`, borderRadius: '6px', cursor: 'pointer',
-              color: colors.textSecondary, fontFamily: 'inherit',
-            }}>
-              Skip this one
-            </button>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span style={{ fontSize: '12px', color: colors.textTertiary }}>⌘+Enter to send</span>
-              <button onClick={onSubmit} disabled={!input.trim()} style={{
-                fontSize: '14px', padding: '9px 22px',
-                background: input.trim() ? colors.navy : colors.gray, color: 'white',
-                border: 'none', borderRadius: '999px', cursor: input.trim() ? 'pointer' : 'not-allowed',
-                fontWeight: 500, fontFamily: 'inherit',
-              }}>
-                Send
-              </button>
-            </div>
-          </div>
-          {error && (
-            <div style={{ marginTop: '12px', padding: '10px 14px', background: '#FBE9E7', color: '#B8543D', borderRadius: '6px', fontSize: '13px' }}>
-              {error}
-            </div>
-          )}
-        </div>
-      )}
+    <div style={{ background: 'white', border: `0.5px solid ${colors.border}`, borderRadius: '8px', padding: '12px 14px', fontSize: '14px', lineHeight: 1.55, color: colors.navy, display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+      <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: '#F4E4C1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: fonts.serif, fontSize: '12px', color: colors.tan, flexShrink: 0 }}>G</div>
+      <div>{text}</div>
     </div>
   );
 }
 
-function NamedChunkIndicator({ current, statuses, subjectName, relationship }) {
-  const stepLabels = [
-    { num: 1, label: 'Welcome' },
-    { num: 2, label: relationship ? `The name & your ${relationship}` : (subjectName ? `The name & ${subjectName}` : 'The name & her') },
-    { num: 3, label: 'Care' },
-    { num: 4, label: 'The pages' },
-    { num: 5, label: 'The plan' },
-  ];
+function Panel({ children }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
-      {stepLabels.map((step, i) => {
-        const isComplete = statuses[step.num] === 'complete';
-        const isActive = step.num === current;
-        const bg = isComplete ? colors.olive : isActive ? colors.navy : 'white';
-        const border = isComplete || isActive ? 'none' : `1px solid ${colors.border}`;
-        return (
-          <React.Fragment key={step.num}>
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 10px 4px 4px', borderRadius: '999px',
-              background: isActive ? colors.creamWarm : 'transparent',
-              border: isActive ? `1px solid ${colors.gold}` : '1px solid transparent',
-            }}>
-              <div style={{
-                width: '20px', height: '20px', borderRadius: '50%', background: bg, border,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: '10px', fontWeight: 500, color: isComplete || isActive ? 'white' : colors.textTertiary, flexShrink: 0,
-              }}>
-                {isComplete ? (
-                  <svg width="10" height="10" viewBox="0 0 12 12"><path d="M3 6l2 2 4-4" stroke="white" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                ) : step.num}
-              </div>
-              <span style={{ fontSize: '12px', fontWeight: isActive ? 600 : isComplete ? 500 : 400, color: isComplete || isActive ? colors.text : colors.textTertiary, whiteSpace: 'nowrap' }}>
-                {step.label}
-              </span>
-            </div>
-            {i < stepLabels.length - 1 && (
-              <div style={{ width: '8px', height: '1px', background: isComplete ? colors.olive : colors.border, flexShrink: 0 }} />
-            )}
-          </React.Fragment>
-        );
-      })}
+    <div style={{ background: colors.creamLight, border: `0.5px solid ${colors.border}`, borderRadius: '12px', padding: '22px 24px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+      {children}
     </div>
   );
 }
 
-// ============================================================
-// Contents panel — the issue assembling as Grace learns
-// ============================================================
-function ContentsPanel({ project, currentChunk }) {
-  const departments = activeDepartments(project);
-  const answered = Object.keys((project.departments && typeof project.departments === 'object') ? project.departments : {}).length;
-  const fieldsToTrack = [
-    project.issue_title, project.buyer_relationship, project.subject_name, project.subject_age,
-    project.subject_communication_style || project.subject_living_situation,
-    project.sensitivities, project.has_photos, answered > 0, project.issue_plan,
-  ];
-  const filled = fieldsToTrack.filter(Boolean).length;
-  const pct = Math.round((filled / fieldsToTrack.length) * 100);
-  const candidates = Array.isArray(project.feature_candidates) ? project.feature_candidates : [];
-
+function FieldLabel({ children, htmlFor, hint, small }) {
   return (
-    <div className="contents-panel" style={{
-      background: colors.creamLight, borderLeft: `0.5px solid ${colors.border}`,
-      padding: '32px 24px', display: 'flex', flexDirection: 'column', gap: '20px',
+    <label htmlFor={htmlFor} style={{ fontSize: small ? '13px' : '15px', fontWeight: small ? 400 : 500, color: small ? colors.textSecondary : colors.text, display: 'block', marginBottom: '6px' }}>
+      {children}{hint && <span style={{ color: colors.textTertiary, fontWeight: 400 }}> — {hint}</span>}
+    </label>
+  );
+}
+
+function TextInput({ id, value, onChange, placeholder, big, onEnter }) {
+  return (
+    <input
+      id={id} type="text" value={value} placeholder={placeholder}
+      onChange={e => onChange(e.target.value)}
+      onKeyDown={e => { if (e.key === 'Enter' && onEnter) { e.preventDefault(); onEnter(); } }}
+      style={{ width: '100%', boxSizing: 'border-box', padding: big ? '14px 16px' : '12px 14px', fontSize: big ? '18px' : '16px', fontFamily: 'inherit', border: `1px solid ${colors.gray}`, borderRadius: '8px', background: 'white', color: colors.text, minHeight: '44px' }}
+    />
+  );
+}
+
+function TextArea({ id, value, onChange, placeholder, rows = 3 }) {
+  return (
+    <textarea
+      id={id} value={value} placeholder={placeholder} rows={rows}
+      onChange={e => onChange(e.target.value)}
+      style={{ width: '100%', boxSizing: 'border-box', padding: '12px 14px', fontSize: '15px', lineHeight: 1.5, fontFamily: 'inherit', border: `1px solid ${colors.gray}`, borderRadius: '8px', background: 'white', color: colors.text, resize: 'vertical' }}
+    />
+  );
+}
+
+function ChoiceCard({ children, selected, onClick, tall, dashed }) {
+  return (
+    <button onClick={onClick} style={{
+      minHeight: tall ? '72px' : '56px', padding: '10px 12px', fontSize: '15px', lineHeight: 1.3, fontFamily: 'inherit', cursor: 'pointer',
+      background: selected ? colors.navy : 'white', color: selected ? 'white' : colors.text,
+      border: selected ? `2px solid ${colors.navy}` : `1px ${dashed ? 'dashed' : 'solid'} ${colors.gray}`, borderRadius: '8px',
     }}>
-      <div>
-        <div style={{ fontSize: '11px', color: colors.tan, fontWeight: 500, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '6px' }}>
-          The issue, in progress
-        </div>
-        <div style={{ fontFamily: fonts.serif, fontSize: '18px', fontWeight: 500, color: colors.text, marginBottom: '12px', lineHeight: 1.3 }}>
-          {project.issue_title
-            ? project.issue_title
-            : pct < 30 ? "We're just getting started." : pct < 60 ? 'Taking shape.' : pct < 100 ? 'Almost there.' : 'Your issue is planned.'}
-        </div>
-        <div style={{ height: '4px', background: colors.borderSubtle, borderRadius: '2px', overflow: 'hidden' }}>
-          <div style={{ width: `${pct}%`, height: '100%', background: colors.gold, transition: 'width 0.5s ease' }} />
-        </div>
+      {children}
+    </button>
+  );
+}
+
+function Chip({ children, onClick }) {
+  return (
+    <button onClick={onClick} style={{ fontSize: '13px', padding: '9px 14px', minHeight: '44px', background: 'white', border: `1px solid ${colors.border}`, borderRadius: '999px', fontFamily: 'inherit', color: colors.navy, cursor: 'pointer' }}>
+      {children}
+    </button>
+  );
+}
+
+function PrimaryButton({ children, onClick, disabled }) {
+  return (
+    <button onClick={onClick} disabled={disabled} style={{ fontSize: '15px', padding: '12px 28px', minHeight: '48px', background: disabled ? colors.gray : colors.navy, color: 'white', border: 'none', borderRadius: '8px', fontFamily: 'inherit', fontWeight: 500, cursor: disabled ? 'not-allowed' : 'pointer' }}>
+      {children}
+    </button>
+  );
+}
+
+function CoverPreview({ title }) {
+  return (
+    <div style={{ display: 'flex', gap: '20px', alignItems: 'center', marginTop: '4px' }}>
+      <div style={{ width: '132px', height: '170px', background: '#F7F2E8', border: '1px solid #1F1B16', outline: '1px solid #1F1B16', outlineOffset: '3px', boxSizing: 'border-box', padding: '10px', display: 'flex', flexDirection: 'column', gap: '6px', flexShrink: 0 }}>
+        <div style={{ fontSize: '6px', letterSpacing: '1px', textTransform: 'uppercase', textAlign: 'center', color: '#4A4238' }}>Vol. 1</div>
+        <div style={{ fontFamily: fonts.serif, fontWeight: 700, fontSize: '13px', lineHeight: 1.05, textAlign: 'center', color: '#1F1B16' }}>{title}</div>
+        <div style={{ flex: 1, background: '#E3DACB', border: '1px dashed #B8AB95' }} />
+        <div style={{ height: '3px', background: '#D5CBB9' }} />
+        <div style={{ height: '3px', background: '#D5CBB9', width: '80%' }} />
       </div>
+      <div style={{ fontSize: '13px', color: colors.textSecondary, lineHeight: 1.55, maxWidth: '360px' }}>That's the cover. We'll put a photograph on it after the first afternoon.</div>
+    </div>
+  );
+}
 
-      <PanelSection title={`About ${project.subject_name || 'them'}`} active={currentChunk === 2}>
-        <PanelField label="Name" value={project.subject_name} />
-        <PanelField label="Age" value={project.subject_age} />
-        <PanelField label="Lives" value={project.subject_living_situation} />
-        <PanelField label="How they talk" value={project.subject_communication_style} multiline />
-      </PanelSection>
-
-      <PanelSection title="Care" active={currentChunk === 3}>
-        <PanelField label="What to avoid" value={project.sensitivities} multiline />
-      </PanelSection>
-
-      <PanelSection title="Contents" active={currentChunk === 4}>
+function ContentsPreview({ title, subject, relationship, departments, onEdit }) {
+  const P = possessive(relationship).toLowerCase();
+  return (
+    <button onClick={onEdit} style={{ textAlign: 'left', cursor: 'pointer', background: '#F7F2E8', border: '1px solid #1F1B16', outline: '1px solid #1F1B16', outlineOffset: '3px', padding: '20px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: '8px', color: '#1F1B16', fontFamily: 'inherit' }}>
+      <div style={{ fontSize: '9px', letterSpacing: '1.6px', textTransform: 'uppercase', textAlign: 'center', color: '#4A4238' }}>Vol. 1</div>
+      <div style={{ fontFamily: fonts.serif, fontWeight: 700, fontSize: '20px', lineHeight: 1.05, textAlign: 'center' }}>{title || 'Your magazine'}</div>
+      {subject && <div style={{ fontFamily: fonts.serif, fontStyle: 'italic', fontSize: '11px', textAlign: 'center', color: '#4A4238' }}>Stories, sayings &amp; pictures from {subject}'s life</div>}
+      <div style={{ height: '90px', background: '#E3DACB', border: '1px dashed #B8AB95', marginTop: '2px' }} />
+      <div style={{ fontSize: '8px', letterSpacing: '1.4px', textTransform: 'uppercase', textAlign: 'center', color: '#8B2E1F', fontWeight: 700, marginTop: '2px' }}>In this issue</div>
+      <div style={{ fontSize: '10.5px', lineHeight: 1.7, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', gap: '6px', alignItems: 'baseline' }}><span>A Note Before You Begin</span><span style={{ flex: 1, borderBottom: '1px dotted #8F8371', transform: 'translateY(-3px)' }} /></div>
         {departments.map(d => (
-          <div key={d.id} style={{ fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{
-              width: '16px', height: '16px', borderRadius: '50%', flexShrink: 0,
-              background: d.state === 'in' || d.state === 'planned' ? colors.olive : d.state === 'threaded' ? colors.gold : d.state === 'out' ? colors.borderSubtle : 'white',
-              border: d.state === 'unknown' ? `1px solid ${colors.border}` : 'none',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              {(d.state === 'in' || d.state === 'planned') && (
-                <svg width="9" height="9" viewBox="0 0 10 10"><path d="M2.5 5l1.5 1.5L7.5 3" stroke="white" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
-              )}
-              {d.state === 'out' && <span style={{ width: '6px', height: '1px', background: colors.gray }} />}
-            </span>
-            <span style={{
-              color: d.state === 'out' ? colors.gray : d.state === 'unknown' ? colors.textTertiary : colors.text,
-              textDecoration: d.state === 'out' ? 'line-through' : 'none',
-            }}>
-              {d.title}{d.state === 'threaded' ? ' (threaded)' : ''}{d.custom ? ' · yours' : ''}
-            </span>
+          <div key={d.id} style={{ display: 'flex', gap: '6px', alignItems: 'baseline' }}>
+            <span style={{ fontWeight: d.id === 'feature' ? 600 : 400 }}>{d.title}</span>
+            <span style={{ flex: 1, borderBottom: '1px dotted #8F8371', transform: 'translateY(-3px)' }} />
+            <span style={{ color: '#4A4238' }}>{d.id === 'sayings' ? 'throughout' : ''}</span>
           </div>
         ))}
-        <PanelField label="Photographs" value={project.has_photos} multiline />
-        {candidates.length > 0 && (
-          <div style={{ fontSize: '12px', color: colors.textSecondary, lineHeight: 1.5, marginTop: '4px' }}>
-            <span style={{ fontWeight: 500 }}>Feature candidates:</span> {candidates.join(' · ')}
-          </div>
-        )}
-      </PanelSection>
-
-      {(project.logistics_format || project.logistics_cadence || project.logistics_first_conversation || project.logistics_setting) && (
-        <PanelSection title="How we'll do this" active={currentChunk === 5}>
-          <PanelField label="Format" value={project.logistics_format} />
-          <PanelField label="Cadence" value={project.logistics_cadence} />
-          <PanelField label="First one" value={project.logistics_first_conversation} />
-          <PanelField label="Where" value={project.logistics_setting} />
-          <PanelField label="Bring the box" value={project.logistics_bring_photos} />
-        </PanelSection>
-      )}
-      {currentChunk === 5 && !project.logistics_format && !project.issue_plan && (
-        <PanelSection title="How we'll do this" active>
-          <div style={{ fontSize: '12px', color: colors.textTertiary, fontStyle: 'italic', lineHeight: 1.5 }}>
-            Optional — when, where, and who. Skip it if you'd rather figure that out yourself.
-          </div>
-        </PanelSection>
-      )}
-
-      <PanelSection title="The afternoons" active={currentChunk === 5}>
-        {(project.issue_plan?.sessions?.length > 0
-          ? project.issue_plan.sessions.map(s => ({ num: s.number, title: s.title, filled: true }))
-          : [1, 2, 3, 4].map(n => ({ num: n, title: DEFAULT_SESSION_TITLES[n], filled: false }))
-        ).map(s => (
-          <div key={s.num} style={{ fontSize: '13px', color: s.filled ? colors.text : colors.textTertiary, display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <span style={{
-              width: '18px', height: '18px', borderRadius: '50%', flexShrink: 0,
-              background: s.filled ? colors.olive : colors.borderSubtle, color: s.filled ? 'white' : colors.textTertiary,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 500,
-            }}>
-              {s.num}
-            </span>
-            <span>{s.title}</span>
-          </div>
-        ))}
-      </PanelSection>
-    </div>
-  );
-}
-
-function PanelSection({ title, active, children }) {
-  return (
-    <div>
-      <div style={{
-        fontSize: '11px', color: active ? colors.tan : colors.textSecondary, fontWeight: 600,
-        letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '8px',
-        display: 'flex', alignItems: 'center', gap: '6px',
-      }}>
-        {active && <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: colors.gold, animation: 'pulse 2s ease-in-out infinite' }} />}
-        {title}
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>{children}</div>
-      <style>{`@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }`}</style>
-    </div>
+      <div style={{ fontSize: '10px', color: '#4A4238', textAlign: 'center', marginTop: '6px', textDecoration: 'underline' }}>Tap to change the pages</div>
+    </button>
   );
 }
 
-function PanelField({ label, value, multiline }) {
-  const isFilled = value !== null && value !== undefined && value !== '';
-  return (
-    <div style={{ fontSize: '13px', lineHeight: 1.4, display: multiline ? 'block' : 'flex', gap: '6px', color: isFilled ? colors.text : colors.textTertiary }}>
-      <span style={{ color: colors.textSecondary, fontSize: '12px', fontWeight: 500 }}>{label}:</span>{' '}
-      <span style={{ color: isFilled ? colors.text : colors.gray, fontStyle: isFilled ? 'normal' : 'italic' }}>
-        {isFilled ? (typeof value === 'string' && value.length > 50 ? value.slice(0, 50) + '…' : value) : '—'}
-      </span>
-    </div>
-  );
-}
-
-// ============================================================
-// Chat sub-components
-// ============================================================
 function GraceAvatar({ size = 'small' }) {
   const dim = size === 'large' ? 44 : 36;
   return (
@@ -1548,35 +1469,7 @@ function GraceAvatar({ size = 'small' }) {
   );
 }
 
-function Message({ message }) {
-  if (message.role === 'grace') {
-    const clean = message.content.replace(/\*\*/g, '');
-    return (
-      <div style={{ display: 'flex', gap: '18px', marginBottom: '24px' }}>
-        <GraceAvatar />
-        <div style={{ flex: 1 }}>
-          {clean.split('\n').filter(p => p.trim()).map((para, i) => (
-            <div key={i} style={{ fontSize: '16px', lineHeight: 1.7, color: colors.navy, marginBottom: '12px' }}>{para}</div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-  return (
-    <div style={{ marginLeft: '54px', marginBottom: '20px' }}>
-      <div style={{
-        background: colors.creamLight, borderLeft: `2px solid ${colors.gold}`, padding: '14px 16px',
-        borderRadius: '0 8px 8px 0', fontSize: '15px', lineHeight: 1.6, color: colors.text, whiteSpace: 'pre-wrap',
-      }}>
-        {message.content}
-      </div>
-    </div>
-  );
-}
-
 function SessionRevealCard({ session, index }) {
-  const collects = Array.isArray(session.collects) ? session.collects : [];
-  const labels = collects.map(id => (DEPARTMENTS.find(d => d.id === id)?.title || id)).join(' · ');
   return (
     <div style={{
       background: colors.creamWarm, border: `1px solid ${colors.gold}`, borderRadius: '12px',
@@ -1585,46 +1478,12 @@ function SessionRevealCard({ session, index }) {
     }}>
       <IconSession n={session.number || index + 1} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: '11px', color: colors.tan, fontWeight: 500, letterSpacing: '0.8px', textTransform: 'uppercase', marginBottom: '2px' }}>
-          Session {session.number || index + 1}
-        </div>
         <div style={{ fontFamily: fonts.serif, fontSize: '16px', fontWeight: 500, color: colors.text, marginBottom: session.description ? '3px' : 0 }}>
           {session.title}
         </div>
-        {session.description && <div style={{ fontSize: '12px', color: colors.textSecondary, lineHeight: 1.5 }}>{session.description}</div>}
-        {labels && <div style={{ fontSize: '11px', color: colors.textTertiary, marginTop: '4px' }}>Collects: {labels}</div>}
+        {session.description && <div style={{ fontSize: '12.5px', color: colors.textSecondary, lineHeight: 1.45 }}>{session.description}</div>}
       </div>
       <style>{`@keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }`}</style>
-    </div>
-  );
-}
-
-function TypingIndicator() {
-  return (
-    <div style={{ display: 'flex', gap: '18px', marginBottom: '24px' }}>
-      <GraceAvatar />
-      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '14px 0' }}>
-        {[0, 0.2, 0.4].map((d, i) => (
-          <div key={i} style={{ width: '6px', height: '6px', borderRadius: '50%', background: colors.tan, animation: `typingPulse 1.4s ease-in-out ${d}s infinite` }} />
-        ))}
-        <style>{`@keyframes typingPulse { 0%, 80%, 100% { opacity: 0.3; } 40% { opacity: 1; } }`}</style>
-      </div>
-    </div>
-  );
-}
-
-function CompletedChunkCard({ chunkNumber, subjectName, relationship }) {
-  return (
-    <div style={{
-      background: colors.creamLight, border: `0.5px solid ${colors.border}`, borderRadius: '12px',
-      padding: '14px 18px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '12px',
-    }}>
-      <div style={{ width: '18px', height: '18px', borderRadius: '50%', background: colors.olive, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-        <svg width="10" height="10" viewBox="0 0 10 10"><path d="M2.5 5l1.5 1.5L7.5 3" stroke="white" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
-      </div>
-      <div style={{ fontFamily: fonts.serif, fontSize: '14px', color: colors.textSecondary }}>
-        {getChunkLabel(chunkNumber, subjectName, relationship)}
-      </div>
     </div>
   );
 }
