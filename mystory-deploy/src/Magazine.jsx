@@ -52,16 +52,15 @@ const fonts = {
 // ============================================================
 // Chunks — same seven as the arc product; 5 and 7 mean something new
 // ============================================================
+// Five short parts. The buyer should be done in eight to ten messages.
 const CHUNKS = {
   1: { name: 'welcome', label: 'Welcome' },
-  2: { name: 'masthead', label: 'The masthead' },
-  3: { name: 'about_subject', label: 'About your mom' },
-  4: { name: 'sensitivities', label: 'Sensitivities' },
-  5: { name: 'pages', label: 'The pages' },
-  6: { name: 'logistics', label: 'Logistics' },
-  7: { name: 'issue', label: 'Your issue' },
+  2: { name: 'basics', label: 'The basics' },
+  3: { name: 'care', label: 'Care' },
+  4: { name: 'pages', label: 'The pages' },
+  5: { name: 'plan', label: 'The plan' },
 };
-const TOTAL_CHUNKS = 7;
+const TOTAL_CHUNKS = 5;
 const TOTAL_SESSIONS = 4;
 
 // The departments of every issue. Order = contents-page order. Titles are
@@ -140,12 +139,12 @@ function activeDepartments(project) {
 }
 
 function getChunkLabel(chunkNumber, subjectName, relationship) {
-  if (chunkNumber === 3) {
-    if (relationship) return `About your ${relationship}`;
-    if (subjectName) return `About ${subjectName}`;
-    return 'About your loved one';
+  if (chunkNumber === 2) {
+    if (subjectName) return `The name, and ${subjectName}`;
+    if (relationship) return `The name, and your ${relationship}`;
+    return 'The name, and her';
   }
-  return CHUNKS[chunkNumber].label;
+  return CHUNKS[chunkNumber]?.label || `Part ${chunkNumber}`;
 }
 
 // ============================================================
@@ -155,7 +154,7 @@ const CHUNK_1_WELCOME = (buyerName) => [
   { type: 'heading', text: `Hello, ${buyerName || 'there'}. I'm Grace, and I'm going to be your editor.` },
   { type: 'paragraph', text: "Here's the idea. Your family is getting its own magazine — one issue, about one person, made by you. A real one: a cover photograph, a contents page, a big story, a page of the things she always says, the pictures from the shoebox with the stories behind them. The kind of thing that sits on the coffee table at Thanksgiving and gets passed around." },
   { type: 'paragraph', text: "You're the publisher. You decide what goes in it and what it's called. I'll keep you organized, I'll help you figure out what to ask, and when you bring back a recording, I'll write it up — in her words, not mine — and you can change anything you don't like." },
-  { type: 'paragraph', text: "Nothing today is hard. We'll name the magazine, I'll get to know her a little, and we'll decide together what pages it should have. Then you go have a few good afternoons with her." },
+  { type: 'paragraph', text: "Nothing today is hard, and it's short: a handful of questions — about eight — so we build your magazine and not a generic one. We'll name it, I'll get to know her a little, and we'll decide what pages it should have. Then you go have a few good afternoons with her." },
   { type: 'paragraph', text: "So — what should we call it?" },
 ];
 
@@ -876,7 +875,7 @@ function GettingStarted({ project, onProjectUpdate, onReturnToDashboard, onOpenG
             setKickstartChunk(firstIncomplete.chunk_number);
           }
         } else if (chunks.length > 0) {
-          setCurrentChunk(7);
+          setCurrentChunk(TOTAL_CHUNKS);
           setHasStarted(true);
           setAllComplete(true);
         }
@@ -934,9 +933,11 @@ function GettingStarted({ project, onProjectUpdate, onReturnToDashboard, onOpenG
       if (userMessage) {
         history.push({ role: 'user', content: userMessage });
       } else {
+        // A new part is starting and the buyer hasn't typed anything yet.
+        // Phrase this so Grace speaks to the buyer, never about the note.
         history.push({
           role: 'user',
-          content: `[System: The buyer has just started chunk ${chunkNumber}. Begin this chunk with the framing opener described in your instructions.]`,
+          content: `(The buyer is ready for the next part. Speak to them directly — ask this part's opening question now, in one plain message. Do not mention this note, parts, or what you are waiting for.)`,
         });
       }
 
@@ -1050,6 +1051,47 @@ function GettingStarted({ project, onProjectUpdate, onReturnToDashboard, onOpenG
     await sendToGrace(message, currentChunk);
   };
 
+  // Wipe this conversation and everything Grace learned from it, so the
+  // buyer can begin again from the welcome. Sessions and photographs are
+  // untouched; this only resets Getting Started.
+  const handleStartOver = async () => {
+    if (loading) return;
+    const ok = window.confirm('Start Getting Started over from the beginning? Everything Grace learned in this conversation will be cleared.');
+    if (!ok) return;
+    setLoading(true);
+    try {
+      await supabase.from('interview_messages').delete().eq('project_id', project.id);
+      await supabase.from('interview_orientation_chunks').delete().eq('project_id', project.id);
+      const cleared = {
+        issue_title: null, buyer_relationship: null, buyer_motivation: null,
+        subject_name: null, subject_age: null, subject_living_situation: null,
+        subject_communication_style: null, subject_one_thing_to_know: null,
+        sensitivities: null, hopes_territory: null, has_photos: null,
+        departments: {}, department_titles: {}, custom_departments: [], feature_candidates: [],
+        logistics_format: null, logistics_cadence: null, logistics_first_conversation: null,
+        logistics_setting: null, logistics_others: null, logistics_bring_photos: null,
+        issue_plan: null, feature_title: null, interviewer_guides: null,
+        getting_started_complete: false, current_step: null,
+      };
+      await supabase.from('interview_projects').update(cleared).eq('id', project.id);
+      const fresh = { ...currentProject, ...cleared };
+      setCurrentProject(fresh);
+      onProjectUpdate(fresh);
+      setMessagesSafe([]);
+      setChunkStatuses({});
+      setCurrentChunk(1);
+      setHasStarted(false);
+      setAwaitingContinue(null);
+      setAllComplete(false);
+      setError('');
+    } catch (err) {
+      console.error('Start over failed:', err);
+      setError("We couldn't reset just now. Try again in a moment.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSkip = async () => {
     if (loading) return;
     await sendToGrace('[The buyer wants to skip this. Acknowledge gently and move on.]', currentChunk);
@@ -1077,11 +1119,22 @@ function GettingStarted({ project, onProjectUpdate, onReturnToDashboard, onOpenG
           <Header onBack={onReturnToDashboard} backLabel={hasStarted ? '← Save & exit' : '← Dashboard'} />
 
           <div style={{ padding: '16px 24px', background: colors.creamLight, borderBottom: `0.5px solid ${colors.border}` }}>
-            <div style={{ marginBottom: '12px' }}>
-              <div style={{ fontSize: '11px', color: colors.textTertiary, letterSpacing: '0.8px', textTransform: 'uppercase', marginBottom: '3px' }}>
-                Before the sessions
+            <div style={{ marginBottom: '12px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+              <div>
+                <div style={{ fontSize: '11px', color: colors.textTertiary, letterSpacing: '0.8px', textTransform: 'uppercase', marginBottom: '3px' }}>
+                  Before the first afternoon
+                </div>
+                <div style={{ fontFamily: fonts.serif, fontSize: '16px', fontWeight: 500 }}>Getting started</div>
               </div>
-              <div style={{ fontFamily: fonts.serif, fontSize: '16px', fontWeight: 500 }}>Getting started</div>
+              {hasStarted && (
+                <button onClick={handleStartOver} disabled={loading} style={{
+                  fontSize: '12px', padding: '6px 12px', background: 'transparent',
+                  border: `0.5px solid ${colors.border}`, borderRadius: '999px',
+                  cursor: loading ? 'not-allowed' : 'pointer', color: colors.textSecondary, fontFamily: 'inherit',
+                }}>
+                  Start over
+                </button>
+              )}
             </div>
             <NamedChunkIndicator current={currentChunk} statuses={chunkStatuses} subjectName={subjectName} relationship={relationship} />
           </div>
@@ -1173,7 +1226,7 @@ function ConversationArea({
 
   return (
     <div>
-      {[1, 2, 3, 4, 5, 6].filter(n => chunkStatuses[n] === 'complete' && n !== currentChunk).map(n => (
+      {[1, 2, 3, 4].filter(n => chunkStatuses[n] === 'complete' && n !== currentChunk).map(n => (
         <CompletedChunkCard key={n} chunkNumber={n} subjectName={subjectName} relationship={relationship} />
       ))}
 
@@ -1184,8 +1237,8 @@ function ConversationArea({
 
       {currentChunkMessages.map((msg, i) => <Message key={msg.id || i} message={msg} />)}
 
-      {/* Session cards — rendered when the issue plan has been proposed (chunk 7) */}
-      {currentChunk === 7 && plan?.sessions?.length > 0 && (
+      {/* Session cards — rendered when the issue plan has been proposed (last part) */}
+      {currentChunk === TOTAL_CHUNKS && plan?.sessions?.length > 0 && (
         <div style={{ marginLeft: '54px', marginBottom: '24px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {plan.sessions.map((s, i) => <SessionRevealCard key={s.number || i} session={s} index={i} />)}
         </div>
@@ -1295,12 +1348,10 @@ function ConversationArea({
 function NamedChunkIndicator({ current, statuses, subjectName, relationship }) {
   const stepLabels = [
     { num: 1, label: 'Welcome' },
-    { num: 2, label: 'The name' },
-    { num: 3, label: relationship ? `Your ${relationship}` : (subjectName || 'Your mom') },
-    { num: 4, label: 'Sensitivities' },
-    { num: 5, label: 'The pages' },
-    { num: 6, label: 'Logistics' },
-    { num: 7, label: 'Your sessions' },
+    { num: 2, label: relationship ? `The name & your ${relationship}` : (subjectName ? `The name & ${subjectName}` : 'The name & her') },
+    { num: 3, label: 'Care' },
+    { num: 4, label: 'The pages' },
+    { num: 5, label: 'The plan' },
   ];
   return (
     <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
@@ -1373,18 +1424,18 @@ function ContentsPanel({ project, currentChunk }) {
         </div>
       </div>
 
-      <PanelSection title={`About ${project.subject_name || 'them'}`} active={currentChunk === 3}>
+      <PanelSection title={`About ${project.subject_name || 'them'}`} active={currentChunk === 2}>
         <PanelField label="Name" value={project.subject_name} />
         <PanelField label="Age" value={project.subject_age} />
         <PanelField label="Lives" value={project.subject_living_situation} />
         <PanelField label="How they talk" value={project.subject_communication_style} multiline />
       </PanelSection>
 
-      <PanelSection title="Sensitivities" active={currentChunk === 4}>
+      <PanelSection title="Care" active={currentChunk === 3}>
         <PanelField label="What to avoid" value={project.sensitivities} multiline />
       </PanelSection>
 
-      <PanelSection title="Contents" active={currentChunk === 5}>
+      <PanelSection title="Contents" active={currentChunk === 4}>
         {departments.map(d => (
           <div key={d.id} style={{ fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{
@@ -1415,7 +1466,7 @@ function ContentsPanel({ project, currentChunk }) {
       </PanelSection>
 
       {(project.logistics_format || project.logistics_cadence || project.logistics_first_conversation || project.logistics_setting) && (
-        <PanelSection title="How we'll do this" active={currentChunk === 6}>
+        <PanelSection title="How we'll do this" active={currentChunk === 5}>
           <PanelField label="Format" value={project.logistics_format} />
           <PanelField label="Cadence" value={project.logistics_cadence} />
           <PanelField label="First one" value={project.logistics_first_conversation} />
@@ -1423,15 +1474,15 @@ function ContentsPanel({ project, currentChunk }) {
           <PanelField label="Bring the box" value={project.logistics_bring_photos} />
         </PanelSection>
       )}
-      {currentChunk === 6 && !project.logistics_format && (
+      {currentChunk === 5 && !project.logistics_format && !project.issue_plan && (
         <PanelSection title="How we'll do this" active>
           <div style={{ fontSize: '12px', color: colors.textTertiary, fontStyle: 'italic', lineHeight: 1.5 }}>
-            Optional — we can plan logistics here or you can figure it out later.
+            Optional — when, where, and who. Skip it if you'd rather figure that out yourself.
           </div>
         </PanelSection>
       )}
 
-      <PanelSection title="The sessions" active={currentChunk === 7}>
+      <PanelSection title="The afternoons" active={currentChunk === 5}>
         {(project.issue_plan?.sessions?.length > 0
           ? project.issue_plan.sessions.map(s => ({ num: s.number, title: s.title, filled: true }))
           : [1, 2, 3, 4].map(n => ({ num: n, title: DEFAULT_SESSION_TITLES[n], filled: false }))
