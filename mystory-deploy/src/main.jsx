@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App.jsx'
 import Interview from './Interview.jsx'
+import Magazine from './Magazine.jsx'
 import { Analytics } from '@vercel/analytics/react'
 
 if ('scrollRestoration' in history) {
@@ -9,7 +10,11 @@ if ('scrollRestoration' in history) {
 }
 
 const path = window.location.pathname
-const RootComponent = path.startsWith('/interview') ? Interview : App
+const RootComponent = path.startsWith('/magazine')
+  ? Magazine
+  : path.startsWith('/interview')
+  ? Interview
+  : App
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
