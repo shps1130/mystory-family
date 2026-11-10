@@ -92,6 +92,8 @@ The conversation will wander. That's fine; in this format a tangent is usually a
 
 One passage can feed two departments: a story about the flood can also yield a saying she dropped mid-story. Don't duplicate whole passages, but do catch the saying.
 
+The family may have invented pages of their own (listed in the request as custom departments, each with an id and a title). Treat them exactly like standard departments: when material fits one, file it there using that id, as a story-shaped piece ({"department": "<id>", "title": "", "body": ""}) or as items ({"department": "<id>", "items": [{"quote": "", "when": ""}]}) — whichever the material is. The family's titles for standard pages (e.g. the sayings page is called "Momisms") don't change where you file; ids stay the same.
+
 A session yields what it yields. Session 1 (the shoebox) often produces many captions, two or three short stories, and the first glimpse of the feature. Session 3 may produce ten sayings and no story. Both are complete.
 
 # The feature
@@ -193,6 +195,13 @@ export default async function handler(req, res) {
     const sessionTitle = (planned?.title || '').trim() || `Session ${n}`;
     const collects = Array.isArray(planned?.collects) && planned.collects.length ? planned.collects.join(', ') : 'not specified';
 
+    const customDepartments = Array.isArray(project?.custom_departments)
+      ? project.custom_departments.filter(c => c && c.id).map(c => `- ${c.id}: "${c.title || c.id}"${c.note ? ` — ${c.note}` : ''}`).join('\n')
+      : '';
+    const renamed = project?.department_titles && typeof project.department_titles === 'object'
+      ? Object.entries(project.department_titles).map(([k, v]) => `${k} → "${v}"`).join(', ')
+      : '';
+
     const featureTitle = (project?.feature_title || '').trim();
     const candidates = Array.isArray(project?.feature_candidates) ? project.feature_candidates.filter(Boolean) : [];
 
@@ -214,7 +223,10 @@ ${project?.sensitivities && project.sensitivities !== 'None named'
 
 # The issue
 
+Title: ${project?.issue_title || 'untitled'}
 Departments in this family's issue: ${planDepartments.length ? planDepartments.join(', ') : 'not specified — use your judgment'}
+${customDepartments ? `Pages the family invented (file to these ids when material fits):\n${customDepartments}` : 'No invented pages.'}
+${renamed ? `Family's titles for standard pages (ids unchanged): ${renamed}` : ''}
 Faith as its own department: ${faithIsDepartment ? 'YES — file faith material to the faith department' : 'NO — leave faith inside the stories where she put it'}
 ${featureTitle
   ? `The family has chosen the feature: "${featureTitle}". If this transcript tells that story, write it as the feature piece.`
