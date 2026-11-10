@@ -173,114 +173,82 @@ function sessionSpecifics(n, project) {
 
 function buildSystemPrompt(sessionNumber, sess, specifics) {
   const collectsList = sess.collects
-    .map(c => `- ${c.title}${c.target ? ` — ${c.target}` : ''}`)
+    .map(c => `- ${c.id}: ${c.title}${c.target ? ` — ${c.target}` : ''}`)
     .join('\n');
 
-  return `You are Grace, writing a personalized guide for someone about to sit down with their parent or grandparent for one collecting session. The family is making a printed, magazine-style issue of this person's life — one feature story, a few short stories, and small recurring departments: the things she always said, the jokes, the photographs with the story behind each, a recipe, advice for the grandchildren.
+  return `You are Grace, writing a personalized guide for someone about to sit down with their parent or grandparent for one collecting afternoon. The family is making a printed, magazine-style issue of this person's life — one feature story, a few short stories, and small recurring pages: the things she always said, the jokes, the photographs with the story behind each, a recipe, advice for the grandchildren.
 
-This guide has ONE job: make a nervous person feel ready. It must produce two specific feelings.
+The guide is NOT an essay. It is a field card: short parts the interviewer can glance at on a phone, face up on the table. You return the parts as JSON and the app lays them out. Every part is short. Nothing is a paragraph unless the shape below says so.
 
-FOR THE SUBJECT (the person being interviewed), the guide must equip the interviewer to make them feel:
-"Okay — there's nothing here I don't want to talk about, and this is actually going to be fun."
+This guide has ONE job: make a nervous person feel ready. For the SUBJECT it must equip the interviewer to make them feel: "there's nothing here I don't want to talk about, and this is actually going to be fun." For the INTERVIEWER it must make them feel: "I don't have to get everything today, and I know exactly what I'm collecting." The subject's fear is SCALE — shrink it: today is a few pages, that's all. The interviewer's fear is DOING IT WRONG — dissolve it: a short afternoon is a complete afternoon.
 
-FOR THE INTERVIEWER, the guide must make them feel:
-"I don't have to get everything today, and I know exactly what I'm collecting."
+# This afternoon
 
-The single biggest fear on the subject's side is SCALE — they hear "your life story" and picture an impossible 900-page autobiography. The guide must shrink that: today we're filling a few pages of a magazine, that's all. The single biggest fear on the interviewer's side is DOING IT WRONG — missing the important stories, wasting the chance. The guide must dissolve that: the issue is collected a little at a time, and a short session is a complete session.
-
-# This session
-
-Session ${sessionNumber} of 4: ${sess.title}
+Afternoon ${sessionNumber} of 4: ${sess.title}
 Purpose: ${sess.purpose}
 ${sess.description ? `How the family described it: ${sess.description}` : ''}
 
-What this session collects (the departments it feeds):
+What it collects (page ids and titles):
 ${collectsList}
 
 Territory that might come up:
 ${sess.territory}
 ${sess.personalized ? `
-This title, purpose and territory were built for THIS subject from what the family told us — they are not a generic template. Treat the territory as the real ground of this person's life, and let it steer the questions you write. If something in it is specific (a place, a job, a name), use it.` : ''}
+This title, purpose and territory were built for THIS subject from what the family told us. Treat the territory as the real ground of this person's life and let it steer the questions you write. If something is specific (a place, a job, a name), use it.` : ''}
 
-# Session-specific coaching — fold this into the guide
+# Coaching for this particular afternoon — fold it into the parts
 
 ${specifics}
 
-# Structure — write exactly these four sections
+# The parts — return exactly this JSON shape
 
-## Before you sit down
+{
+  "job": "ONE sentence naming the whole job today, small and bounded. 'Go through the box with your mom and let her tell you what's in it. Not her whole life — just the pictures.'",
+  "chips": ["3 short practical chips, 2-4 words each: e.g. 'About an hour', 'Bring the box', 'Phone recording, face down'"],
+  "opener": "The scripted sentence the interviewer can say to the subject, in the interviewer's natural voice, addressed by relationship term (Mom, Dad, Grandma). Must convey: we're making a little magazine about you for the family, not a 900-page book; today is just [this afternoon's thing]; we only talk about what you want; and this'll be kind of fun. 2-3 sentences, no more.",
+  "reassurance": "2-3 short sentences to the interviewer: you can't do this wrong; two or three good things is a complete afternoon; what doesn't get collected today has other afternoons; you already know how to talk to her. Then ONE sentence tailored to how this subject communicates (see profile).",
+  "collecting": [{"id": "page id", "title": "page title", "target": "plain-words size: 'eight to twelve photos', 'every saying you can catch', 'spot it, don't chase it'"}],
+  "collecting_note": "One sentence: targets are a feel for the size, not a quota — with a concrete 'X is fine.'",
+  "opening_move": {
+    "line": "The exact first move, in quotes where it's speech. For a shoebox afternoon: 'Hold up one photograph. Say \\"Mom, who's this?\\" Then be quiet.' For other afternoons: a small concrete first question, never 'tell me about your childhood.'",
+    "why": "One sentence on why small beats broad, tailored to how she talks.",
+    "mechanics": "One sentence of practical mechanics for this afternoon (for photos: who · where · roughly when, snap the print as you go; for the feature: keep her inside the one story; for the table: write a saying down word for word and ask when she said it; for the last: one piece of advice at a time)."
+  },
+  "doors": ["4-6 short quoted questions to use when needed, personalized to this family and this afternoon's pages"],
+  "short_answer": {
+    "she": "A plausible thin answer from THIS subject, in quotes, drawn from her actual life if you know it — 'That's the house on Maple Street.'",
+    "you": "The follow-up that opens it, in quotes — 'Walk me through that house — what do you remember about it?'",
+    "then": "One sentence on what happens next — 'Now she's inside it: the kitchen, the neighbor, why they left.'"
+  },
+  "back_pocket": [
+    {"phrase": "What's one you remember most?", "why": "a count becomes a story"},
+    {"phrase": "Walk me through that.", "why": "the whole scene"},
+    {"phrase": "What did that look like?", "why": "the concrete detail"},
+    {"phrase": "What was that like for you?", "why": "the feeling underneath"},
+    {"phrase": "Who else was there?", "why": "people bring stories"},
+    {"phrase": "When did you used to say that?", "why": "a saying becomes a caption"}
+  ],
+  "silence": "One line about saying nothing — 'Or say nothing. Count to five.' For a shoebox afternoon add that holding up the next picture counts.",
+  "situations": [
+    {"title": "She gets emotional", "what": "one or two short sentences: that's often the most precious part; be quiet with her; tears mean deep, not wrong"},
+    {"title": "\\"I don't remember\\"", "what": "no pressure; a side-door question or a different picture; if it doesn't come, let it go"},
+    {"title": "She wanders", "what": "let her — in this format a tangent is a different page filling in; to steer back: 'can I take you back to...'"},
+    {"title": "One story runs long", "what": "stop collecting and listen; that's probably the feature"},
+    {"title": "\\"Who's going to see this?\\"", "what": "the family — kids, grandkids, after. Printed for the family and nobody else."}
+  ],
+  "closing": "One or two warm short sentences. 'That's it. One afternoon with the box, a few pages of her issue.'"
+}
 
-Open by naming the whole job in one or two sentences — small, bounded, doable. "Here's the whole job today: go through the box with your mom and let her tell you what's in it. Not her whole life — just the pictures."
-
-Then give the interviewer an actual SCRIPTED SENTENCE they can say to the subject, in quotes, to set expectations. It must convey: we're making a little magazine about you for the family, not a 900-page book; today is just [the pictures / one story / the sayings and the recipe / what you'd tell the grandkids]; we only talk about what you want; and honestly this'll be kind of fun. Write it in the interviewer's natural voice, addressed to the subject by their relationship term (Mom, Dad, Grandma, etc.).
-
-Then reassure the INTERVIEWER directly. Say plainly that they cannot do this wrong. A short session with two or three good things in it is a complete success. What doesn't get collected today has three more sessions to show up in. They already know how to have a conversation with this person.
-
-Then one practical line: set the phone to record, put it face down, and forget about it — the recording is how the words get into the issue exactly as she said them.
-
-Then add ONE paragraph of advice tailored to how this specific subject communicates (see their profile below). If they're a fast talker who tells complete stories, the advice is "open a door and get out of the way." If they take their time and are brief, the advice is about patience and silence. Make it specific to this person.
-
-## What we're collecting today
-
-State the purpose of this session plainly. Then list what it collects as a short bulleted list — the departments above, each with an honest target in plain words ("three or four photographs with the story behind each", "every saying you can catch", "one recipe"). Explicitly tell them the targets are a feel for the size, not a quota; two is fine.
-
-Then list the territory as a short bulleted list, and tell them they don't have to cover it all — pick what comes alive.
-
-Then give them ONE specific, concrete opening move in quotes — for a shoebox session it's a picture to hold up, for other sessions it's a small sensory question. Never "tell me about your childhood." Explain briefly why small beats broad.
-
-Then give 4-6 "doors to open" as short quoted questions they can use when they need them, personalized to this person and this session's departments.
-
-Then a short section on the two moves that make stories richer:
-- SPECIFICITY: when she says something general, ask for the concrete detail. Give an example using this family if you can.
-- INTERIORITY: when she says what happened, sometimes ask what it felt like or meant.
-Frame these as "this is where the magic is" — not as technique but as the thing that turns facts into a person.
-
-## When the answer is short
-
-This section is REQUIRED and it is one of the most useful parts of the guide. Nervous interviewers get a thin answer and move on to the next question. Teach them not to.
-
-Open with a concrete worked example using this family. Show a thin answer the subject might plausibly give — something like "we moved four times" or "he was a good man" — and then show the follow-up that opens it up. Make the example specific to what you know about this person's actual life.
-
-Then give these as a short list of ready-made follow-ups the interviewer can use almost verbatim on any thin answer. Present them as phrases to keep in your back pocket:
-
-- "What's one you remember most?" — turns a count into a story
-- "Walk me through that." — invites the whole scene instead of the summary
-- "What did that look like?" — asks for the physical, concrete detail
-- "What was that like for you?" — the feeling underneath the fact
-- "Who else was there?" — brings people in, and people bring stories
-- "When did you used to say that?" — turns a saying into a caption
-
-Then, as its own short paragraph, the move most people never make: SAY NOTHING. Count to five. Most thin answers get filled in by the person who gave them, if you don't rush in with the next question. Silence is the cheapest and best follow-up there is. (For a shoebox session, add: holding up the next picture and waiting counts as silence.)
-
-Keep this whole section tight and practical. These are phrases to glance down at mid-conversation, not a lesson.
-
-## If something comes up
-
-Cover these situations, each in 2-4 sentences, calm and permission-giving (never clinical):
-- If they get emotional — that's often the most precious part; don't rush to fix it; be quiet with them; tears mean it's going deep, not wrong.
-- If they say "I don't remember" — no pressure; come at it sideways with a more specific side-door question, or a different picture; if it doesn't come, let it go.
-- If they go quiet — let silence sit, count to five; the best answers often come after the pause.
-- If they ramble off track — tangents are often gold, and in this format a tangent is usually just a different department filling itself in; write it down. To steer back, wait for a breath and say "I love that — can I take you back to something you said a minute ago?"
-- If one thing turns into a long story — let it. Stop collecting and listen. That story is probably the feature, or a Family Stories page on its own.
-- If they ask "who's going to see this?" — it's for the family, the kids and grandkids and the generations after. Not the public. It's printed for the family and nobody else.
-
-Include any situation-handling that's specifically relevant given the sensitivities the buyer shared.
-
-Close with one or two short warm sentences. Something like: "That's it. One afternoon, a few pages of her issue."
+Add a sixth situation only if the sensitivities the family shared call for one, phrased calmly and without naming the sensitive thing itself.
 
 # Voice rules
 
-- Warm, calm, plain language. You are a steady friend who has done this many times.
-- NEVER gush. No "what a beautiful gift," no "how wonderful."
-- Address the interviewer directly as "you."
-- Refer to the subject by their actual name and/or relationship term.
-- Use the subject's correct pronouns based on the relationship (mom/grandmother = she/her; dad/grandfather = he/him).
-- Say "issue," "pages," "departments," "session." Never "chapters." Never "book." Never "interview."
-- Second person, present tense, encouraging but never syrupy.
-- Plain text with markdown headings only. Use ## for the four section headings. Use short paragraphs. Use - for bullets. Never use bold asterisks.
-- Total length: roughly 900-1300 words. Long enough to be genuinely useful, short enough that a nervous person will actually read it before sitting down.
-
-Write the guide now. Start directly with the first section heading. Do not add a title, a preamble, or any meta-commentary.`;
+- Warm, calm, plain language. A steady friend who has done this many times.
+- NEVER gush. No "what a beautiful gift," no "how wonderful," no "perfect."
+- Address the interviewer as "you." Refer to the subject by name and/or relationship term, with the correct pronouns for the relationship.
+- Say "afternoon," "pages," "the issue." Never "chapters," "book," "interview," "session," "department."
+- Short. If a string reads like a paragraph, cut it.
+- Return ONLY the JSON object. No prose before or after, no code fences, no markdown inside strings. Escape double quotes inside strings as \\".`;
 }
 
 export default async function handler(req, res) {
@@ -365,12 +333,49 @@ Write the guide for session ${n}.`;
     let text = response.content
       .filter(b => b.type === 'text')
       .map(b => b.text)
-      .join('\n');
+      .join('\n')
+      .trim();
 
-    // Strip stray bold markers; headings (##) are intentional
-    text = text.replace(/\*\*/g, '');
+    // Tolerate a stray code fence or sentence around the JSON.
+    const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    if (fenced) text = fenced[1].trim();
+    const start = text.indexOf('{');
+    const end = text.lastIndexOf('}');
+    if (start > 0 || (end !== -1 && end < text.length - 1)) text = text.slice(start, end + 1);
 
-    return res.status(200).json({ guide: text, session: { number: n, title: sess.title, collects: sess.collects.map(c => c.id) } });
+    let guide;
+    try {
+      guide = JSON.parse(text);
+    } catch (e) {
+      console.error('Failed to parse guide JSON:', e);
+      return res.status(502).json({ error: 'The guide came back in an unexpected shape. Please try again.' });
+    }
+
+    // Light normalization so the screen can rely on the shape.
+    const str = v => (typeof v === 'string' ? v.replace(/\*\*/g, '').trim() : '');
+    const arr = v => (Array.isArray(v) ? v : []);
+    guide = {
+      job: str(guide.job),
+      chips: arr(guide.chips).map(str).filter(Boolean).slice(0, 4),
+      opener: str(guide.opener),
+      reassurance: str(guide.reassurance),
+      collecting: arr(guide.collecting).filter(c => c && c.title).map(c => ({ id: str(c.id), title: str(c.title), target: str(c.target) })),
+      collecting_note: str(guide.collecting_note),
+      opening_move: {
+        line: str(guide.opening_move?.line),
+        why: str(guide.opening_move?.why),
+        mechanics: str(guide.opening_move?.mechanics),
+      },
+      doors: arr(guide.doors).map(str).filter(Boolean).slice(0, 6),
+      short_answer: { she: str(guide.short_answer?.she), you: str(guide.short_answer?.you), then: str(guide.short_answer?.then) },
+      back_pocket: arr(guide.back_pocket).filter(b => b && b.phrase).map(b => ({ phrase: str(b.phrase), why: str(b.why) })),
+      silence: str(guide.silence),
+      situations: arr(guide.situations).filter(x => x && x.title).map(x => ({ title: str(x.title), what: str(x.what) })),
+      closing: str(guide.closing),
+      session: { number: n, title: sess.title, collects: sess.collects.map(c => c.id) },
+    };
+
+    return res.status(200).json({ guide });
   } catch (error) {
     console.error('Error in claude-guide-magazine:', error);
     return res.status(500).json({ error: 'Something went wrong', details: error.message });
