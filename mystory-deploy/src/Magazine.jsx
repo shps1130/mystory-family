@@ -287,10 +287,12 @@ export default function Magazine() {
 
   if (view === 'capture') {
     return (
-      <ComingNext
-        title={`Capture session ${activeSession}: ${sessionTitle(project, activeSession)}`}
-        body="This is where you'll add the photographs you snapped, upload the recording or paste the transcript, and Grace will file the pieces into the issue. It's the next part of the build."
+      <CaptureSession
+        project={project}
+        sessionNumber={activeSession}
+        onProjectUpdate={setProject}
         onReturnToDashboard={() => setView('dashboard')}
+        onOpenGuide={(n) => openSession(n, 'guide')}
       />
     );
   }
@@ -1973,6 +1975,601 @@ function GuideText({ text }) {
         );
         return <p key={i} style={{ fontSize: '15.5px', lineHeight: 1.75, color: colors.text, margin: '0 0 14px' }}>{b.text}</p>;
       })}
+    </div>
+  );
+}
+
+// ============================================================
+// After the afternoon: bring in the recording → Grace files the pieces →
+// review page by page → approve → (after afternoon 1) choose the feature.
+// ============================================================
+const AUDIO_BUCKET = 'conversation-audio';
+const PHOTO_BUCKET = 'session-photos';
+
+function pieceCount(p) {
+  if (!p) return 0;
+  if (Array.isArray(p.items)) return p.items.length;
+  return 1;
+}
+
+function CaptureSession({ project, sessionNumber, onProjectUpdate, onReturnToDashboard, onOpenGuide }) {
+  const [stage, setStage] = useState('loading'); // loading | bring | filing | review | feature
+  const [row, setRow] = useState(null);
+  const [photos, setPhotos] = useState([]);
+  const [photoUrls, setPhotoUrls] = useState({});
+  const [draft, setDraft] = useState(null);
+  const [error, setError] = useState('');
+  const [progress, setProgress] = useState('');
+  const title = sessionTitle(project, sessionNumber);
+  const S = subjectPronoun(project.buyer_relationship);
+  const sheIs = S === 'He' ? 'he' : S === 'They' ? 'they' : 'she';
+  const herHis = S === 'He' ? 'his' : S === 'They' ? 'their' : 'her';
+  const subject = project.subject_name || (S === 'He' ? 'him' : S === 'They' ? 'them' : 'her');
+
+  // Load the afternoon's row and its photos.
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      const { data: s } = await supabase
+        .from('interview_sessions')
+        .select('*')
+        .eq('project_id', project.id)
+        .eq('session_number', sessionNumber)
+        .maybeSingle();
+      const { data: p } = await supabase
+        .from('interview_photos')
+        .select('*')
+        .eq('project_id', project.id)
+        .eq('session_number', sessionNumber)
+        .order('sort_order', { ascending: true })
+        .order('created_at', { ascending: true });
+      if (cancelled) return;
+      setRow(s || null);
+      setPhotos(p || []);
+      if (p && p.length) {
+        const { data: signed } = await supabase.storage.from(PHOTO_BUCKET).createSignedUrls(p.map(x => x.storage_path), 3600);
+        if (!cancelled && signed) {
+          const map = {};
+          signed.forEach((x, i) => { if (x?.signedUrl) map[p[i].id] = x.signedUrl; });
+          setPhotoUrls(map);
+        }
+      }
+      if (s?.pieces) {
+        setDraft(s.pieces);
+        setStage(s.approved && sessionNumber === 1 && !project.feature_title ? 'feature' : 'review');
+      } else {
+        setStage('bring');
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [project.id, sessionNumber]);
+
+  const ensureRow = async (updates = {}) => {
+    const { data, error: err } = await supabase
+      .from('interview_sessions')
+      .upsert({ project_id: project.id, session_number: sessionNumber, title, ...updates }, { onConflict: 'project_id,session_number' })
+      .select('*')
+      .single();
+    if (err) throw err;
+    setRow(data);
+    return data;
+  };
+
+  // ---- Bring in the recording ------------------------------------------
+  const fileIt = async ({ audioFile, pastedText, recordedOn, recordedWhere, othersPresent }) => {
+    setError('');
+    setStage('filing');
+    try {
+      let transcript = (pastedText || '').trim();
+      let audioPath = null;
+
+      if (audioFile) {
+        setProgress('Uploading the recording…');
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error('Not signed in');
+        const ext = (audioFile.name.split('.').pop() || 'm4a').toLowerCase();
+        audioPath = `${user.id}/${project.id}-mag${sessionNumber}-${Date.now()}.${ext}`;
+        const { error: upErr } = await supabase.storage.from(AUDIO_BUCKET).upload(audioPath, audioFile, { upsert: true, contentType: audioFile.type || undefined });
+        if (upErr) throw new Error(`Upload failed: ${upErr.message}`);
+
+        setProgress('Listening to the whole thing… this takes a couple of minutes for a long recording.');
+        const { data: signed, error: signErr } = await supabase.storage.from(AUDIO_BUCKET).createSignedUrl(audioPath, 3600);
+        if (signErr || !signed?.signedUrl) throw new Error('Could not prepare the file');
+        const tRes = await fetch('/api/transcribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ audioUrl: signed.signedUrl }),
+        });
+        if (!tRes.ok) {
+          const d = await tRes.json().catch(() => ({}));
+          throw new Error(d.details || d.error || 'Transcription failed');
+        }
+        const tData = await tRes.json();
+        transcript = (tData.transcript || '').trim();
+        if (!transcript) throw new Error('The recording came back empty — check that the file plays back with sound.');
+      }
+
+      if (!transcript) throw new Error('Add the recording or paste what was said.');
+
+      const saved = await ensureRow({
+        transcript,
+        audio_path: audioPath,
+        recorded_on: recordedOn || null,
+        recorded_where: recordedWhere || null,
+        others_present: othersPresent || null,
+      });
+
+      setProgress('Grace is filing the pieces into the pages…');
+      const quickNotes = Array.isArray(saved.quick_notes) ? saved.quick_notes : [];
+      const dRes = await authedFetch('/api/claude-draft-magazine', {
+        transcript,
+        project,
+        sessionNumber,
+        photos: photos.map(p => ({ id: p.id, note: p.note || '' })),
+        quickNotes,
+      });
+      if (!dRes.ok) {
+        const d = await dRes.json().catch(() => ({}));
+        throw new Error(d.error || 'Grace could not file the pieces');
+      }
+      const dData = await dRes.json();
+      const pieces = dData.draft;
+      await supabase.from('interview_sessions').update({ pieces, editor_note: pieces.editor_note || null }).eq('id', saved.id);
+      setRow({ ...saved, pieces, editor_note: pieces.editor_note || null });
+      setDraft(pieces);
+      setStage('review');
+    } catch (e) {
+      console.error('Filing failed:', e);
+      setError(e.message || 'Something went wrong.');
+      setStage('bring');
+    } finally {
+      setProgress('');
+    }
+  };
+
+  // ---- Review -------------------------------------------------------------
+  const saveDraft = async (next) => {
+    if (!row) return;
+    const { error: err } = await supabase.from('interview_sessions').update({ pieces: next }).eq('id', row.id);
+    if (err) { setError("That didn't save. Try again."); return false; }
+    setRow({ ...row, pieces: next });
+    return true;
+  };
+
+  const revise = async (request) => {
+    if (!row?.transcript || !draft) return;
+    setError('');
+    setStage('filing');
+    setProgress('Grace is making that change…');
+    try {
+      const dRes = await authedFetch('/api/claude-draft-magazine', {
+        transcript: row.transcript,
+        project,
+        sessionNumber,
+        photos: photos.map(p => ({ id: p.id, note: p.note || '' })),
+        quickNotes: Array.isArray(row.quick_notes) ? row.quick_notes : [],
+        revisionRequest: request,
+        existingDraft: draft,
+      });
+      if (!dRes.ok) throw new Error('Grace could not make that change');
+      const dData = await dRes.json();
+      const pieces = dData.draft;
+      await supabase.from('interview_sessions').update({ pieces, editor_note: pieces.editor_note || null }).eq('id', row.id);
+      setRow({ ...row, pieces, editor_note: pieces.editor_note || null });
+      setDraft(pieces);
+    } catch (e) {
+      console.error('Revision failed:', e);
+      setError(e.message || 'Something went wrong.');
+    } finally {
+      setProgress('');
+      setStage('review');
+    }
+  };
+
+  const approve = async () => {
+    if (!row || !draft) return;
+    setError('');
+    const ok = await saveDraft(draft);
+    if (!ok) return;
+    // Write shoebox captions back to the photos so the issue can lay them out.
+    const shoebox = draft.pieces.find(p => p.department === 'shoebox');
+    if (shoebox && Array.isArray(shoebox.items)) {
+      for (const it of shoebox.items) {
+        if (!it.photo_id) continue;
+        await supabase.from('interview_photos').update({
+          who: it.who || null, where_taken: it.where || null, when_taken: it.when || null, caption: it.caption || null,
+          is_cover: Boolean(it.is_cover) || undefined,
+        }).eq('id', it.photo_id);
+      }
+    }
+    const { error: err } = await supabase.from('interview_sessions').update({ approved: true, approved_at: new Date().toISOString() }).eq('id', row.id);
+    if (err) { setError("That didn't save. Try again."); return; }
+    setRow({ ...row, approved: true });
+    if (sessionNumber === 1 && !project.feature_title) setStage('feature');
+    else onReturnToDashboard();
+  };
+
+  const chooseFeature = async (name) => {
+    const t = (name || '').trim();
+    if (!t) return;
+    const { error: err } = await supabase.from('interview_projects').update({ feature_title: t, current_step: 'session_2' }).eq('id', project.id);
+    if (err) { setError("That didn't save. Try again."); return; }
+    onProjectUpdate({ ...project, feature_title: t, current_step: 'session_2' });
+    onOpenGuide(2);
+  };
+
+  // ---- Render ----------------------------------------------------------------
+  const sayingsCaught = (row?.quick_notes || []).filter(n => n?.type === 'saying');
+
+  return (
+    <div style={{ minHeight: '100vh', background: colors.cream, fontFamily: fonts.sans, color: colors.text }}>
+      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '20px 16px' }}>
+        <div style={{ background: 'white', borderRadius: '16px', overflow: 'hidden', border: `0.5px solid ${colors.border}` }}>
+          <Header onBack={onReturnToDashboard} rightText={`Afternoon ${sessionNumber} · ${title}`} />
+
+          {stage === 'loading' && <div style={{ padding: '40px 32px', color: colors.textSecondary }}>Loading…</div>}
+
+          {stage === 'bring' && (
+            <BringRecording
+              subject={subject} sheIs={sheIs}
+              photosCount={photos.length} sayings={sayingsCaught}
+              row={row} error={error} onFile={fileIt}
+            />
+          )}
+
+          {stage === 'filing' && (
+            <div style={{ padding: '48px 32px', display: 'flex', gap: '18px', alignItems: 'center' }}>
+              <GraceAvatar size="large" />
+              <div>
+                <div style={{ fontFamily: fonts.serif, fontSize: '20px', fontWeight: 500, marginBottom: '6px' }}>{progress || 'Working…'}</div>
+                <div style={{ fontSize: '14px', color: colors.textSecondary }}>You can leave this page and come back; nothing is lost.</div>
+              </div>
+            </div>
+          )}
+
+          {stage === 'review' && draft && (
+            <ReviewPieces
+              project={project} draft={draft} setDraft={setDraft}
+              photos={photos} photoUrls={photoUrls}
+              approved={Boolean(row?.approved)}
+              error={error}
+              onSave={() => saveDraft(draft)}
+              onRevise={revise}
+              onApprove={approve}
+              onChooseFeature={sessionNumber === 1 ? () => setStage('feature') : null}
+            />
+          )}
+
+          {stage === 'feature' && (
+            <ChooseFeature
+              project={project} draft={draft} subject={subject} herHis={herHis}
+              error={error} onChoose={chooseFeature}
+            />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---- Bring in the recording -------------------------------------------------
+function BringRecording({ subject, sheIs, photosCount, sayings, row, error, onFile }) {
+  const [audioFile, setAudioFile] = useState(null);
+  const [pasted, setPasted] = useState(row?.transcript || '');
+  const [recordedOn, setRecordedOn] = useState(row?.recorded_on || '');
+  const [recordedWhere, setRecordedWhere] = useState(row?.recorded_where || '');
+  const [others, setOthers] = useState(row?.others_present || '');
+  const fileRef = useRef(null);
+  const ready = Boolean(audioFile) || pasted.trim().length > 0;
+
+  return (
+    <div style={{ padding: '28px 32px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+      <GraceSays heading="How did it go? Bring me the recording." text={`I'll listen to the whole thing and file what ${sheIs} said into the pages — ${sheIs === 'they' ? 'their' : sheIs === 'he' ? 'his' : 'her'} words, not mine. You'll read it over before anything goes in the issue.`} />
+
+      {(photosCount > 0 || sayings.length > 0) && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '12px' }}>
+          {photosCount > 0 && (
+            <div style={{ background: colors.creamLight, border: `0.5px solid ${colors.border}`, borderRadius: '12px', padding: '14px 16px' }}>
+              <div style={{ fontSize: '14px', fontWeight: 600 }}>{photosCount} photo{photosCount === 1 ? '' : 's'} snapped at the table</div>
+              <div style={{ fontSize: '12.5px', color: colors.textSecondary }}>Grace will match each one to what {sheIs} said about it.</div>
+            </div>
+          )}
+          {sayings.length > 0 && (
+            <div style={{ background: colors.creamLight, border: `0.5px solid ${colors.border}`, borderRadius: '12px', padding: '14px 16px' }}>
+              <div style={{ fontSize: '14px', fontWeight: 600 }}>{sayings.length} saying{sayings.length === 1 ? '' : 's'} caught, word for word</div>
+              <div style={{ fontSize: '12.5px', color: colors.textSecondary, fontStyle: 'italic' }}>"{sayings[sayings.length - 1].text}"{sayings.length > 1 ? ` and ${sayings.length - 1} more` : ''}</div>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '14px' }}>
+        <div style={{ background: colors.creamWarm, border: `2px solid ${colors.gold}`, borderRadius: '12px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <Eyebrow>The recording</Eyebrow>
+          <input ref={fileRef} type="file" accept="audio/*,.m4a,.mp3,.wav,.aac,.mp4,.mov" onChange={e => setAudioFile(e.target.files?.[0] || null)} style={{ display: 'none' }} aria-label="Choose the recording" />
+          <button onClick={() => fileRef.current?.click()} style={{ border: `2px dashed ${colors.gray}`, borderRadius: '10px', padding: '24px', textAlign: 'center', background: audioFile ? colors.creamLight : 'white', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', minHeight: '44px' }}>
+            {audioFile ? (
+              <>
+                <div style={{ fontSize: '15px', fontWeight: 600, color: colors.text }}>{audioFile.name}</div>
+                <div style={{ fontSize: '12.5px', color: colors.textSecondary }}>{(audioFile.size / (1024 * 1024)).toFixed(1)} MB · tap to choose a different file</div>
+              </>
+            ) : (
+              <>
+                <div style={{ fontSize: '15px', fontWeight: 600, color: colors.text }}>Choose the voice memo</div>
+                <div style={{ fontSize: '12.5px', color: colors.textSecondary }}>m4a, mp3, wav — up to about two hours</div>
+              </>
+            )}
+          </button>
+          <div style={{ fontSize: '12.5px', color: colors.textSecondary, lineHeight: 1.5 }}>From your phone: open Voice Memos, tap share, choose "Save to Files," then pick it here.</div>
+        </div>
+        <div style={{ background: colors.creamLight, border: `0.5px solid ${colors.border}`, borderRadius: '12px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <Eyebrow>Or paste a transcript</Eyebrow>
+          <TextArea value={pasted} onChange={setPasted} rows={5} placeholder="If you already have the words written down, paste them here." />
+          <div style={{ fontSize: '12.5px', color: colors.textSecondary, lineHeight: 1.5 }}>No recording and no notes? Type what you remember {sheIs === 'they' ? 'them' : sheIs === 'he' ? 'him' : 'her'} saying, and Grace will file what's there.</div>
+        </div>
+      </div>
+
+      <Panel>
+        <Eyebrow>For the "how this issue was made" page</Eyebrow>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
+          <div><FieldLabel small htmlFor="cap-when">When</FieldLabel><TextInput id="cap-when" value={recordedOn} onChange={setRecordedOn} placeholder="Nov 8, 2026" /></div>
+          <div><FieldLabel small htmlFor="cap-where">Where</FieldLabel><TextInput id="cap-where" value={recordedWhere} onChange={setRecordedWhere} placeholder="Her kitchen table, Dayton" /></div>
+          <div><FieldLabel small htmlFor="cap-who">Who else was there</FieldLabel><TextInput id="cap-who" value={others} onChange={setOthers} placeholder="Just the two of us" /></div>
+        </div>
+      </Panel>
+
+      {error && <div style={{ padding: '10px 14px', background: '#FBE9E7', color: '#B8543D', borderRadius: '6px', fontSize: '13px' }}>{error}</div>}
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '14px', borderTop: `0.5px solid ${colors.border}`, gap: '12px', flexWrap: 'wrap' }}>
+        <div style={{ fontSize: '13px', color: colors.textSecondary }}>Filing usually takes two or three minutes. You can leave and come back.</div>
+        <PrimaryButton disabled={!ready} onClick={() => onFile({ audioFile, pastedText: audioFile ? '' : pasted, recordedOn, recordedWhere, othersPresent: others })}>Let Grace file it →</PrimaryButton>
+      </div>
+    </div>
+  );
+}
+
+// ---- Review the pieces ---------------------------------------------------------
+function ReviewPieces({ project, draft, setDraft, photos, photoUrls, approved, error, onSave, onRevise, onApprove, onChooseFeature }) {
+  const departments = activeDepartments(project).filter(d => d.state !== 'out');
+  const byDept = {};
+  draft.pieces.forEach((p, i) => { (byDept[p.department] = byDept[p.department] || []).push(i); });
+  const pageList = departments
+    .filter(d => d.id !== 'until_next_time' || byDept.until_next_time)
+    .map(d => ({ id: d.id, title: d.title, count: (byDept[d.id] || []).reduce((n, i) => n + pieceCount(draft.pieces[i]), 0) }));
+  // Pieces filed to a page that isn't in the plan (e.g. the family dropped it) still show.
+  Object.keys(byDept).forEach(id => { if (!pageList.some(p => p.id === id)) pageList.push({ id, title: id, count: byDept[id].reduce((n, i) => n + pieceCount(draft.pieces[i]), 0) }); });
+  const firstWithPieces = pageList.find(p => p.count > 0)?.id || pageList[0]?.id;
+  const [page, setPage] = useState(firstWithPieces);
+  const [ask, setAsk] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const pieceIdxs = byDept[page] || [];
+  const S = subjectPronoun(project.buyer_relationship);
+  const herHis = S === 'He' ? 'his' : S === 'They' ? 'their' : 'her';
+
+  const update = (i, patch) => {
+    const next = { ...draft, pieces: draft.pieces.map((p, j) => (j === i ? { ...p, ...patch } : p)) };
+    setDraft(next); setDirty(true);
+  };
+  const updateItem = (i, k, patch) => {
+    const items = draft.pieces[i].items.map((it, m) => (m === k ? { ...it, ...patch } : it));
+    update(i, { items });
+  };
+  const leaveOut = (i, k) => {
+    const label = k === undefined ? 'this piece' : 'this one';
+    if (!window.confirm(`Leave ${label} out of the issue? You can ask Grace to bring it back later.`)) return;
+    if (k === undefined) {
+      const next = { ...draft, pieces: draft.pieces.filter((_, j) => j !== i) };
+      setDraft(next); setDirty(true);
+    } else {
+      const items = draft.pieces[i].items.filter((_, m) => m !== k);
+      update(i, { items });
+    }
+  };
+  const moveTo = (i, dept) => { if (dept) update(i, { department: dept }); };
+  const save = async () => { setSaving(true); await onSave(); setSaving(false); setDirty(false); };
+  const approveAll = async () => { setSaving(true); await onApprove(); setSaving(false); };
+
+  const pageTitle = pageList.find(p => p.id === page)?.title || page;
+
+  return (
+    <div>
+      <div style={{ padding: '22px 32px 18px', background: colors.creamLight, borderBottom: `0.5px solid ${colors.border}`, display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
+        <GraceAvatar size="large" />
+        <div style={{ fontSize: '15px', lineHeight: 1.6, color: colors.navy, maxWidth: '700px' }}>
+          <div style={{ fontFamily: fonts.serif, fontSize: '22px', fontWeight: 500, marginBottom: '4px' }}>{approved ? 'This afternoon is filed.' : "Here's what the afternoon produced."}</div>
+          {draft.editor_note} {approved ? 'You can still change any piece here.' : 'Read each piece, change anything, then approve the afternoon.'}
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 200px) minmax(0, 1fr)' }} className="review-grid">
+        <div style={{ background: colors.creamLight, borderRight: `0.5px solid ${colors.border}`, padding: '18px 14px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <div style={{ fontSize: '11px', letterSpacing: '1px', textTransform: 'uppercase', color: colors.tan, fontWeight: 600, marginBottom: '6px', paddingLeft: '10px' }}>Filed to</div>
+          {pageList.map(p => (
+            <button key={p.id} onClick={() => setPage(p.id)} style={{ textAlign: 'left', fontSize: '14px', padding: '10px', minHeight: '44px', background: page === p.id ? 'white' : 'transparent', border: `1px solid ${page === p.id ? colors.gold : 'transparent'}`, borderRadius: '8px', fontFamily: 'inherit', display: 'flex', justifyContent: 'space-between', color: p.count ? colors.text : colors.textTertiary, cursor: 'pointer' }}>
+              <span>{p.title}</span><span style={{ color: colors.textSecondary }}>{p.count || '—'}</span>
+            </button>
+          ))}
+          <div style={{ marginTop: 'auto', padding: '12px 10px 0', fontSize: '12.5px', color: colors.textSecondary, lineHeight: 1.5, borderTop: `0.5px solid ${colors.border}` }}>Empty pages fill in over the next afternoons. Nothing is padded.</div>
+        </div>
+
+        <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '14px', minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+            <div style={{ fontFamily: fonts.serif, fontSize: '20px', fontWeight: 500 }}>{pageTitle}</div>
+            <div style={{ fontSize: '12.5px', color: colors.textSecondary }}>Tap any text to change it. {S === 'They' ? 'Their' : S === 'He' ? 'His' : 'Her'} words stay {S === 'They' ? 'theirs' : S === 'He' ? 'his' : 'hers'}.</div>
+          </div>
+
+          {pieceIdxs.length === 0 && (
+            <div style={{ padding: '18px', background: colors.creamLight, border: `1px dashed ${colors.gray}`, borderRadius: '12px', fontSize: '14px', color: colors.textSecondary }}>Nothing filed here from this afternoon.</div>
+          )}
+
+          {pieceIdxs.map(i => {
+            const p = draft.pieces[i];
+            if (p.department === 'shoebox' && Array.isArray(p.items)) {
+              return (
+                <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {p.items.map((it, k) => {
+                    const photo = photos.find(x => x.id === it.photo_id);
+                    const url = photo ? photoUrls[photo.id] : null;
+                    const matched = Boolean(it.caption);
+                    return (
+                      <div key={k} style={{ background: matched ? colors.creamLight : 'white', border: matched ? `0.5px solid ${colors.border}` : `1px dashed ${colors.gray}`, borderRadius: '12px', padding: '14px 16px', display: 'grid', gridTemplateColumns: 'minmax(0, 140px) minmax(0, 1fr)', gap: '14px' }}>
+                        <div style={{ height: '110px', background: '#E3DACB', border: '1px dashed #B8AB95', borderRadius: '4px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', color: '#6E6353', fontStyle: 'italic', textAlign: 'center', padding: '6px' }}>
+                          {url ? <img src={url} alt={photo?.note || 'Photograph'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (photo?.note || 'No photo matched')}
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: 0 }}>
+                          {!matched && <div style={{ fontSize: '13px', color: colors.textSecondary, lineHeight: 1.5 }}>Grace couldn't tell which part of the recording goes with this one. Add what {S === 'They' ? 'they' : S === 'He' ? 'he' : 'she'} said, or leave it for the family to fill in.</div>}
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 80px', gap: '8px' }}>
+                            <SmallInput value={it.who || ''} onChange={v => updateItem(i, k, { who: v })} placeholder="Who" />
+                            <SmallInput value={it.where || ''} onChange={v => updateItem(i, k, { where: v })} placeholder="Where" />
+                            <SmallInput value={it.when || ''} onChange={v => updateItem(i, k, { when: v })} placeholder="Year" />
+                          </div>
+                          <PieceTextArea value={it.caption || ''} onChange={v => updateItem(i, k, { caption: v })} rows={2} placeholder={`One or two lines in ${herHis} words about this picture`} />
+                          <div style={{ display: 'flex', gap: '12px', fontSize: '12px', flexWrap: 'wrap' }}>
+                            <LinkButton onClick={() => { p.items.forEach((_, m) => updateItem(i, m, { is_cover: m === k })); }} active={Boolean(it.is_cover)}>{it.is_cover ? 'Cover ✓' : 'Use as cover'}</LinkButton>
+                            <LinkButton muted onClick={() => leaveOut(i, k)}>Leave out</LinkButton>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            }
+            if (Array.isArray(p.items)) {
+              // sayings / know_now / laughter-as-items / custom items
+              return (
+                <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {p.items.map((it, k) => (
+                    <div key={k} style={{ background: colors.creamLight, border: `0.5px solid ${colors.border}`, borderRadius: '12px', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <PieceTextArea serif value={it.quote ?? it.advice ?? it.text ?? ''} onChange={v => updateItem(i, k, it.quote !== undefined ? { quote: v } : it.advice !== undefined ? { advice: v } : { text: v })} rows={2} placeholder="Her words" />
+                      <SmallInput value={it.when ?? it.why ?? ''} onChange={v => updateItem(i, k, it.when !== undefined ? { when: v } : { why: v })} placeholder={p.department === 'know_now' ? 'Why she believes it (optional)' : 'When she said it (optional)'} />
+                      <div style={{ display: 'flex', gap: '12px', fontSize: '12px' }}>
+                        <MoveTo departments={departments} current={p.department} onMove={d => { const items = p.items.filter((_, m) => m !== k); update(i, { items }); const next = { ...draft }; next.pieces = [...next.pieces, { department: d, items: [it] }]; setDraft(next); setDirty(true); }} />
+                        <LinkButton muted onClick={() => leaveOut(i, k)}>Leave out</LinkButton>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            }
+            if (p.department === 'kitchen') {
+              return (
+                <div key={i} style={{ background: colors.creamLight, border: `0.5px solid ${colors.border}`, borderRadius: '12px', padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <TitleInput value={p.title || ''} onChange={v => update(i, { title: v })} placeholder="The recipe's name" />
+                  <PieceTextArea serif value={p.intro || ''} onChange={v => update(i, { intro: v })} rows={2} placeholder="A line about it, in her words" />
+                  <PieceTextArea value={(p.ingredients || []).join('\n')} onChange={v => update(i, { ingredients: v.split('\n') })} rows={4} placeholder="Ingredients, one per line" />
+                  <PieceTextArea value={(p.steps || []).join('\n')} onChange={v => update(i, { steps: v.split('\n') })} rows={5} placeholder="Steps, one per line" />
+                  <PieceTextArea serif value={p.her_note || ''} onChange={v => update(i, { her_note: v })} rows={2} placeholder="The thing she said that isn't an instruction" />
+                  <div style={{ display: 'flex', gap: '12px', fontSize: '12px' }}><LinkButton muted onClick={() => leaveOut(i)}>Leave out</LinkButton></div>
+                </div>
+              );
+            }
+            if (p.department === 'until_next_time') {
+              return (
+                <div key={i} style={{ background: colors.creamLight, border: `0.5px solid ${colors.border}`, borderRadius: '12px', padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <PieceTextArea serif value={p.closing || ''} onChange={v => update(i, { closing: v })} rows={3} placeholder="Her last word, exactly as she said it" />
+                  <div style={{ display: 'flex', gap: '12px', fontSize: '12px' }}><LinkButton muted onClick={() => leaveOut(i)}>Leave out</LinkButton></div>
+                </div>
+              );
+            }
+            // story-shaped: feature, family_stories, laughter, faith, custom
+            const isFeature = p.department === 'feature';
+            return (
+              <div key={i} style={{ background: colors.creamLight, border: `0.5px solid ${colors.border}`, borderRadius: '12px', padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <TitleInput value={p.title || ''} onChange={v => update(i, { title: v })} placeholder="Title — short, concrete, from the story itself" />
+                {isFeature && <PieceTextArea serif italic value={p.deck || ''} onChange={v => update(i, { deck: v })} rows={2} placeholder="One sentence: what this story is and why it matters to her" />}
+                <PieceTextArea serif value={p.body || ''} onChange={v => update(i, { body: v })} rows={Math.min(18, Math.max(6, Math.ceil((p.body || '').length / 90)))} placeholder="The piece" />
+                {isFeature && <PieceTextArea serif italic value={p.pull_quote || ''} onChange={v => update(i, { pull_quote: v })} rows={2} placeholder="Pull quote — a line of hers that stops you" />}
+                <div style={{ display: 'flex', gap: '12px', fontSize: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '11px', letterSpacing: '0.8px', textTransform: 'uppercase', color: colors.tan, fontWeight: 600 }}>Quotes: {((p.body || '').match(/"/g) || []).length / 2 | 0}</span>
+                  {!isFeature && onChooseFeature && <LinkButton onClick={() => update(i, { department: 'feature' })}>Make this the feature</LinkButton>}
+                  <MoveTo departments={departments} current={p.department} onMove={d => moveTo(i, d)} />
+                  <LinkButton muted onClick={() => leaveOut(i)}>Leave out</LinkButton>
+                </div>
+              </div>
+            );
+          })}
+
+          <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+            <TextInput value={ask} onChange={setAsk} placeholder={`Ask Grace for a change — "make the Maple Street story shorter" or "that saying was Grandpa's, not ${herHis}"`} onEnter={() => { if (ask.trim()) { onRevise(ask.trim()); setAsk(''); } }} />
+            <button onClick={() => { if (ask.trim()) { onRevise(ask.trim()); setAsk(''); } }} disabled={!ask.trim()} style={{ fontSize: '14px', padding: '0 18px', minHeight: '44px', background: 'white', border: `1px solid ${colors.gray}`, borderRadius: '8px', fontFamily: 'inherit', color: colors.navy, cursor: ask.trim() ? 'pointer' : 'not-allowed' }}>Ask</button>
+          </div>
+        </div>
+      </div>
+
+      {error && <div style={{ margin: '0 32px', padding: '10px 14px', background: '#FBE9E7', color: '#B8543D', borderRadius: '6px', fontSize: '13px' }}>{error}</div>}
+
+      <div style={{ padding: '18px 32px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: `0.5px solid ${colors.border}`, gap: '12px', flexWrap: 'wrap' }}>
+        <div style={{ fontSize: '13px', color: colors.textSecondary }}>{approved ? 'Changes here update the issue.' : 'Approving files these into the issue. You can still edit any piece later.'}</div>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button onClick={save} disabled={saving || !dirty} style={{ fontSize: '14px', padding: '10px 18px', minHeight: '44px', background: 'white', border: `1px solid ${colors.gray}`, borderRadius: '8px', fontFamily: 'inherit', color: dirty ? colors.navy : colors.textTertiary, cursor: dirty ? 'pointer' : 'default' }}>{saving ? 'Saving…' : dirty ? 'Save changes' : 'Saved'}</button>
+          {!approved && <PrimaryButton disabled={saving} onClick={approveAll}>Approve this afternoon →</PrimaryButton>}
+          {approved && onChooseFeature && !project.feature_title && <PrimaryButton onClick={onChooseFeature}>Choose the feature →</PrimaryButton>}
+        </div>
+      </div>
+      <style>{`@media (max-width: 720px) { .review-grid { grid-template-columns: 1fr !important; } }`}</style>
+    </div>
+  );
+}
+
+function SmallInput({ value, onChange, placeholder }) {
+  return <input type="text" value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} style={{ width: '100%', boxSizing: 'border-box', padding: '8px 10px', fontSize: '13px', fontFamily: 'inherit', border: `1px solid ${colors.border}`, borderRadius: '6px', background: 'white', minHeight: '36px' }} />;
+}
+function TitleInput({ value, onChange, placeholder }) {
+  return <input type="text" value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} style={{ width: '100%', boxSizing: 'border-box', padding: '8px 10px', fontSize: '20px', fontFamily: fonts.serif, fontWeight: 700, border: '1px solid transparent', borderRadius: '6px', background: 'transparent', color: colors.text }} />;
+}
+function PieceTextArea({ value, onChange, rows = 3, placeholder, serif, italic }) {
+  return <textarea value={value} onChange={e => onChange(e.target.value)} rows={rows} placeholder={placeholder} style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', fontSize: serif ? '14.5px' : '14px', lineHeight: 1.65, fontFamily: serif ? '"Libre Baskerville", Georgia, serif' : 'inherit', fontStyle: italic ? 'italic' : 'normal', border: `1px solid ${colors.border}`, borderRadius: '6px', background: 'white', color: '#1F1B16', resize: 'vertical' }} />;
+}
+function LinkButton({ children, onClick, muted, active }) {
+  return <button onClick={onClick} style={{ background: 'transparent', border: 'none', color: active ? colors.olive : muted ? colors.textTertiary : colors.navy, textDecoration: 'underline', fontFamily: 'inherit', padding: 0, minHeight: '32px', cursor: 'pointer', fontSize: '12px' }}>{children}</button>;
+}
+function MoveTo({ departments, current, onMove }) {
+  return (
+    <select value="" onChange={e => onMove(e.target.value)} aria-label="Move to another page" style={{ fontSize: '12px', fontFamily: 'inherit', color: colors.navy, background: 'transparent', border: 'none', textDecoration: 'underline', cursor: 'pointer', minHeight: '32px' }}>
+      <option value="">Move to…</option>
+      {departments.filter(d => d.id !== current && d.id !== 'until_next_time').map(d => <option key={d.id} value={d.id}>{d.title}</option>)}
+    </select>
+  );
+}
+
+// ---- Choose the feature ---------------------------------------------------------
+function ChooseFeature({ project, draft, subject, herHis, error, onChoose }) {
+  const fromDraft = Array.isArray(draft?.feature_candidates) ? draft.feature_candidates.filter(Boolean) : [];
+  const named = Array.isArray(project.feature_candidates) ? project.feature_candidates.filter(Boolean) : [];
+  const storyTitles = (draft?.pieces || []).filter(p => ['feature', 'family_stories'].includes(p.department) && p.title).map(p => p.title);
+  const seen = new Set();
+  const options = [];
+  fromDraft.forEach((c, i) => { if (!seen.has(c.toLowerCase())) { seen.add(c.toLowerCase()); options.push({ name: c, tag: i === 0 ? "Grace's pick" : 'Also strong', why: i === 0 ? `It had the most in it this afternoon — a beginning, people, and an ending ${subject} told without being asked.` : 'It could carry the issue too.' }); } });
+  storyTitles.forEach(c => { if (!seen.has(c.toLowerCase())) { seen.add(c.toLowerCase()); options.push({ name: c, tag: 'Filed today', why: 'A story that came out whole this afternoon.' }); } });
+  named.forEach(c => { if (!seen.has(c.toLowerCase())) { seen.add(c.toLowerCase()); options.push({ name: c, tag: 'You named', why: "It didn't come up this afternoon — which is fine. Afternoon 2 can go straight at it." }); } });
+  const [choice, setChoice] = useState(options[0]?.name || '');
+  const [other, setOther] = useState('');
+  const picked = choice === '__other' ? other.trim() : choice;
+
+  return (
+    <div style={{ padding: '28px 32px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+      <GraceSays heading="One decision before the next afternoon: which story is the feature?" text={`Here's what had the most in it. My read is first — but you know your family. Whichever you pick, afternoon 2 is about getting that one story told all the way through, in ${herHis} words.`} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        {options.map(o => (
+          <button key={o.name} onClick={() => setChoice(o.name)} style={{ textAlign: 'left', background: choice === o.name ? colors.creamWarm : colors.creamLight, border: choice === o.name ? `2px solid ${colors.gold}` : `1px solid ${colors.border}`, borderRadius: '12px', padding: '16px 18px', display: 'flex', gap: '16px', alignItems: 'flex-start', fontFamily: 'inherit', color: colors.text, cursor: 'pointer' }}>
+            <span style={{ fontSize: '10px', letterSpacing: '1px', textTransform: 'uppercase', color: o.tag === "Grace's pick" ? colors.tan : colors.textTertiary, fontWeight: 700, paddingTop: '5px', flexShrink: 0, width: '76px' }}>{o.tag}</span>
+            <span style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <span style={{ fontFamily: fonts.serif, fontSize: '18px', fontWeight: 500 }}>{o.name}</span>
+              <span style={{ fontSize: '13.5px', color: colors.textSecondary, lineHeight: 1.5 }}>{o.why}</span>
+            </span>
+          </button>
+        ))}
+        <button onClick={() => setChoice('__other')} style={{ textAlign: 'left', background: 'white', border: choice === '__other' ? `2px solid ${colors.gold}` : `1px dashed ${colors.gray}`, borderRadius: '12px', padding: '14px 18px', fontFamily: 'inherit', color: colors.navy, fontSize: '14px', cursor: 'pointer', minHeight: '44px' }}>Something else — I'll name it</button>
+        {choice === '__other' && <TextInput value={other} onChange={setOther} placeholder="The story, in a few words" />}
+      </div>
+      <div style={{ background: colors.creamLight, border: `0.5px solid ${colors.border}`, borderRadius: '12px', padding: '14px 16px', fontSize: '13px', color: colors.textSecondary, lineHeight: 1.5 }}>Not sure? Pick Grace's and change it later — nothing is written until afternoon 2 happens.</div>
+      {error && <div style={{ padding: '10px 14px', background: '#FBE9E7', color: '#B8543D', borderRadius: '6px', fontSize: '13px' }}>{error}</div>}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '14px', borderTop: `0.5px solid ${colors.border}` }}>
+        <PrimaryButton disabled={!picked} onClick={() => onChoose(picked)}>That's the feature → open afternoon 2's guide</PrimaryButton>
+      </div>
     </div>
   );
 }
