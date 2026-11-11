@@ -163,6 +163,7 @@ export default async function handler(req, res) {
       project: clientProject,
       sessionNumber = 1,
       photos = [],
+      quickNotes = [],
       revisionRequest,
       existingDraft,
     } = req.body;
@@ -212,6 +213,10 @@ export default async function handler(req, res) {
           .join('\n')
       : null;
 
+    const sayingsCaught = Array.isArray(quickNotes)
+      ? quickNotes.filter(n => n && n.type === 'saying' && n.text).map(n => `- "${String(n.text).replace(/"/g, '\\"')}"`).join('\n')
+      : '';
+
     const context = `# The subject
 
 Name: ${subjectName}
@@ -241,6 +246,7 @@ Meant to collect: ${collects}
 ${n === 1 ? 'This is the first session. Return feature_candidates — the two to four strongest story-length stories in this transcript, strongest first.' : ''}
 ${n === 2 ? 'This is the feature session. If one story clearly dominates the transcript, write it as the feature piece.' : ''}
 ${n === 4 ? 'This is the last session. Listen for the closing word for until_next_time — the line that sounds like what she would want the last page to say.' : ''}
+${sayingsCaught ? `\n# Sayings the interviewer wrote down word for word at the table\n\nThese are hers, verbatim. File each to the sayings page (or know_now if it is advice) even if the recording missed it. Add "when" only if the transcript says.\n${sayingsCaught}` : ''}
 ${photoList ? `\n# Photographs captured during this session\n\nAttach shoebox items to these by id where you can:\n${photoList}` : ''}
 
 # The transcript
