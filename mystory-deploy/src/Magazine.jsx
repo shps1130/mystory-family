@@ -1992,12 +1992,109 @@ function pieceCount(p) {
   return 1;
 }
 
+
+// ---- Reconciling pieces across afternoons -------------------------------
+// Afternoons overlap: a story told briefly on afternoon 1 and in full on
+// afternoon 2, the same saying caught twice, advice repeated. These helpers
+// find the overlaps so the issue shows each thing once.
+function normText(t, n = 80) {
+  return String(t || '').toLowerCase().replace(/[“”"'‘’]/g, '').replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n);
+}
+function sameish(a, b) {
+  const x = normText(a, 120), y = normText(b, 120);
+  if (!x || !y) return false;
+  if (x === y) return true;
+  const shorter = x.length < y.length ? x : y;
+  const longer = x.length < y.length ? y : x;
+  if (shorter.length < 24) return false;
+  // Same opening (first ~30 chars) or the shorter one contained in the longer.
+  return longer.startsWith(shorter.slice(0, 30)) || longer.includes(shorter.slice(0, 40));
+}
+function pieceText(p) {
+  if (!p) return '';
+  if (Array.isArray(p.items)) return '';
+  return p.title ? `${p.title} ${p.body || ''}` : (p.body || p.closing || p.intro || '');
+}
+// Flatten approved sessions into one reconciled piece list. Later afternoons win.
+function reconcilePieces(sessions) {
+  const all = sessions
+    .slice()
+    .sort((a, b) => a.session_number - b.session_number)
+    .flatMap(s => (s.pieces?.pieces || []).map(p => ({ ...p, _session: s.session_number })));
+  const out = [];
+  const seenSayings = new Set();
+  const seenAdvice = new Set();
+  const featureTitles = all.filter(p => p.department === 'feature').map(p => normText(p.title, 60));
+
+  // Story-shaped pieces: drop earlier versions that match a later one by title or opening.
+  const stories = all.filter(p => !Array.isArray(p.items) && !['until_next_time', 'kitchen', 'present'].includes(p.department));
+  const keepStory = new Set();
+  stories.forEach((p, i) => {
+    let superseded = false;
+    for (let j = i + 1; j < stories.length; j++) {
+      const q = stories[j];
+      const sameTitle = p.title && q.title && normText(p.title, 60) === normText(q.title, 60);
+      const sameOpening = sameish((p.body || '').slice(0, 160), (q.body || '').slice(0, 160));
+      if (sameTitle || sameOpening) { superseded = true; break; }
+    }
+    // A Family Story or Laughter piece with the feature's title yields to the feature.
+    if (!superseded && p.department !== 'feature' && p.title && featureTitles.includes(normText(p.title, 60))) superseded = true;
+    if (!superseded) keepStory.add(p);
+  });
+
+  // Item pages (sayings, advice): the LATER telling wins, matched loosely.
+  const keepItem = new Map(); // piece -> items to keep
+  [...all].reverse().forEach(p => {
+    if (!Array.isArray(p.items)) return;
+    const seen = p.department === 'sayings' ? seenSayings : p.department === 'know_now' ? seenAdvice : null;
+    const items = p.items.filter(it => {
+      if (!seen) return true;
+      const text = it.quote ?? it.advice ?? it.text ?? '';
+      if (!normText(text)) return false;
+      for (const prev of seen) if (sameish(prev, text)) return false;
+      seen.add(text);
+      return true;
+    });
+    keepItem.set(p, items);
+  });
+
+  all.forEach(p => {
+    if (Array.isArray(p.items)) {
+      const items = keepItem.get(p) || [];
+      if (items.length) out.push({ ...p, items });
+      return;
+    }
+    if (['until_next_time', 'kitchen', 'present'].includes(p.department)) { out.push(p); return; }
+    if (keepStory.has(p)) out.push(p);
+  });
+  return out;
+}
+// What earlier afternoons filed, for the draft endpoint and the review warnings.
+function filedSoFar(sessions) {
+  const pieces = reconcilePieces(sessions);
+  return {
+    titles: pieces.filter(p => p.title && !Array.isArray(p.items)).map(p => p.title),
+    sayings: pieces.filter(p => p.department === 'sayings').flatMap(p => p.items.map(it => it.quote)).filter(Boolean),
+    advice: pieces.filter(p => p.department === 'know_now').flatMap(p => p.items.map(it => it.advice || it.quote || it.text)).filter(Boolean),
+    bySession: pieces,
+  };
+}
+function formatDateish(v) {
+  if (!v) return '';
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(v));
+  if (!m) return String(v);
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+const NUM_WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six'];
+
 function CaptureSession({ project, sessionNumber, onProjectUpdate, onReturnToDashboard, onOpenGuide }) {
   const [stage, setStage] = useState('loading'); // loading | bring | filing | review | feature
   const [row, setRow] = useState(null);
   const [photos, setPhotos] = useState([]);
   const [photoUrls, setPhotoUrls] = useState({});
   const [draft, setDraft] = useState(null);
+  const [prior, setPrior] = useState([]);
   const [error, setError] = useState('');
   const [progress, setProgress] = useState('');
   const title = sessionTitle(project, sessionNumber);
@@ -2023,9 +2120,16 @@ function CaptureSession({ project, sessionNumber, onProjectUpdate, onReturnToDas
         .eq('session_number', sessionNumber)
         .order('sort_order', { ascending: true })
         .order('created_at', { ascending: true });
+      const { data: earlier } = await supabase
+        .from('interview_sessions')
+        .select('session_number, pieces, approved')
+        .eq('project_id', project.id)
+        .lt('session_number', sessionNumber)
+        .eq('approved', true);
       if (cancelled) return;
       setRow(s || null);
       setPhotos(p || []);
+      setPrior((earlier || []).filter(x => x.pieces));
       if (p && p.length) {
         const { data: signed } = await supabase.storage.from(PHOTO_BUCKET).createSignedUrls(p.map(x => x.storage_path), 3600);
         if (!cancelled && signed) {
@@ -2108,6 +2212,7 @@ function CaptureSession({ project, sessionNumber, onProjectUpdate, onReturnToDas
         sessionNumber,
         photos: photos.map(p => ({ id: p.id, note: p.note || '' })),
         quickNotes,
+        alreadyFiled: (() => { const f = filedSoFar(prior); return { titles: f.titles, sayings: f.sayings, advice: f.advice }; })(),
       });
       if (!dRes.ok) {
         const d = await dRes.json().catch(() => ({}));
@@ -2149,6 +2254,7 @@ function CaptureSession({ project, sessionNumber, onProjectUpdate, onReturnToDas
         sessionNumber,
         photos: photos.map(p => ({ id: p.id, note: p.note || '' })),
         quickNotes: Array.isArray(row.quick_notes) ? row.quick_notes : [],
+        alreadyFiled: (() => { const f = filedSoFar(prior); return { titles: f.titles, sayings: f.sayings, advice: f.advice }; })(),
         revisionRequest: request,
         existingDraft: draft,
       });
@@ -2232,6 +2338,7 @@ function CaptureSession({ project, sessionNumber, onProjectUpdate, onReturnToDas
             <ReviewPieces
               project={project} draft={draft} setDraft={setDraft}
               photos={photos} photoUrls={photoUrls}
+              prior={prior}
               approved={Boolean(row?.approved)}
               error={error}
               onSave={() => saveDraft(draft)}
@@ -2313,8 +2420,8 @@ function BringRecording({ subject, sheIs, photosCount, sayings, row, error, onFi
       <Panel>
         <Eyebrow>For the "how this issue was made" page</Eyebrow>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
-          <div><FieldLabel small htmlFor="cap-when">When</FieldLabel><TextInput id="cap-when" value={recordedOn} onChange={setRecordedOn} placeholder="Nov 8, 2026" /></div>
-          <div><FieldLabel small htmlFor="cap-where">Where</FieldLabel><TextInput id="cap-where" value={recordedWhere} onChange={setRecordedWhere} placeholder="Her kitchen table, Dayton" /></div>
+          <div><FieldLabel small htmlFor="cap-when">When</FieldLabel><TextInput id="cap-when" value={recordedOn} onChange={setRecordedOn} placeholder="2026-11-08 or Nov 8, 2026" /></div>
+          <div><FieldLabel small htmlFor="cap-where">Where</FieldLabel><TextInput id="cap-where" value={recordedWhere} onChange={setRecordedWhere} placeholder="her kitchen table in Dayton" /></div>
           <div><FieldLabel small htmlFor="cap-who">Who else was there</FieldLabel><TextInput id="cap-who" value={others} onChange={setOthers} placeholder="Just the two of us" /></div>
         </div>
       </Panel>
@@ -2330,7 +2437,19 @@ function BringRecording({ subject, sheIs, photosCount, sayings, row, error, onFi
 }
 
 // ---- Review the pieces ---------------------------------------------------------
-function ReviewPieces({ project, draft, setDraft, photos, photoUrls, approved, error, onSave, onRevise, onApprove, onChooseFeature }) {
+function ReviewPieces({ project, draft, setDraft, photos, photoUrls, prior = [], approved, error, onSave, onRevise, onApprove, onChooseFeature }) {
+  // Earlier afternoons' pieces, to flag what this one repeats.
+  const filed = filedSoFar(prior);
+  const dupOfStory = (p) => {
+    if (Array.isArray(p.items) || !p.title) return null;
+    const hit = filed.bySession.find(q => !Array.isArray(q.items) && q.title && (normText(q.title, 60) === normText(p.title, 60) || sameish((q.body || '').slice(0, 160), (p.body || '').slice(0, 160))));
+    return hit ? hit._session : null;
+  };
+  const dupOfItem = (dept, it) => {
+    const key = it.quote ?? it.advice ?? it.text ?? '';
+    const list = dept === 'sayings' ? filed.sayings : dept === 'know_now' ? filed.advice : [];
+    return list.some(x => sameish(x, key));
+  };
   const departments = activeDepartments(project).filter(d => d.state !== 'out');
   const byDept = {};
   draft.pieces.forEach((p, i) => { (byDept[p.department] = byDept[p.department] || []).push(i); });
@@ -2338,7 +2457,7 @@ function ReviewPieces({ project, draft, setDraft, photos, photoUrls, approved, e
     .filter(d => d.id !== 'until_next_time' || byDept.until_next_time)
     .map(d => ({ id: d.id, title: d.title, count: (byDept[d.id] || []).reduce((n, i) => n + pieceCount(draft.pieces[i]), 0) }));
   // Pieces filed to a page that isn't in the plan (e.g. the family dropped it) still show.
-  Object.keys(byDept).forEach(id => { if (!pageList.some(p => p.id === id)) pageList.push({ id, title: id, count: byDept[id].reduce((n, i) => n + pieceCount(draft.pieces[i]), 0) }); });
+  Object.keys(byDept).forEach(id => { if (!pageList.some(p => p.id === id)) pageList.push({ id, title: id === 'present' ? 'The Back Cover' : id, count: byDept[id].reduce((n, i) => n + pieceCount(draft.pieces[i]), 0) }); });
   const firstWithPieces = pageList.find(p => p.count > 0)?.id || pageList[0]?.id;
   const [page, setPage] = useState(firstWithPieces);
   const [ask, setAsk] = useState('');
@@ -2442,7 +2561,8 @@ function ReviewPieces({ project, draft, setDraft, photos, photoUrls, approved, e
               return (
                 <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   {p.items.map((it, k) => (
-                    <div key={k} style={{ background: colors.creamLight, border: `0.5px solid ${colors.border}`, borderRadius: '12px', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div key={k} style={{ background: colors.creamLight, border: dupOfItem(p.department, it) ? `1px solid ${colors.gold}` : `0.5px solid ${colors.border}`, borderRadius: '12px', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {dupOfItem(p.department, it) && <div style={{ fontSize: '12px', color: colors.tan }}>Already filed from an earlier afternoon — the issue shows it once. Leave this one out if you like.</div>}
                       <PieceTextArea serif value={it.quote ?? it.advice ?? it.text ?? ''} onChange={v => updateItem(i, k, it.quote !== undefined ? { quote: v } : it.advice !== undefined ? { advice: v } : { text: v })} rows={2} placeholder="Her words" />
                       <SmallInput value={it.when ?? it.why ?? ''} onChange={v => updateItem(i, k, it.when !== undefined ? { when: v } : { why: v })} placeholder={p.department === 'know_now' ? 'Why she believes it (optional)' : 'When she said it (optional)'} />
                       <div style={{ display: 'flex', gap: '12px', fontSize: '12px' }}>
@@ -2466,6 +2586,25 @@ function ReviewPieces({ project, draft, setDraft, photos, photoUrls, approved, e
                 </div>
               );
             }
+            if (p.department === 'present') {
+              const linesText = (p.lines || []).map(l => [l.head, l.body].filter(Boolean).join(': ')).join('\n');
+              return (
+                <div key={i} style={{ background: colors.creamLight, border: `0.5px solid ${colors.border}`, borderRadius: '12px', padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ fontSize: '12.5px', color: colors.textSecondary, lineHeight: 1.5 }}>The back cover: a full-page "advertisement" for the present {herHis === 'his' ? 'he' : 'she'} remembers most from childhood, written from what {herHis === 'his' ? 'he' : 'she'} said. No brand names — we draw the thing itself.</div>
+                  <SmallInput value={p.item || ''} onChange={v => update(i, { item: v })} placeholder="The present, plainly — a red wagon, a doll, a two-wheeler" />
+                  <div className="review-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
+                    <SmallInput value={p.when || ''} onChange={v => update(i, { when: v })} placeholder="When — Christmas, 1956" />
+                    <SmallInput value={p.where || ''} onChange={v => update(i, { where: v })} placeholder="Where — Maple Street" />
+                    <SmallInput value={p.from || ''} onChange={v => update(i, { from: v })} placeholder="From whom (optional)" />
+                  </div>
+                  <TitleInput value={p.headline || ''} onChange={v => update(i, { headline: v })} placeholder="Headline — The One She Asked For" />
+                  <PieceTextArea serif italic value={p.deck || ''} onChange={v => update(i, { deck: v })} rows={2} placeholder="One line under the headline, from what she said" />
+                  <PieceTextArea value={linesText} onChange={v => update(i, { lines: v.split('\n').filter(Boolean).map(line => { const k = line.indexOf(':'); return k > 0 ? { head: line.slice(0, k).trim(), body: line.slice(k + 1).trim() } : { head: '', body: line.trim() }; }) })} rows={4} placeholder={'Ad copy, one line each — "Heading: the line"\nGenuine steel body: Holds two sisters, one dog, and every leaf on the block.'} />
+                  <PieceTextArea serif italic value={p.quote || ''} onChange={v => update(i, { quote: v })} rows={2} placeholder="The thing she said about it, exactly" />
+                  <div style={{ display: 'flex', gap: '12px', fontSize: '12px' }}><LinkButton muted onClick={() => leaveOut(i)}>Leave out</LinkButton></div>
+                </div>
+              );
+            }
             if (p.department === 'until_next_time') {
               return (
                 <div key={i} style={{ background: colors.creamLight, border: `0.5px solid ${colors.border}`, borderRadius: '12px', padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -2476,8 +2615,14 @@ function ReviewPieces({ project, draft, setDraft, photos, photoUrls, approved, e
             }
             // story-shaped: feature, family_stories, laughter, faith, custom
             const isFeature = p.department === 'feature';
+            const dupSession = dupOfStory(p);
             return (
-              <div key={i} style={{ background: colors.creamLight, border: `0.5px solid ${colors.border}`, borderRadius: '12px', padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div key={i} style={{ background: colors.creamLight, border: dupSession ? `1px solid ${colors.gold}` : `0.5px solid ${colors.border}`, borderRadius: '12px', padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {dupSession && (
+                  <div style={{ fontSize: '12.5px', color: colors.tan, background: colors.creamWarm, border: `0.5px solid ${colors.gold}`, borderRadius: '8px', padding: '8px 12px', lineHeight: 1.5 }}>
+                    This looks like a story already filed from afternoon {dupSession}. {isFeature ? 'As the feature, this fuller version will replace it in the issue.' : 'Keep whichever telling is better — the issue shows the later one and retires the other.'}
+                  </div>
+                )}
                 <TitleInput value={p.title || ''} onChange={v => update(i, { title: v })} placeholder="Title — short, concrete, from the story itself" />
                 {isFeature && <PieceTextArea serif italic value={p.deck || ''} onChange={v => update(i, { deck: v })} rows={2} placeholder="One sentence: what this story is and why it matters to her" />}
                 <PieceTextArea serif value={p.body || ''} onChange={v => update(i, { body: v })} rows={Math.min(18, Math.max(6, Math.ceil((p.body || '').length / 90)))} placeholder="The piece" />
@@ -2575,61 +2720,123 @@ function ChooseFeature({ project, draft, subject, herHis, error, onChoose }) {
 }
 
 // ============================================================
-// The issue — approved pieces from every afternoon, laid out as the
-// magazine. 8.5×11, Digest rhythm: contents on the cover, an ornament on
-// every piece, sayings as fillers after stories. Print-styled so the
-// browser's Print → Save as PDF gives a clean file.
+// The issue — approved pieces from every afternoon, laid out as a magazine.
+// 8.5×11. A three-column grid, one big thing per page, department icons in
+// place of ornaments, sayings as small fillers inside the columns, and the
+// advertisement for the present she asked for as a child on the back cover.
+// Print-styled so the browser's Print → Save as PDF gives a clean file.
 // ============================================================
-const PAPER = '#F7F2E8';
+const PAPER = '#F6F1E7';
 const INK = '#1F1B16';
 const INK2 = '#4A4238';
+const INK3 = '#6B625A';
 const RULE = '#D5CBB9';
-const RED = '#8B2E1F';
+const RED = '#8B2E2E';
 const SERIF_DISPLAY = '"Playfair Display", Georgia, serif';
-const SERIF_BODY = '"Libre Baskerville", Georgia, serif';
+const SERIF_BODY = '"Source Serif 4", "Libre Baskerville", Georgia, serif';
+const SANS = '"Libre Franklin", "Helvetica Neue", Arial, sans-serif';
+const PAGE_W = 816;
+const PAGE_H = 1056;
+const PAD_X = 56;
 
 function useIssueFonts() {
   useEffect(() => {
-    const id = 'mystory-issue-fonts';
+    const id = 'mystory-issue-fonts-v2';
     if (document.getElementById(id)) return;
     const link = document.createElement('link');
     link.id = id;
     link.rel = 'stylesheet';
-    link.href = 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap';
+    link.href = 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=Libre+Franklin:wght@400;500;600;700&display=swap';
     document.head.appendChild(link);
   }, []);
 }
 
-function Ornament() {
-  return (
-    <div style={{ display: 'flex', justifyContent: 'center', margin: '18px 0 10px' }}>
-      <svg width="64" height="14" viewBox="0 0 64 14" aria-hidden="true"><path d="M0 7h24M40 7h24" stroke={RED} strokeWidth="1" /><path d="M32 1l6 6-6 6-6-6z" fill="none" stroke={RED} strokeWidth="1.2" /></svg>
-    </div>
-  );
+// ---- Department icons: one line weight, one color, the same every issue ----
+function DeptIcon({ id, size = 40 }) {
+  const common = { width: size, height: size, viewBox: '0 0 72 72', fill: 'none', stroke: RED, strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true, style: { flexShrink: 0 } };
+  switch (id) {
+    case 'feature':
+      return <svg {...common}><path d="M14 58 50 22l8 8L22 66l-10 2z" /><path d="M46 26l8 8" /><path d="M12 68l2-10" /><path d="M58 14l6-6 6 6-6 6z" /></svg>;
+    case 'family_stories':
+      return <svg {...common}><path d="M10 36 36 14l26 22" /><path d="M18 32v28h36V32" /><path d="M30 60V44h12v16" /><path d="M46 20v-8h6v13" /></svg>;
+    case 'sayings':
+      return <svg {...common} fill={RED} stroke="none"><path d="M12 46c0-12 6-21 18-24l1.8 3.6C25.6 28 22.6 32.4 22.4 37H31v15H12v-6zm30 0c0-12 6-21 18-24l1.8 3.6C55.6 28 52.6 32.4 52.4 37H61v15H42v-6z" /></svg>;
+    case 'laughter':
+      return <svg {...common}><circle cx="36" cy="38" r="22" /><path d="M23 40c3 10 23 10 26 0z" /><path d="M27 32h1M44 32h1" /><path d="M14 12l4 6M58 12l-4 6M36 6v6" /></svg>;
+    case 'shoebox':
+      return <svg {...common}><path d="M10 30h52v30H10z" /><path d="M6 22h60l-4 8H10z" /><path d="M28 30v8h16v-8" /><path d="M18 14l6 6M50 10l-4 10M30 8v10" /></svg>;
+    case 'kitchen':
+      return <svg {...common}><path d="M10 40h52c0 10-10 18-26 18S10 50 10 40z" /><path d="M6 40h60" /><path d="M16 40c4-8 10-12 20-12s16 4 20 12" /><path d="M28 16c-2 3 2 5 0 8M36 12c-2 3 2 5 0 8M44 16c-2 3 2 5 0 8" /></svg>;
+    case 'know_now':
+      return <svg {...common}><path d="M24 26h24l4 30H20z" /><path d="M28 26v-6h16v6" /><path d="M36 6v8" /><path d="M30 14h12" /><path d="M36 34v10" /><path d="M26 56v8h20v-8" /></svg>;
+    case 'faith':
+      return <svg {...common}><path d="M36 20c-6-4-14-5-26-3v38c12-2 20-1 26 3 6-4 14-5 26-3V17c-12-2-20-1-26 3z" /><path d="M36 20v38" /><path d="M48 26v14M42 32h12" /></svg>;
+    case 'until_next_time':
+      return <svg {...common}><path d="M14 40v-8a10 10 0 0 1 10-10h24a10 10 0 0 1 10 10v8H14z" /><path d="M14 40h44" /><path d="M34 40v26" /><path d="M26 32h10" /><path d="M48 16h8v-4" /></svg>;
+    case 'present':
+      return <svg {...common}><path d="M12 14h28l20 20-28 28-20-20z" /><circle cx="24" cy="26" r="4" /><path d="M34 42l8-8M40 48l8-8" /></svg>;
+    default: // a page the family invented
+      return <svg {...common}><path d="M20 10h32v52l-16-10-16 10z" /><path d="M28 22h16M28 30h16" /></svg>;
+  }
 }
 
-function Kicker({ children }) {
-  return <div style={{ fontSize: '10.5px', letterSpacing: '0.18em', textTransform: 'uppercase', color: RED, fontWeight: 700, fontFamily: fonts.sans }}>{children}</div>;
+// The quotation mark that sits in front of every filler.
+function QuoteMark({ size = 14 }) {
+  return <svg style={{ display: 'inline-block', verticalAlign: '-2px', marginRight: '6px' }} width={size} height={size} viewBox="0 0 24 24" fill={RED} aria-hidden="true"><path d="M4 16c0-4 2-7 6-8l.6 1.2C8.6 10 7.6 11.4 7.5 13H10v5H4v-2zm10 0c0-4 2-7 6-8l.6 1.2c-2 .8-3 2.2-3.1 3.8H20v5h-6v-2z" /></svg>;
 }
 
-function Paras({ text, firstDrop }) {
+function Kicker({ children, style }) {
+  return <div style={{ fontFamily: SANS, fontSize: '9.5px', letterSpacing: '0.2em', textTransform: 'uppercase', color: RED, fontWeight: 600, marginBottom: '6px', ...style }}>{children}</div>;
+}
+
+function Paras({ text, firstDrop, size = 15.5, lead = 22, indent = true, color }) {
   const paras = String(text || '').split(/\n\s*\n/).map(s => s.trim()).filter(Boolean);
   return paras.map((p, i) => (
-    <p key={i} style={{ margin: '0 0 12px', fontSize: '14.5px', lineHeight: 1.65, color: i === 0 ? INK : INK2 }}>
+    <p key={i} style={{ margin: 0, fontSize: `${size}px`, lineHeight: `${lead}px`, textAlign: 'justify', hyphens: 'auto', textIndent: indent && i > 0 ? '1.4em' : 0, color: color || INK }}>
       {firstDrop && i === 0 && (
-        <span style={{ fontFamily: SERIF_DISPLAY, fontWeight: 900, fontSize: '52px', lineHeight: 0.8, float: 'left', margin: '7px 8px 0 0', color: RED }}>{p.charAt(0)}</span>
+        <span style={{ float: 'left', fontFamily: SERIF_DISPLAY, fontWeight: 700, fontSize: `${Math.round(lead * 2.45)}px`, lineHeight: `${lead * 2}px`, padding: '4px 7px 0 0', color: RED }}>{p.charAt(0)}</span>
       )}
       {firstDrop && i === 0 ? p.slice(1) : p}
     </p>
   ));
 }
 
-function Filler({ saying }) {
+// A saying as a filler — small, between two hairlines, where the Digest put them.
+function Filler({ saying, top = 22 }) {
   if (!saying) return null;
+  const q = String(saying.quote || '').replace(/^["“]|["”]$/g, '');
   return (
-    <div style={{ borderTop: `1px solid ${INK}`, borderBottom: `1px solid ${INK}`, padding: '12px 4px', margin: '14px 0 20px', breakInside: 'avoid' }}>
-      <Kicker>{saying.pageTitle}</Kicker>
-      <div style={{ fontFamily: SERIF_DISPLAY, fontStyle: 'italic', fontSize: '18px', lineHeight: 1.3, marginTop: '6px' }}>"{String(saying.quote || '').replace(/^"|"$/g, '')}"{saying.when && <span style={{ fontFamily: SERIF_BODY, fontStyle: 'normal', fontSize: '12.5px', color: INK2 }}> — {saying.when}</span>}</div>
+    <div style={{ borderTop: `1px solid ${INK}`, borderBottom: `1px solid ${INK}`, padding: '12px 2px', margin: `${top}px 0 18px`, breakInside: 'avoid', fontStyle: 'italic', fontSize: '15px', lineHeight: '21px', textAlign: 'left' }}>
+      <QuoteMark />“{q}”
+      {saying.when && <div style={{ fontFamily: SANS, fontStyle: 'normal', fontSize: '9.5px', letterSpacing: '0.16em', textTransform: 'uppercase', color: INK3, marginTop: '6px' }}>{saying.when}</div>}
+    </div>
+  );
+}
+
+function Cols({ count = 3, gap = 20, children, style }) {
+  return <div style={{ columnCount: count, columnGap: `${gap}px`, columnFill: 'auto', ...style }}>{children}</div>;
+}
+
+function Story({ kicker, title, body, drop = true }) {
+  return (
+    <div style={{ marginBottom: '18px' }}>
+      <div style={{ breakInside: 'avoid', breakAfter: 'avoid' }}>
+        {kicker && <Kicker>{kicker}</Kicker>}
+        {title && <h3 style={{ fontFamily: SERIF_DISPLAY, fontWeight: 700, fontSize: '21px', lineHeight: '25px', margin: '0 0 8px', textAlign: 'left', color: INK }}>{title}</h3>}
+      </div>
+      <Paras text={body} firstDrop={drop} />
+    </div>
+  );
+}
+
+function DeptHead({ id, title, sub }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', borderBottom: `2px solid ${INK}`, paddingBottom: '12px', marginBottom: '26px', breakInside: 'avoid' }}>
+      <DeptIcon id={id} />
+      <div>
+        <h2 style={{ margin: 0, fontFamily: SERIF_DISPLAY, fontWeight: 700, fontSize: '30px', lineHeight: '32px', letterSpacing: '-0.01em', color: INK }}>{title}</h2>
+        {sub && <div style={{ fontFamily: SANS, fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: RED, marginTop: '4px' }}>{sub}</div>}
+      </div>
     </div>
   );
 }
@@ -2638,18 +2845,80 @@ function PageBreak() {
   return <div style={{ breakBefore: 'page', height: 0 }} className="issue-break" />;
 }
 
-function PieceOpener({ kicker, title, ornament = true }) {
+// One page. Running head top, folio bottom, three-column grid inside.
+function Page({ head, folio, children, bleed, style }) {
   return (
-    <div style={{ breakInside: 'avoid' }}>
-      {ornament && <Ornament />}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
-        <div style={{ width: '44px', height: '44px', borderRadius: '50%', background: '#E3DACB', flexShrink: 0 }} />
-        <div>
-          <Kicker>{kicker}</Kicker>
-          <h2 style={{ margin: '2px 0 0', fontFamily: SERIF_DISPLAY, fontWeight: 700, fontSize: '26px', lineHeight: 1.1, color: INK }}>{title}</h2>
+    <section style={{ position: 'relative', minHeight: `${PAGE_H}px`, boxSizing: 'border-box', padding: bleed ? 0 : `56px ${PAD_X}px 64px`, ...style }}>
+      {head && !bleed && (
+        <div style={{ position: 'absolute', top: '30px', left: PAD_X, right: PAD_X, display: 'flex', justifyContent: 'space-between', fontFamily: SANS, fontSize: '10px', letterSpacing: '0.22em', textTransform: 'uppercase', color: INK3 }}>
+          <span>{head.left}</span><span>{head.right}</span>
+        </div>
+      )}
+      {children}
+      {folio != null && <div style={{ position: 'absolute', bottom: '28px', left: folio % 2 === 0 ? PAD_X : 'auto', right: folio % 2 === 0 ? 'auto' : PAD_X, fontFamily: SANS, fontSize: '11px', color: INK3 }}>{folio}</div>}
+    </section>
+  );
+}
+
+// Line drawings for the back-cover advertisement. No brands, no logos — a
+// wagon is a wagon. Grace names the present; we pick the nearest drawing.
+function ToyDrawing({ item }) {
+  const s = String(item || '').toLowerCase();
+  const common = { width: 440, height: 230, viewBox: '0 0 440 230', fill: 'none', stroke: RED, strokeWidth: 3, strokeLinecap: 'round', strokeLinejoin: 'round', role: 'img', 'aria-label': `Line drawing of ${item}`, style: { display: 'block', margin: '22px auto 10px', maxWidth: '100%' } };
+  if (/wagon/.test(s)) return <svg {...common}><path d="M80 110h260l-10 70H90z" /><path d="M68 92h284" /><path d="M80 110l-12-18M340 110l12-18" /><circle cx="125" cy="200" r="24" /><circle cx="125" cy="200" r="6" /><circle cx="305" cy="200" r="24" /><circle cx="305" cy="200" r="6" /><path d="M84 198h197" /><path d="M68 150 30 122" /><path d="M30 122l-6-44" /><path d="M14 78h20" /></svg>;
+  if (/bicycle|bike|two-wheeler|schwinn/.test(s)) return <svg {...common}><circle cx="100" cy="160" r="52" /><circle cx="340" cy="160" r="52" /><path d="M100 160l60-90h90l90 90" /><path d="M160 70l60 90h-120" /><path d="M250 70l-30 90" /><path d="M150 60h30M330 86l-20-24h-16" /><circle cx="220" cy="160" r="10" /><path d="M210 160l-20 20M230 160l20-20" /></svg>;
+  if (/doll|baby/.test(s)) return <svg {...common}><circle cx="220" cy="60" r="38" /><path d="M186 44c6-18 62-18 68 0" /><path d="M208 64h2M232 64h2" /><path d="M212 76c4 4 12 4 16 0" /><path d="M190 100h60l26 110H164z" /><path d="M164 210h112" /><path d="M190 100l-34 60M250 100l34 60" /><path d="M200 130h40M196 160h48" /></svg>;
+  if (/sled|toboggan|flexible flyer/.test(s)) return <svg {...common}><path d="M40 150c0-14 10-22 24-22h300c20 0 30 10 30 22" /><path d="M40 150c0 20 14 30 30 30h290c20 0 34-10 34-30" /><path d="M90 128v-36h260v36" /><path d="M90 92h260" /><path d="M120 92v36M180 92v36M240 92v36M300 92v36" /><path d="M64 150h320" /><path d="M30 60l40 32" /></svg>;
+  if (/bear|teddy|stuffed/.test(s)) return <svg {...common}><circle cx="220" cy="70" r="40" /><circle cx="186" cy="40" r="14" /><circle cx="254" cy="40" r="14" /><path d="M206 70h2M232 70h2" /><ellipse cx="220" cy="86" rx="12" ry="8" /><path d="M172 118c0-14 96-14 96 0v70c0 14-96 14-96 0z" /><path d="M172 136l-30 30M268 136l30 30" /><path d="M186 188l-10 30M254 188l10 30" /></svg>;
+  if (/train|lionel|locomotive|railroad/.test(s)) return <svg {...common}><path d="M60 170h120v-70H60z" /><path d="M80 100V70h40v30" /><path d="M180 170h140v-50H180z" /><path d="M200 120h100v-30H200z" /><path d="M330 170h50v-30h-50z" /><circle cx="90" cy="186" r="14" /><circle cx="150" cy="186" r="14" /><circle cx="210" cy="186" r="14" /><circle cx="290" cy="186" r="14" /><circle cx="355" cy="186" r="14" /><path d="M40 204h380" /><path d="M94 60c-4-10 4-16 0-26M110 48c-4-10 4-16 0-26" /></svg>;
+  if (/baseball|glove|mitt|bat\b/.test(s)) return <svg {...common}><path d="M120 200c-40-20-50-80-20-120 16-22 44-26 60-10 16-16 44-12 60 10 30 40 20 100-20 120-24 12-56 12-80 0z" /><path d="M160 70v60M130 90c10 20 50 20 60 0" /><path d="M120 140h80" /><circle cx="330" cy="150" r="40" /><path d="M300 125c20 10 20 40 0 50M360 125c-20 10-20 40 0 50" /></svg>;
+  if (/skate/.test(s)) return <svg {...common}><path d="M120 60c-20 40-20 80 0 120h130c10 0 20-10 30-20l40-20c10-6 14-16 10-26l-80-54c-40 0-100 0-130 0z" /><path d="M140 100h80M140 130h70" /><path d="M110 180h200" /><path d="M120 180v24M190 180v24M260 180v24" /><path d="M100 204h230" /></svg>;
+  if (/radio|transistor|record|player|phonograph/.test(s)) return <svg {...common}><rect x="100" y="70" width="240" height="140" rx="14" /><circle cx="170" cy="140" r="40" /><path d="M150 120l40 40M190 120l-40 40" /><rect x="240" y="100" width="70" height="40" rx="6" /><path d="M250 120h50" /><circle cx="275" cy="170" r="14" /><path d="M160 70V30" /><path d="M120 50h40" /></svg>;
+  if (/dog|puppy|pup\b/.test(s)) return <svg {...common}><path d="M170 100c-20-30 0-60 30-60s50 30 30 60" /><path d="M170 100c-10 40 20 60 50 60s60-20 50-60" /><path d="M210 40l-30-20M230 40l30-20" /><path d="M208 90h2M232 90h2" /><path d="M214 110c4 4 8 4 12 0" /><path d="M150 160h140v40H150z" /><path d="M160 200v20M190 200v20M250 200v20M280 200v20" /><path d="M290 170c20-10 30-30 20-50" /></svg>;
+  if (/horse|pony/.test(s)) return <svg {...common}><path d="M120 110l40-40h30l40 30h60l20-40 30 20-10 50-30 20" /><path d="M160 70l-20-30M190 70V40" /><path d="M120 110v50M300 150v-20M280 150v-10" /><path d="M60 190c40-30 300-30 340 0" /><path d="M110 160h210" /></svg>;
+  if (/book|bible|encyclopedia|comic/.test(s)) return <svg {...common}><path d="M220 60c-30-20-80-24-140-16v140c60-8 110-4 140 16 30-20 80-24 140-16V44c-60-8-110-4-140 16z" /><path d="M220 60v140" /><path d="M110 90c30-4 60-2 90 8M110 120c30-4 60-2 90 8M240 98c30-10 60-12 90-8M240 128c30-10 60-12 90-8" /></svg>;
+  if (/truck|car\b|tractor|fire engine|jeep/.test(s)) return <svg {...common}><path d="M60 160h320v-50h-100l-30-40H60z" /><path d="M200 70l20 40h60" /><path d="M80 110h100" /><circle cx="130" cy="170" r="26" /><circle cx="310" cy="170" r="26" /><circle cx="130" cy="170" r="8" /><circle cx="310" cy="170" r="8" /><path d="M40 200h360" /></svg>;
+  if (/kite/.test(s)) return <svg {...common}><path d="M220 20l80 80-80 110-80-110z" /><path d="M220 20v190M140 100h160" /><path d="M220 210c-10 20 10 30 0 50" /><path d="M200 230l-10 10M240 240l10 10" /></svg>;
+  if (/watch|clock/.test(s)) return <svg {...common}><circle cx="220" cy="120" r="70" /><circle cx="220" cy="120" r="56" /><path d="M220 80v40l30 20" /><path d="M190 50l10-30h40l10 30M190 190l10 30h40l10-30" /></svg>;
+  return null;
+}
+
+function AdPage({ present, subject, rel, year, folio }) {
+  const P = possessive(rel).toLowerCase();
+  const S = subjectPronoun(rel);
+  const them = S === 'He' ? 'him' : S === 'They' ? 'them' : 'her';
+  const payers = /grand/i.test(rel || '') ? `${P} grandchildren` : /mom|mother|dad|father/i.test(rel || '') ? `${P} children` : 'the family';
+  const headline = (present.headline || '').trim() || `The One ${S} Asked For`;
+  const lines = Array.isArray(present.lines) ? present.lines.filter(l => l && (l.head || l.body)).slice(0, 4) : [];
+  const where = [present.when, present.where].filter(Boolean).join(' · ');
+  const drawing = ToyDrawing({ item: present.item });
+  return (
+    <section style={{ position: 'relative', minHeight: `${PAGE_H}px`, boxSizing: 'border-box', padding: '40px' }}>
+      <div style={{ position: 'absolute', inset: '40px', border: `3px double ${INK}`, pointerEvents: 'none' }} aria-hidden="true" />
+      <div style={{ position: 'absolute', top: '22px', left: 0, right: 0, textAlign: 'center', fontFamily: SANS, fontSize: '9px', letterSpacing: '0.26em', textTransform: 'uppercase', color: INK3, background: PAPER, width: '140px', margin: '0 auto' }}>Advertisement</div>
+      <div style={{ minHeight: `${PAGE_H - 80}px`, boxSizing: 'border-box', padding: '48px 56px 44px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+        {where && <div style={{ fontFamily: SANS, fontWeight: 600, fontSize: '13px', letterSpacing: '0.3em', textTransform: 'uppercase', color: RED }}>{where}</div>}
+        <div style={{ fontFamily: SERIF_DISPLAY, fontWeight: 900, fontSize: headline.length > 22 ? '54px' : '66px', lineHeight: 1, letterSpacing: '-0.015em', marginTop: '18px', maxWidth: '600px' }}>{headline}</div>
+        {present.deck && <div style={{ fontFamily: SERIF_BODY, fontStyle: 'italic', fontSize: '21px', lineHeight: '28px', color: INK2, marginTop: '14px', maxWidth: '520px' }}>{present.deck}</div>}
+        {drawing || (present.item && (
+          <div style={{ fontFamily: SERIF_DISPLAY, fontStyle: 'italic', fontSize: '34px', margin: '40px 0 24px', color: INK }}>{present.item}</div>
+        ))}
+        {lines.length > 0 && (
+          <div style={{ display: 'grid', gridTemplateColumns: lines.length === 1 ? '1fr' : '1fr 1fr', gap: '18px 36px', textAlign: 'left', maxWidth: '560px', marginTop: '8px', fontSize: '15.5px', lineHeight: '22px' }}>
+            {lines.map((l, i) => (
+              <p key={i} style={{ margin: 0 }}>
+                {l.head && <><b style={{ fontFamily: SANS, fontSize: '11px', letterSpacing: '0.18em', textTransform: 'uppercase', color: RED, fontWeight: 600 }}>{l.head}</b><br /></>}
+                {l.body}
+              </p>
+            ))}
+          </div>
+        )}
+        <div style={{ marginTop: 'auto', width: '100%', borderTop: `1px solid ${INK}`, paddingTop: '16px', textAlign: 'left' }}>
+          {present.quote && <div style={{ fontFamily: SERIF_DISPLAY, fontStyle: 'italic', fontSize: '18px', lineHeight: 1.4 }}>“{String(present.quote).replace(/^["“]|["”]$/g, '')}” <span style={{ fontFamily: SANS, fontStyle: 'normal', fontSize: '10px', letterSpacing: '0.16em', textTransform: 'uppercase', color: INK3 }}>— {subject}</span></div>}
+          <div style={{ marginTop: '14px', textAlign: 'right', fontFamily: SANS, fontSize: '9px', letterSpacing: '0.26em', textTransform: 'uppercase', color: INK3 }}>Paid for by {payers} · {year}</div>
         </div>
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -2662,6 +2931,8 @@ function IssueView({ project, onProjectUpdate, onReturnToDashboard }) {
   const [note, setNote] = useState(project.buyer_note || '');
   const [editingNote, setEditingNote] = useState(!project.buyer_note);
   const [savingNote, setSavingNote] = useState(false);
+  const looksLikeHandle = (n) => !n || /\d/.test(n) || !/\s/.test(n.trim()) && n.trim().length > 12;
+  const [displayName, setDisplayName] = useState(looksLikeHandle(project.buyer_name) ? '' : prettyName(project.buyer_name));
 
   useEffect(() => {
     let cancelled = false;
@@ -2696,8 +2967,10 @@ function IssueView({ project, onProjectUpdate, onReturnToDashboard }) {
 
   const saveNote = async () => {
     setSavingNote(true);
-    await supabase.from('interview_projects').update({ buyer_note: note.trim() || null }).eq('id', project.id);
-    onProjectUpdate({ ...project, buyer_note: note.trim() || null });
+    const updates = { buyer_note: note.trim() || null };
+    if (displayName.trim()) updates.buyer_name = displayName.trim();
+    await supabase.from('interview_projects').update(updates).eq('id', project.id);
+    onProjectUpdate({ ...project, ...updates });
     setSavingNote(false);
     setEditingNote(false);
   };
@@ -2706,19 +2979,22 @@ function IssueView({ project, onProjectUpdate, onReturnToDashboard }) {
   const rel = project.buyer_relationship;
   const S = subjectPronoun(rel);
   const P = possessive(rel);
+  const she = S === 'He' ? 'he' : S === 'They' ? 'they' : 'she';
+  const her = S === 'He' ? 'him' : S === 'They' ? 'them' : 'her';
   const subject = project.subject_name || (S === 'He' ? 'Him' : S === 'They' ? 'Them' : 'Her');
   const title = project.issue_title || `${subject}'s Issue`;
-  const buyer = prettyName(project.buyer_name) || 'the family';
+  const buyer = (displayName.trim() || (looksLikeHandle(project.buyer_name) ? '' : prettyName(project.buyer_name))) || 'the family';
   const departments = activeDepartments(project).filter(d => d.state !== 'out');
   const titleOf = (id) => departments.find(d => d.id === id)?.title || (id === 'sayings' ? `Things ${S} Always Said` : id);
 
-  const allPieces = sessions.flatMap(s => (s.pieces?.pieces || []).map(p => ({ ...p, _session: s.session_number })));
+  const allPieces = reconcilePieces(sessions);
   const byDept = {};
   allPieces.forEach(p => { (byDept[p.department] = byDept[p.department] || []).push(p); });
 
-  const sayings = (byDept.sayings || []).flatMap(p => (p.items || []).map(it => ({ ...it, pageTitle: titleOf('sayings') })));
+  const sayings = (byDept.sayings || []).flatMap(p => (p.items || []).map(it => ({ ...it })));
   let fillerIdx = 0;
   const nextFiller = () => (fillerIdx < sayings.length ? sayings[fillerIdx++] : null);
+  const remainingFillers = () => sayings.slice(fillerIdx);
 
   const feature = (byDept.feature || [])[0] || null;
   const stories = byDept.family_stories || [];
@@ -2727,6 +3003,7 @@ function IssueView({ project, onProjectUpdate, onReturnToDashboard }) {
   const knowNow = (byDept.know_now || []).flatMap(p => p.items || []);
   const faith = byDept.faith || [];
   const closing = (byDept.until_next_time || []).map(p => p.closing).filter(Boolean).slice(-1)[0] || '';
+  const present = (byDept.present || []).slice(-1)[0] || null;
   const custom = (Array.isArray(project.custom_departments) ? project.custom_departments : []).filter(c => c && c.id);
 
   const shoeboxItems = (byDept.shoebox || []).flatMap(p => p.items || []);
@@ -2734,11 +3011,29 @@ function IssueView({ project, onProjectUpdate, onReturnToDashboard }) {
   const cover = photos.find(p => p.is_cover) || photos[0] || null;
   const captioned = shoeboxItems.map(it => ({ ...it, photo: it.photo_id ? photoById[it.photo_id] : null })).filter(it => it.photo || it.caption);
   const leadPhoto = captioned.find(it => it.photo && it.photo.id !== cover?.id && it.caption) || captioned.find(it => it.photo) || null;
+  const featurePhoto = photos.find(p => p.is_feature) || leadPhoto?.photo || cover || null;
   const restPhotos = captioned.filter(it => it !== leadPhoto);
 
   const provenance = sessions.map(s => ({ on: s.recorded_on, where: s.recorded_where, others: s.others_present })).filter(x => x.on || x.where);
+  const provDates = [...new Set(provenance.map(x => formatDateish(x.on)).filter(Boolean))];
+  const provPlaces = [...new Set(provenance.map(x => (x.where || '').trim()).filter(Boolean))].map(w => w.charAt(0).toLowerCase() + w.slice(1));
+  const provOthers = [...new Set(provenance.map(x => (x.others || '').trim()).filter(x => x && !/just the two|just us|only us|nobody/i.test(x)))];
+  const provSentence = (() => {
+    const n = sessions.length;
+    const count = n ? `${NUM_WORDS[n] || n} afternoon${n === 1 ? '' : 's'}` : 'several afternoons';
+    let out = `Everything in these pages was told by ${subject} to ${buyer} over ${count}`;
+    if (provDates.length === 1) out += ` on ${provDates[0]}`;
+    else if (provDates.length > 1) out += ` between ${provDates[0]} and ${provDates[provDates.length - 1]}`;
+    if (provPlaces.length) out += `, at ${provPlaces.length === 1 ? provPlaces[0] : provPlaces.slice(0, -1).join(', ') + ' and ' + provPlaces.slice(-1)}`;
+    out += '.';
+    if (provOthers.length) out += ` Also present: ${provOthers.join('; ')}.`;
+    out += ` The words are ${P.toLowerCase() === 'their' ? 'theirs' : P.toLowerCase() === 'his' ? 'his' : 'hers'}. Grace, the editor, kept them in order and wrote them down.`;
+    return out;
+  })();
   const season = (() => { const m = new Date().getMonth(); return m < 2 || m === 11 ? 'Winter' : m < 5 ? 'Spring' : m < 8 ? 'Summer' : 'Autumn'; })();
   const year = new Date().getFullYear();
+  const issueLine = `Issue No. 1 · ${season} ${year}`;
+  const head = (right) => ({ left: `${subject} · Issue No. 1`, right });
 
   // Contents in plan order, only pages that have something.
   const order = (project.issue_plan?.departments || departments).map(d => d.id);
@@ -2749,17 +3044,58 @@ function IssueView({ project, onProjectUpdate, onReturnToDashboard }) {
   order.forEach(id => {
     if (!has(id)) return;
     if (id === 'sayings') { contents.push({ title: titleOf('sayings'), page: 'throughout' }); return; }
-    contents.push({ title: titleOf(id), page: pageNo });
+    contents.push({ title: titleOf(id), page: pageNo, feature: id === 'feature' });
     pageNo += id === 'feature' ? 4 : id === 'shoebox' ? 4 : 2;
   });
+  if (present) contents.push({ title: 'The one ' + she + ' asked for', page: 'back cover' });
 
   const empty = sessions.length === 0;
+  let folio = 2;
+  const nextFolio = () => ++folio;
 
-  const storyBlock = (p, i, kicker) => (
-    <div key={`${kicker}-${i}`}>
-      <PieceOpener kicker={kicker} title={p.title || 'Untitled'} />
-      <Paras text={p.body} firstDrop />
-      <Filler saying={nextFiller()} />
+  // A run of story-shaped pieces in three columns, a filler after each.
+  const storyRun = (pieces, { cols = 3, kickerOf } = {}) => (
+    <Cols count={cols}>
+      {pieces.map((p, i) => (
+        <React.Fragment key={i}>
+          <Story kicker={kickerOf ? kickerOf(p) : (p.when || p.kicker || null)} title={p.title} body={p.body || (Array.isArray(p.items) ? p.items.map(it => it.text || it.quote).join('\n\n') : '')} />
+          <Filler saying={nextFiller()} top={0} />
+        </React.Fragment>
+      ))}
+    </Cols>
+  );
+
+  // The feature body: three columns, the pull quote dropped in after the
+  // second paragraph so it sits inside the text, not stapled to the end.
+  const featureBody = (f) => {
+    const paras = String(f.body || '').split(/\n\s*\n/).map(s => s.trim()).filter(Boolean);
+    const at = Math.min(2, Math.max(1, paras.length - 1));
+    const pq = f.pull_quote ? String(f.pull_quote).replace(/^["“]|["”]$/g, '') : '';
+    return (
+      <Cols count={3}>
+        <Paras text={paras.slice(0, at).join('\n\n')} firstDrop />
+        {pq && (
+          <div style={{ breakInside: 'avoid', fontFamily: SERIF_DISPLAY, fontStyle: 'italic', fontSize: '24px', lineHeight: '32px', borderTop: `1.5px solid ${INK}`, borderBottom: `1.5px solid ${INK}`, padding: '16px 4px', margin: '18px 0' }}>
+            “{pq}”
+            <div style={{ fontFamily: SANS, fontStyle: 'normal', fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', color: RED, marginTop: '12px' }}>{subject}</div>
+          </div>
+        )}
+        <Paras text={paras.slice(at).join('\n\n')} indent />
+        <Filler saying={nextFiller()} />
+      </Cols>
+    );
+  };
+
+  const photoBox = (p, h, alt) => (
+    <div style={{ height: `${h}px`, background: '#DDD5C6', overflow: 'hidden', breakInside: 'avoid' }}>
+      {p && urls[p.id] && <img src={urls[p.id]} alt={alt || p.caption || ''} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />}
+    </div>
+  );
+  const capLine = (it) => [it.who, it.where, it.when].filter(Boolean).join(' · ');
+  const Cap = ({ it, size = 11 }) => (
+    <div style={{ fontFamily: SANS, fontSize: `${size}px`, lineHeight: 1.45, color: INK2, marginTop: '8px' }}>
+      {capLine(it) && <b style={{ color: INK, fontWeight: 600 }}>{capLine(it)}. </b>}
+      {it.caption || 'Every shoebox has one nobody can place. If you know, write it in: ____________________'}
     </div>
   );
 
@@ -2767,7 +3103,7 @@ function IssueView({ project, onProjectUpdate, onReturnToDashboard }) {
     <div style={{ minHeight: '100vh', background: colors.cream, fontFamily: fonts.sans, color: colors.text }}>
       <div className="issue-chrome" style={{ maxWidth: '900px', margin: '0 auto', padding: '20px 16px 0' }}>
         <div style={{ background: 'white', borderRadius: '16px', overflow: 'hidden', border: `0.5px solid ${colors.border}` }}>
-          <Header onBack={onReturnToDashboard} rightText={`${title} · Vol. 1`} />
+          <Header onBack={onReturnToDashboard} rightText={`${title} · Issue No. 1`} />
           <div style={{ padding: '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', background: colors.creamLight }}>
             <div style={{ fontSize: '13px', color: colors.textSecondary }}>
               {empty ? 'The issue begins taking shape after your first afternoon is approved.' : `${sessions.length} of ${TOTAL_SESSIONS} afternoons filed. This is the issue as it stands — it fills in as you go.`}
@@ -2782,44 +3118,56 @@ function IssueView({ project, onProjectUpdate, onReturnToDashboard }) {
       {loading ? (
         <div style={{ padding: '40px', textAlign: 'center', color: colors.textSecondary }}>Laying out the issue…</div>
       ) : (
-        <div className="issue-paper" style={{ width: '816px', maxWidth: '100%', margin: '20px auto 40px', background: PAPER, color: INK, fontFamily: SERIF_BODY, boxShadow: '0 2px 18px rgba(0,0,0,0.08)', boxSizing: 'border-box' }}>
+        <div className="issue-paper" style={{ width: `${PAGE_W}px`, maxWidth: '100%', margin: '20px auto 40px', background: PAPER, color: INK, fontFamily: SERIF_BODY, boxShadow: '0 2px 18px rgba(0,0,0,0.08)', boxSizing: 'border-box' }}>
 
-          {/* ---- COVER ---- */}
-          <section style={{ padding: '40px', minHeight: '1056px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ flex: 1, border: `2px solid ${INK}`, outline: `1px solid ${INK}`, outlineOffset: '4px', padding: '32px 36px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
-              <div style={{ textAlign: 'center', fontSize: '11px', letterSpacing: '0.22em', textTransform: 'uppercase', color: INK2, fontFamily: fonts.sans }}>Vol. 1 · {season} {year} · Printed for the family</div>
-              <h1 style={{ margin: '18px 0 0', textAlign: 'center', fontFamily: SERIF_DISPLAY, fontWeight: 900, fontSize: title.length > 24 ? '46px' : '58px', lineHeight: 1.02, letterSpacing: '-0.01em' }}>{title}</h1>
-              <p style={{ margin: '10px 0 0', textAlign: 'center', fontFamily: SERIF_DISPLAY, fontStyle: 'italic', fontSize: '19px', color: INK2 }}>Stories, sayings & pictures from {subject}'s life</p>
-              <Ornament />
-              <div style={{ height: '300px', background: '#E3DACB', border: cover ? 'none' : '1px dashed #B8AB95', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', color: '#6E6353', fontStyle: 'italic', fontSize: '13px', textAlign: 'center', padding: cover ? 0 : '20px' }}>
-                {cover && urls[cover.id] ? <img src={urls[cover.id]} alt={cover.caption || 'Cover photograph'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : 'The cover photograph — mark one "Use as cover" when you review an afternoon'}
+          {/* ---- COVER: nameplate, the photograph, contents ---- */}
+          <Page folio={null} style={{ padding: `44px ${PAD_X}px 48px`, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ borderTop: `3px solid ${INK}`, borderBottom: `1px solid ${INK}`, padding: '14px 0 12px', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '16px' }}>
+              <div style={{ fontFamily: SERIF_DISPLAY, fontWeight: 900, fontSize: title.length > 18 ? '44px' : '62px', lineHeight: 1, letterSpacing: '-0.02em' }}>{title}</div>
+              <div style={{ fontFamily: SANS, fontSize: '10.5px', letterSpacing: '0.24em', textTransform: 'uppercase', color: INK3, textAlign: 'right' }}>{issueLine}<br />In {P.toLowerCase()} own words</div>
+            </div>
+            <div style={{ marginTop: '18px', height: '520px', background: '#DDD5C6', border: cover ? 'none' : `1px dashed #B8AB95`, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', color: INK3, fontStyle: 'italic', fontSize: '13px', textAlign: 'center', padding: cover ? 0 : '20px', boxSizing: 'border-box' }}>
+              {cover && urls[cover.id] ? <img src={urls[cover.id]} alt={cover.caption || 'Cover photograph'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : 'The cover photograph — mark one "Use as cover" when you review an afternoon'}
+            </div>
+            {feature && (
+              <div style={{ marginTop: '22px' }}>
+                <Kicker>The Feature</Kicker>
+                <div style={{ fontFamily: SERIF_DISPLAY, fontWeight: 900, fontSize: feature.title.length > 30 ? '34px' : '42px', lineHeight: 1.04, letterSpacing: '-0.01em' }}>{feature.title}</div>
+                {feature.deck && <div style={{ fontFamily: SERIF_BODY, fontStyle: 'italic', fontSize: '16px', lineHeight: 1.4, color: INK2, marginTop: '8px', maxWidth: '620px' }}>{feature.deck}</div>}
               </div>
-              <div style={{ marginTop: '22px', fontSize: '11px', letterSpacing: '0.2em', textTransform: 'uppercase', color: RED, textAlign: 'center', fontWeight: 700, fontFamily: fonts.sans }}>In this issue</div>
-              <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', fontSize: '13.5px', lineHeight: 1.5 }}>
-                {contents.map((c, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-                    <span style={{ fontWeight: c.title === titleOf('feature') ? 700 : 400 }}>{c.title}</span>
-                    <span style={{ flex: 1, borderBottom: '1px dotted #8F8371', transform: 'translateY(-4px)' }} />
-                    <span>{c.page}</span>
+            )}
+            <div style={{ marginTop: 'auto', borderTop: `1px solid ${INK}`, paddingTop: '14px' }}>
+              <Kicker>Also in this issue</Kicker>
+              <div style={{ columnCount: 2, columnGap: '28px', fontSize: '13px', lineHeight: 1.6 }}>
+                {contents.filter(c => !c.feature).map((c, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: '8px', breakInside: 'avoid' }}>
+                    <span>{c.title}</span>
+                    <span style={{ flex: 1, borderBottom: `1px dotted ${INK3}`, transform: 'translateY(-4px)' }} />
+                    <span style={{ fontFamily: SANS, fontSize: '11px', color: INK3 }}>{c.page}</span>
                   </div>
                 ))}
               </div>
-              <div style={{ marginTop: 'auto', textAlign: 'center', fontSize: '11px', letterSpacing: '0.16em', textTransform: 'uppercase', color: INK2, fontFamily: fonts.sans }}>MyStory.Family</div>
+              <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'space-between', fontFamily: SANS, fontSize: '9.5px', letterSpacing: '0.2em', textTransform: 'uppercase', color: INK3 }}>
+                <span>A MyStory.Family issue</span><span>Printed for the family</span>
+              </div>
             </div>
-          </section>
+          </Page>
 
           <PageBreak />
 
-          {/* ---- A NOTE BEFORE YOU BEGIN + HOW THIS ISSUE WAS MADE ---- */}
-          <section style={{ padding: '56px 64px 48px', minHeight: '1056px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
-            <RunningHead left={`${title} · Vol. 1`} right="A Note Before You Begin" />
-            <Ornament />
-            <h2 style={{ margin: '8px 0 0', textAlign: 'center', fontFamily: SERIF_DISPLAY, fontWeight: 700, fontSize: '32px', lineHeight: 1.1 }}>A Note Before You Begin</h2>
-            <p style={{ margin: '6px 0 0', textAlign: 'center', fontStyle: 'italic', fontSize: '14px', color: INK2 }}>From {buyer}</p>
-            <div style={{ marginTop: '28px', maxWidth: '560px', alignSelf: 'center', width: '100%' }}>
+          {/* ---- A NOTE BEFORE YOU BEGIN ---- */}
+          <Page head={head('A Note Before You Begin')} folio={2} style={{ display: 'flex', flexDirection: 'column' }}>
+            <div style={{ maxWidth: '540px', alignSelf: 'center', width: '100%', marginTop: '36px' }}>
+              <Kicker>A note before you begin</Kicker>
+              <h2 style={{ margin: '0 0 6px', fontFamily: SERIF_DISPLAY, fontWeight: 700, fontSize: '34px', lineHeight: 1.1 }}>From {buyer}</h2>
+              <div style={{ width: '48px', borderBottom: `2px solid ${RED}`, margin: '14px 0 26px' }} />
               {editingNote ? (
                 <div className="issue-edit" style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontFamily: fonts.sans }}>
-                  <div style={{ fontSize: '13px', color: INK2 }}>This page is yours. Why you sat down with {S === 'He' ? 'him' : S === 'They' ? 'them' : 'her'}, what it was like, what you hope the grandchildren take from it. Three or four short paragraphs. Grace never touches this one.</div>
+                  <div style={{ fontSize: '13px', color: INK2 }}>This page is yours. Why you sat down with {her}, what it was like, what you hope the grandchildren take from it. Three or four short paragraphs. Grace never touches this one.</div>
+                  <div>
+                    <label htmlFor="issue-byname" style={{ fontSize: '13px', color: INK2, display: 'block', marginBottom: '4px' }}>Your name, as it should appear</label>
+                    <input id="issue-byname" type="text" value={displayName} onChange={e => setDisplayName(e.target.value)} placeholder="Tim" style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', fontSize: '15px', fontFamily: fonts.sans, border: `1px solid ${RULE}`, borderRadius: '6px', background: 'white', minHeight: '44px' }} />
+                  </div>
                   <textarea value={note} onChange={e => setNote(e.target.value)} rows={10} style={{ width: '100%', boxSizing: 'border-box', padding: '12px 14px', fontSize: '15px', lineHeight: 1.6, fontFamily: SERIF_BODY, border: `1px solid ${RULE}`, borderRadius: '6px', background: 'white', resize: 'vertical' }} placeholder="Dear family," />
                   <div style={{ display: 'flex', gap: '8px' }}>
                     <button onClick={saveNote} disabled={savingNote} style={{ fontSize: '14px', padding: '10px 18px', minHeight: '44px', background: colors.navy, color: 'white', border: 'none', borderRadius: '8px', fontFamily: fonts.sans, cursor: 'pointer' }}>{savingNote ? 'Saving…' : 'Save the note'}</button>
@@ -2828,69 +3176,50 @@ function IssueView({ project, onProjectUpdate, onReturnToDashboard }) {
                 </div>
               ) : (
                 <div>
-                  <Paras text={project.buyer_note} firstDrop />
-                  <p style={{ margin: '6px 0 0', fontFamily: SERIF_DISPLAY, fontStyle: 'italic', fontSize: '17px' }}>— {buyer}</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}><Paras text={project.buyer_note} firstDrop size={16} lead={24} indent={false} /></div>
+                  <p style={{ margin: '14px 0 0', fontFamily: SERIF_DISPLAY, fontStyle: 'italic', fontSize: '17px' }}>— {buyer}</p>
                   <button className="issue-edit" onClick={() => setEditingNote(true)} style={{ marginTop: '10px', fontSize: '12px', background: 'transparent', border: 'none', color: INK2, textDecoration: 'underline', fontFamily: fonts.sans, cursor: 'pointer', minHeight: '32px', padding: 0 }}>Edit this page</button>
                 </div>
               )}
             </div>
-            <div style={{ marginTop: 'auto', borderTop: `1px solid ${INK}`, borderBottom: `1px solid ${INK}`, padding: '16px 20px', fontSize: '13px', lineHeight: 1.55 }}>
+            <div style={{ marginTop: 'auto', borderTop: `1px solid ${INK}`, paddingTop: '14px', fontSize: '13px', lineHeight: 1.55, maxWidth: '540px', alignSelf: 'center', width: '100%' }}>
               <Kicker>How this issue was made</Kicker>
-              <p style={{ margin: '8px 0 0' }}>
-                Everything in these pages was told by {subject} to {buyer} over {sessions.length || 'several'} afternoon{sessions.length === 1 ? '' : 's'}
-                {provenance.length > 0 && <>, {provenance.map(x => [x.on, x.where].filter(Boolean).join(' at ')).filter(Boolean).join('; ')}</>}
-                {provenance.some(x => x.others && !/just the two/i.test(x.others)) && <>. Others present: {provenance.map(x => x.others).filter(x => x && !/just the two/i.test(x)).join(', ')}</>}
-                . The words are {P.toLowerCase() === 'their' ? 'theirs' : P.toLowerCase() === 'his' ? 'his' : 'hers'}. Grace, the editor, kept them in order and wrote them down.
-              </p>
+              <p style={{ margin: 0, color: INK2 }}>{provSentence}</p>
             </div>
-            <Folio n={2} />
-          </section>
+          </Page>
 
-          {/* ---- THE FEATURE ---- */}
+          {/* ---- THE FEATURE: opener bleeds, then three columns ---- */}
           {feature && (
             <>
               <PageBreak />
-              <section style={{ padding: '56px 64px 48px', boxSizing: 'border-box' }}>
-                <RunningHead left="The Feature" right={`${season} ${year}`} />
-                {leadPhoto?.photo && urls[leadPhoto.photo.id] && (
-                  <div style={{ marginTop: '20px' }}>
-                    <img src={urls[leadPhoto.photo.id]} alt={leadPhoto.caption || ''} style={{ width: '100%', maxHeight: '340px', objectFit: 'cover', display: 'block' }} />
-                    <p style={{ margin: '8px 0 0', fontSize: '11.5px', color: INK2, fontStyle: 'italic' }}>{[leadPhoto.who, leadPhoto.where, leadPhoto.when].filter(Boolean).join(' · ')}</p>
+              <Page bleed folio={nextFolio()}>
+                <div style={{ position: 'relative', height: featurePhoto && urls[featurePhoto.id] ? '560px' : '300px', background: featurePhoto && urls[featurePhoto.id] ? '#8F857A' : PAPER, overflow: 'hidden' }}>
+                  {featurePhoto && urls[featurePhoto.id] && <img src={urls[featurePhoto.id]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', filter: 'brightness(0.78)' }} />}
+                  <div style={{ position: 'absolute', left: PAD_X, right: PAD_X, bottom: '44px', color: featurePhoto && urls[featurePhoto.id] ? PAPER : INK }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                      {!(featurePhoto && urls[featurePhoto.id]) && <DeptIcon id="feature" size={36} />}
+                      <div style={{ fontFamily: SANS, fontSize: '11px', letterSpacing: '0.28em', textTransform: 'uppercase', opacity: 0.9 }}>The Feature</div>
+                    </div>
+                    <div style={{ fontFamily: SERIF_DISPLAY, fontWeight: 900, fontSize: feature.title.length > 28 ? '58px' : '78px', lineHeight: 0.98, letterSpacing: '-0.01em', textShadow: featurePhoto && urls[featurePhoto.id] ? '0 1px 12px rgba(0,0,0,0.35)' : 'none' }}>{feature.title}</div>
                   </div>
-                )}
-                <div style={{ marginTop: '26px', display: 'flex', alignItems: 'center', gap: '14px' }}>
-                  <div style={{ width: '54px', height: '54px', borderRadius: '50%', background: '#E3DACB', flexShrink: 0 }} />
-                  <Kicker>The Feature · As told by {subject}</Kicker>
                 </div>
-                <h2 style={{ margin: '14px 0 0', fontFamily: SERIF_DISPLAY, fontWeight: 900, fontSize: '42px', lineHeight: 1.04 }}>{feature.title}</h2>
-                {feature.deck && <p style={{ margin: '12px 0 0', fontFamily: SERIF_DISPLAY, fontStyle: 'italic', fontSize: '19px', lineHeight: 1.35, color: INK2 }}>{feature.deck}</p>}
-                <div style={{ marginTop: '20px', columns: 2, columnGap: '26px' }}>
-                  <Paras text={feature.body} firstDrop />
+                <div style={{ padding: `26px ${PAD_X}px 64px` }}>
+                  <div style={{ fontFamily: SANS, fontSize: '10.5px', letterSpacing: '0.2em', textTransform: 'uppercase', color: RED }}>As told by {subject} · in {P.toLowerCase()} own words</div>
+                  {feature.deck && <div style={{ fontFamily: SERIF_BODY, fontSize: '20px', lineHeight: '29px', color: INK2, margin: '12px 0 26px', maxWidth: '640px' }}>{feature.deck}</div>}
+                  {featureBody(feature)}
                 </div>
-                {feature.pull_quote && (
-                  <blockquote style={{ margin: '18px 0 0', padding: '14px 0', borderTop: `2px solid ${INK}`, borderBottom: `2px solid ${INK}`, fontFamily: SERIF_DISPLAY, fontStyle: 'italic', fontSize: '21px', lineHeight: 1.3, breakInside: 'avoid' }}>"{String(feature.pull_quote).replace(/^"|"$/g, '')}"</blockquote>
-                )}
-                <Ornament />
-                <Filler saying={nextFiller()} />
-              </section>
+              </Page>
             </>
           )}
 
-          {/* ---- CUSTOM PAGES ---- */}
+          {/* ---- CUSTOM PAGES (the family's own) ---- */}
           {custom.map(c => (byDept[c.id] || []).length > 0 && (
             <React.Fragment key={c.id}>
               <PageBreak />
-              <section style={{ padding: '56px 64px 48px', boxSizing: 'border-box' }}>
-                <RunningHead left={`${title} · Vol. 1`} right={c.title} />
-                {(byDept[c.id] || []).map((p, i) => Array.isArray(p.items)
-                  ? (
-                    <div key={i}>
-                      <PieceOpener kicker={c.title} title={p.title || c.title} />
-                      {p.items.map((it, k) => <div key={k} style={{ fontFamily: SERIF_DISPLAY, fontStyle: 'italic', fontSize: '18px', lineHeight: 1.35, margin: '0 0 12px' }}>"{String(it.quote || it.text || '').replace(/^"|"$/g, '')}"{it.when && <span style={{ fontFamily: SERIF_BODY, fontStyle: 'normal', fontSize: '12.5px', color: INK2 }}> — {it.when}</span>}</div>)}
-                    </div>
-                  )
-                  : storyBlock(p, i, c.title))}
-              </section>
+              <Page head={head(c.title)} folio={nextFolio()}>
+                <DeptHead id={c.id} title={c.title} sub={c.note || null} />
+                {storyRun(byDept[c.id], { kickerOf: () => null })}
+              </Page>
             </React.Fragment>
           ))}
 
@@ -2898,64 +3227,60 @@ function IssueView({ project, onProjectUpdate, onReturnToDashboard }) {
           {stories.length > 0 && (
             <>
               <PageBreak />
-              <section style={{ padding: '56px 64px 48px', boxSizing: 'border-box' }}>
-                <RunningHead left={`${title} · Vol. 1`} right={titleOf('family_stories')} />
-                {stories.map((p, i) => storyBlock(p, i, titleOf('family_stories')))}
-              </section>
+              <Page head={head(titleOf('family_stories'))} folio={nextFolio()}>
+                <DeptHead id="family_stories" title={titleOf('family_stories')} sub="The ones that get told at every holiday" />
+                {storyRun(stories)}
+              </Page>
             </>
           )}
 
-          {/* ---- LAUGHTER ---- */}
+          {/* ---- LAUGHTER: a photo across two columns, pieces around it ---- */}
           {laughter.length > 0 && (
             <>
               <PageBreak />
-              <section style={{ padding: '56px 64px 48px', boxSizing: 'border-box' }}>
-                <RunningHead left={`${title} · Vol. 1`} right={titleOf('laughter')} />
-                <PieceOpener kicker="Departments" title={titleOf('laughter')} />
-                <p style={{ margin: '0 0 16px', fontSize: '14px', color: INK2, fontStyle: 'italic' }}>The jokes and stories that got told every single holiday, whether anyone asked or not.</p>
-                {laughter.map((p, i) => (
-                  <div key={i} style={{ margin: '0 0 16px', breakInside: 'avoid' }}>
-                    {p.title && <div style={{ fontWeight: 700, color: RED, fontSize: '14px', marginBottom: '4px' }}>{p.title}</div>}
-                    <Paras text={p.body || (p.items || []).map(it => it.text || it.quote).join('\n\n')} />
+              <Page head={head(titleOf('laughter'))} folio={nextFolio()}>
+                <DeptHead id="laughter" title={titleOf('laughter')} sub={`Things that still make ${her} laugh out loud`} />
+                {restPhotos[0]?.photo && urls[restPhotos[0].photo.id] && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', columnGap: '20px', alignItems: 'end', marginBottom: '24px' }}>
+                    {photoBox(restPhotos[0].photo, 300)}
+                    <Cap it={restPhotos[0]} />
                   </div>
-                ))}
-                <Filler saying={nextFiller()} />
-              </section>
+                )}
+                {storyRun(laughter)}
+              </Page>
             </>
           )}
 
-          {/* ---- FROM THE SHOEBOX ---- */}
+          {/* ---- FROM THE SHOEBOX: a photo essay ---- */}
           {captioned.length > 0 && (
             <>
               <PageBreak />
-              <section style={{ padding: '56px 64px 48px', boxSizing: 'border-box' }}>
-                <RunningHead left={`${title} · Vol. 1`} right={titleOf('shoebox')} />
-                <PieceOpener kicker={titleOf('shoebox')} title="The box in the closet" />
-                <p style={{ margin: '0 0 18px', fontSize: '13.5px', lineHeight: 1.6, color: INK2, maxWidth: '560px' }}>{buyer} held the pictures up one at a time. This is what {S === 'He' ? 'he' : S === 'They' ? 'they' : 'she'} said about each one.</p>
-                {leadPhoto?.photo && urls[leadPhoto.photo.id] && (
-                  <div style={{ marginBottom: '22px', breakInside: 'avoid' }}>
-                    <img src={urls[leadPhoto.photo.id]} alt={leadPhoto.caption || ''} style={{ width: '100%', maxHeight: '460px', objectFit: 'cover', display: 'block' }} />
-                    <div style={{ marginTop: '10px' }}>
-                      <Kicker>{[leadPhoto.who, leadPhoto.where, leadPhoto.when].filter(Boolean).join(' · ')}</Kicker>
-                      <p style={{ margin: '4px 0 0', fontSize: '13.5px', lineHeight: 1.55, color: INK2 }}>{leadPhoto.caption}</p>
+              <Page head={head(titleOf('shoebox'))} folio={nextFolio()}>
+                <DeptHead id="shoebox" title={titleOf('shoebox')} sub={`${buyer} held them up one at a time. This is what ${she} said.`} />
+                {leadPhoto && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', columnGap: '20px', alignItems: 'end', marginBottom: '26px' }}>
+                    {photoBox(leadPhoto.photo, 440, leadPhoto.caption)}
+                    <div>
+                      {capLine(leadPhoto) && <Kicker>{capLine(leadPhoto)}</Kicker>}
+                      <div style={{ fontSize: '15px', lineHeight: '22px', color: INK }}>{leadPhoto.caption}</div>
                     </div>
                   </div>
                 )}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '22px 24px' }}>
-                  {restPhotos.map((it, i) => (
-                    <div key={i} style={{ breakInside: 'avoid' }}>
-                      <div style={{ height: '180px', background: '#E3DACB', overflow: 'hidden' }}>
-                        {it.photo && urls[it.photo.id] && <img src={urls[it.photo.id]} alt={it.caption || ''} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '22px 20px' }}>
+                  {restPhotos.map((it, i) => {
+                    const wide = i % 5 === 1;
+                    return (
+                      <div key={i} style={{ gridColumn: wide ? 'span 2' : 'span 1', breakInside: 'avoid' }}>
+                        {photoBox(it.photo, wide ? 260 : 190, it.caption)}
+                        <Cap it={it} />
                       </div>
-                      <div style={{ marginTop: '6px' }}>
-                        <Kicker>{[it.who, it.where, it.when].filter(Boolean).join(' · ') || 'The one nobody could identify'}</Kicker>
-                        <p style={{ margin: '3px 0 0', fontSize: '12.5px', lineHeight: 1.5, color: INK2 }}>{it.caption || `Every shoebox has one. If you know, write it in: ______________________`}</p>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
-                <Filler saying={nextFiller()} />
-              </section>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', columnGap: '20px', marginTop: '8px' }}>
+                  <div /><div /><Filler saying={nextFiller()} />
+                </div>
+              </Page>
             </>
           )}
 
@@ -2963,77 +3288,117 @@ function IssueView({ project, onProjectUpdate, onReturnToDashboard }) {
           {kitchen && (
             <>
               <PageBreak />
-              <section style={{ padding: '56px 64px 48px', boxSizing: 'border-box' }}>
-                <RunningHead left={`${title} · Vol. 1`} right={titleOf('kitchen')} />
-                <PieceOpener kicker={titleOf('kitchen')} title={kitchen.title || 'One recipe'} />
-                {kitchen.intro && <p style={{ margin: '0 0 16px', fontFamily: SERIF_DISPLAY, fontStyle: 'italic', fontSize: '17px', lineHeight: 1.4 }}>{kitchen.intro}</p>}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.6fr', gap: '28px' }}>
+              <Page head={head(titleOf('kitchen'))} folio={nextFolio()}>
+                <DeptHead id="kitchen" title={titleOf('kitchen')} sub="One recipe, the way it is actually made" />
+                <h3 style={{ margin: 0, fontFamily: SERIF_DISPLAY, fontWeight: 900, fontSize: '40px', lineHeight: 1.04, letterSpacing: '-0.01em' }}>{kitchen.title || 'One recipe'}</h3>
+                {kitchen.intro && <p style={{ margin: '12px 0 0', fontFamily: SERIF_BODY, fontStyle: 'italic', fontSize: '18px', lineHeight: 1.45, color: INK2, maxWidth: '600px' }}>{kitchen.intro}</p>}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', columnGap: '28px', marginTop: '30px' }}>
                   <div>
-                    <Kicker>What you need</Kicker>
-                    <ul style={{ margin: '8px 0 0', padding: '0 0 0 18px', fontSize: '14px', lineHeight: 1.7 }}>{(kitchen.ingredients || []).filter(Boolean).map((x, i) => <li key={i}>{x}</li>)}</ul>
+                    <div style={{ borderTop: `2px solid ${INK}`, paddingTop: '10px' }}><Kicker>What you need</Kicker></div>
+                    <ul style={{ margin: 0, padding: 0, listStyle: 'none', fontSize: '14.5px', lineHeight: 1.45 }}>
+                      {(kitchen.ingredients || []).filter(Boolean).map((x, i) => <li key={i} style={{ padding: '7px 0', borderBottom: `1px solid ${RULE}` }}>{x}</li>)}
+                    </ul>
                   </div>
                   <div>
-                    <Kicker>The way {S === 'He' ? 'he' : S === 'They' ? 'they' : 'she'} makes it</Kicker>
-                    <ol style={{ margin: '8px 0 0', padding: '0 0 0 20px', fontSize: '14px', lineHeight: 1.7 }}>{(kitchen.steps || []).filter(Boolean).map((x, i) => <li key={i} style={{ marginBottom: '6px' }}>{x}</li>)}</ol>
+                    <div style={{ borderTop: `2px solid ${INK}`, paddingTop: '10px' }}><Kicker>The way {she} makes it</Kicker></div>
+                    <ol style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {(kitchen.steps || []).filter(Boolean).map((x, i) => (
+                        <li key={i} style={{ display: 'flex', gap: '14px', fontSize: '15.5px', lineHeight: '22px' }}>
+                          <span style={{ fontFamily: SERIF_DISPLAY, fontWeight: 700, fontSize: '22px', lineHeight: '22px', color: RED, minWidth: '22px' }}>{i + 1}</span>
+                          <span>{x}</span>
+                        </li>
+                      ))}
+                    </ol>
+                    {kitchen.her_note && <Filler saying={{ quote: kitchen.her_note, when: `${subject}, on the recipe` }} top={26} />}
                   </div>
                 </div>
-                {kitchen.her_note && <blockquote style={{ margin: '20px 0 0', padding: '12px 0', borderTop: `1px solid ${INK}`, borderBottom: `1px solid ${INK}`, fontFamily: SERIF_DISPLAY, fontStyle: 'italic', fontSize: '17px' }}>"{String(kitchen.her_note).replace(/^"|"$/g, '')}"</blockquote>}
-              </section>
+              </Page>
             </>
           )}
 
-          {/* ---- FAITH (own pages) ---- */}
+          {/* ---- FAITH: two columns, a slower page ---- */}
           {faith.length > 0 && (
             <>
               <PageBreak />
-              <section style={{ padding: '56px 64px 48px', boxSizing: 'border-box' }}>
-                <RunningHead left={`${title} · Vol. 1`} right={titleOf('faith')} />
-                {faith.map((p, i) => storyBlock(p, i, titleOf('faith')))}
-              </section>
+              <Page head={head(titleOf('faith'))} folio={nextFolio()}>
+                <DeptHead id="faith" title={titleOf('faith')} sub={`What ${she} believes, and how ${she} came to it`} />
+                {storyRun(faith, { cols: 2 })}
+              </Page>
             </>
           )}
 
-          {/* ---- WHAT I KNOW NOW + UNTIL NEXT TIME ---- */}
-          <PageBreak />
-          <section style={{ padding: '56px 64px 48px', minHeight: '1056px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
-            <RunningHead left={`${title} · Vol. 1`} right={knowNow.length ? titleOf('know_now') : 'Until Next Time'} />
-            {knowNow.length > 0 && (
-              <>
-                <PieceOpener kicker={titleOf('know_now')} title="For the grandchildren" />
-                <p style={{ margin: '0 0 18px', fontSize: '13.5px', color: INK2, fontStyle: 'italic' }}>In no particular order, because that's how it came out.</p>
-                <ol style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          {/* ---- WHAT I KNOW NOW: one strong list page ---- */}
+          {knowNow.length > 0 && (
+            <>
+              <PageBreak />
+              <Page head={head(titleOf('know_now'))} folio={nextFolio()}>
+                <DeptHead id="know_now" title={titleOf('know_now')} sub="For the grandchildren, in no particular order" />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '22px 32px' }}>
                   {knowNow.map((it, i) => (
-                    <li key={i} style={{ display: 'flex', gap: '16px', breakInside: 'avoid' }}>
-                      <span style={{ fontFamily: SERIF_DISPLAY, fontWeight: 900, fontSize: '26px', lineHeight: 1, color: RED, minWidth: '30px' }}>{i + 1}</span>
-                      <span style={{ fontSize: '14.5px', lineHeight: 1.6 }}>{it.advice || it.quote || it.text}{it.why && <span style={{ color: INK2 }}> {it.why}</span>}</span>
-                    </li>
+                    <div key={i} style={{ display: 'flex', gap: '16px', breakInside: 'avoid' }}>
+                      <span style={{ fontFamily: SERIF_DISPLAY, fontWeight: 900, fontSize: '36px', lineHeight: '34px', color: RED, minWidth: '40px' }}>{i + 1}</span>
+                      <div>
+                        <div style={{ fontFamily: SERIF_DISPLAY, fontWeight: 700, fontSize: '18px', lineHeight: '24px' }}>{it.advice || it.quote || it.text}</div>
+                        {it.why && <div style={{ fontSize: '14.5px', lineHeight: '21px', color: INK2, marginTop: '6px' }}>{it.why}</div>}
+                      </div>
+                    </div>
                   ))}
-                </ol>
-              </>
-            )}
-            <div style={{ marginTop: knowNow.length ? '40px' : 0, borderTop: knowNow.length ? `2px solid ${INK}` : 'none', paddingTop: knowNow.length ? '24px' : 0 }}>
-              <Ornament />
-              <h2 style={{ margin: '8px 0 0', textAlign: 'center', fontFamily: SERIF_DISPLAY, fontWeight: 700, fontSize: '30px' }}>Until Next Time</h2>
+                </div>
+                {remainingFillers().length > 0 && (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', columnGap: '20px', marginTop: '18px' }}>
+                    {remainingFillers().slice(0, 3).map((s, i) => <Filler key={i} saying={nextFiller()} />)}
+                  </div>
+                )}
+              </Page>
+            </>
+          )}
+
+          {/* ---- UNTIL NEXT TIME: her last word, alone, with air around it ---- */}
+          <PageBreak />
+          <Page head={head('Until Next Time')} folio={nextFolio()} style={{ display: 'flex', flexDirection: 'column' }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '40px 0' }}>
+              <DeptIcon id="until_next_time" size={48} />
+              <h2 style={{ margin: '18px 0 0', fontFamily: SERIF_DISPLAY, fontWeight: 700, fontSize: '34px', lineHeight: 1.1 }}>Until Next Time</h2>
+              <div style={{ width: '48px', borderBottom: `2px solid ${RED}`, margin: '18px 0 30px' }} />
               {closing ? (
                 <>
-                  <p style={{ margin: '22px auto 0', fontSize: '15.5px', lineHeight: 1.7, maxWidth: '540px', textAlign: 'center' }}>{closing}</p>
-                  <p style={{ margin: '10px 0 0', textAlign: 'center', fontFamily: SERIF_DISPLAY, fontStyle: 'italic', fontSize: '17px' }}>— {subject}</p>
+                  <p style={{ margin: 0, fontSize: '18px', lineHeight: '30px', maxWidth: '520px' }}>{closing}</p>
+                  <p style={{ margin: '18px 0 0', fontFamily: SERIF_DISPLAY, fontStyle: 'italic', fontSize: '19px' }}>— {subject}</p>
                 </>
               ) : (
-                <p style={{ margin: '22px auto 0', fontSize: '14px', color: INK2, fontStyle: 'italic', textAlign: 'center', maxWidth: '480px' }}>{subject}'s last word goes here — it comes from the fourth afternoon.</p>
+                <p style={{ margin: 0, fontSize: '14.5px', color: INK3, fontStyle: 'italic', maxWidth: '460px' }}>{subject}'s last word goes here — it comes from the fourth afternoon.</p>
               )}
-              <div style={{ marginTop: '30px' }}>
-                <Kicker>What {S === 'He' ? 'he' : S === 'They' ? 'they' : 'she'} left out — for the family to add</Kicker>
-                <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '28px' }}>
-                  {[0, 1, 2, 3, 4, 5, 6].map(i => <div key={i} style={{ borderBottom: `1px solid ${RULE}` }} />)}
-                </div>
+            </div>
+            <div style={{ marginTop: 'auto' }}>
+              <Kicker>What {she} left out — for the family to add</Kicker>
+              <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '30px' }}>
+                {[0, 1, 2, 3, 4].map(i => <div key={i} style={{ borderBottom: `1px solid ${RULE}` }} />)}
+              </div>
+              <div style={{ marginTop: '30px', borderTop: `1px solid ${INK}`, paddingTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '24px', fontFamily: SANS }}>
+                <p style={{ margin: 0, fontSize: '11.5px', lineHeight: 1.5, color: INK2, maxWidth: '440px' }}>This issue is complete on its own. There is more where it came from — Issue No. 2, whenever the family decides.</p>
+                <p style={{ margin: 0, fontSize: '9.5px', letterSpacing: '0.2em', textTransform: 'uppercase', color: INK3 }}>MyStory.Family</p>
               </div>
             </div>
-            <div style={{ marginTop: 'auto', borderTop: `1px solid ${INK}`, paddingTop: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '24px', fontFamily: fonts.sans }}>
-              <p style={{ margin: 0, fontSize: '12px', lineHeight: 1.55, color: INK2, maxWidth: '440px' }}>This issue is complete on its own. There is more where it came from — Vol. 2, whenever the family decides.</p>
-              <p style={{ margin: 0, fontSize: '10.5px', letterSpacing: '0.16em', textTransform: 'uppercase', color: INK2 }}>MyStory.Family · Vol. 1</p>
-            </div>
-          </section>
+          </Page>
+
+          {/* ---- BACK COVER: the advertisement, or a quiet page ---- */}
+          <PageBreak />
+          {present ? (
+            <AdPage present={present} subject={subject} rel={rel} year={year} />
+          ) : (
+            <Page folio={null} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
+              <div style={{ fontFamily: SANS, fontSize: '10.5px', letterSpacing: '0.24em', textTransform: 'uppercase', color: INK3 }}>{issueLine}</div>
+              {remainingFillers()[0] ? (
+                <>
+                  <div style={{ margin: '40px 0 0', maxWidth: '520px', fontFamily: SERIF_DISPLAY, fontStyle: 'italic', fontSize: '30px', lineHeight: 1.3 }}>“{String(remainingFillers()[0].quote || '').replace(/^["“]|["”]$/g, '')}”</div>
+                  <div style={{ marginTop: '16px', fontFamily: SANS, fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', color: INK3 }}>{remainingFillers()[0].when || subject}</div>
+                </>
+              ) : (
+                <div style={{ margin: '40px 0 0', fontFamily: SERIF_DISPLAY, fontWeight: 900, fontSize: '54px', lineHeight: 1 }}>{title}</div>
+              )}
+              <div style={{ position: 'absolute', bottom: '48px', fontFamily: SANS, fontSize: '9.5px', letterSpacing: '0.2em', textTransform: 'uppercase', color: INK3 }}>A MyStory.Family issue</div>
+            </Page>
+          )}
         </div>
       )}
 
@@ -3043,7 +3408,7 @@ function IssueView({ project, onProjectUpdate, onReturnToDashboard }) {
           body { background: white !important; }
           .issue-chrome, .issue-edit { display: none !important; }
           .issue-paper { box-shadow: none !important; margin: 0 !important; width: 8.5in !important; max-width: none !important; }
-          .issue-paper section { padding-top: 0.6in !important; padding-bottom: 0.5in !important; }
+          .issue-paper section { min-height: 11in !important; }
           .issue-break { break-before: page; page-break-before: always; }
           img { max-width: 100%; }
         }
@@ -3051,18 +3416,6 @@ function IssueView({ project, onProjectUpdate, onReturnToDashboard }) {
       `}</style>
     </div>
   );
-}
-
-function RunningHead({ left, right }) {
-  return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10.5px', letterSpacing: '0.2em', textTransform: 'uppercase', color: INK2, borderBottom: `1px solid ${INK}`, paddingBottom: '8px', fontFamily: fonts.sans }}>
-      <span>{left}</span><span>{right}</span>
-    </div>
-  );
-}
-
-function Folio({ n }) {
-  return <div style={{ marginTop: '20px', fontSize: '11px', color: INK2, fontFamily: fonts.sans }}>{n}</div>;
 }
 
 // ============================================================
