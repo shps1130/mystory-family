@@ -299,9 +299,9 @@ export default function Magazine() {
 
   if (view === 'issue') {
     return (
-      <ComingNext
-        title="The issue"
-        body="The assembled issue — cover, contents, feature, departments — shows up here once the first session is filed."
+      <IssueView
+        project={project}
+        onProjectUpdate={setProject}
         onReturnToDashboard={() => setView('dashboard')}
       />
     );
@@ -556,7 +556,7 @@ function Dashboard({ user, project, onBeginGettingStarted, onOpenGuide, onOpenCa
             subject={subject}
             hasContent={approvedCount > 0}
             approvedCount={approvedCount}
-            onClick={approvedCount > 0 ? onOpenIssue : null}
+            onClick={project.getting_started_complete ? onOpenIssue : null}
           />
         </div>
       </div>
@@ -778,8 +778,8 @@ function IssueFooter({ subject, hasContent, approvedCount = 0, onClick }) {
         </div>
         <div style={{ fontSize: '12px', color: colors.textSecondary, lineHeight: 1.5 }}>
           {hasContent
-            ? `Read it as it stands — ${approvedCount} session${approvedCount === 1 ? '' : 's'} filed so far`
-            : 'Begins taking shape after your first session'}
+            ? `Read it as it stands — ${approvedCount} afternoon${approvedCount === 1 ? '' : 's'} filed so far`
+            : 'Write your note to the family, and watch it fill in after the first afternoon'}
         </div>
       </div>
     </div>
@@ -2575,23 +2575,494 @@ function ChooseFeature({ project, draft, subject, herHis, error, onChoose }) {
 }
 
 // ============================================================
-// Placeholder for views that arrive in the next stage
+// The issue — approved pieces from every afternoon, laid out as the
+// magazine. 8.5×11, Digest rhythm: contents on the cover, an ornament on
+// every piece, sayings as fillers after stories. Print-styled so the
+// browser's Print → Save as PDF gives a clean file.
 // ============================================================
-function ComingNext({ title, body, onReturnToDashboard }) {
+const PAPER = '#F7F2E8';
+const INK = '#1F1B16';
+const INK2 = '#4A4238';
+const RULE = '#D5CBB9';
+const RED = '#8B2E1F';
+const SERIF_DISPLAY = '"Playfair Display", Georgia, serif';
+const SERIF_BODY = '"Libre Baskerville", Georgia, serif';
+
+function useIssueFonts() {
+  useEffect(() => {
+    const id = 'mystory-issue-fonts';
+    if (document.getElementById(id)) return;
+    const link = document.createElement('link');
+    link.id = id;
+    link.rel = 'stylesheet';
+    link.href = 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap';
+    document.head.appendChild(link);
+  }, []);
+}
+
+function Ornament() {
   return (
-    <div style={{ minHeight: '100vh', background: colors.cream, fontFamily: fonts.sans, color: colors.text }}>
-      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '20px 16px' }}>
-        <div style={{ background: 'white', borderRadius: '16px', overflow: 'hidden', border: `0.5px solid ${colors.border}` }}>
-          <Header onBack={onReturnToDashboard} />
-          <div style={{ padding: '40px 32px' }}>
-            <div style={{ fontSize: '11px', color: colors.tan, fontWeight: 500, letterSpacing: '0.8px', textTransform: 'uppercase', marginBottom: '8px' }}>Coming next</div>
-            <h1 style={{ fontFamily: fonts.serif, fontSize: '24px', fontWeight: 500, margin: '0 0 12px' }}>{title}</h1>
-            <p style={{ fontSize: '15px', color: colors.textSecondary, lineHeight: 1.7, maxWidth: '560px', margin: 0 }}>{body}</p>
-          </div>
+    <div style={{ display: 'flex', justifyContent: 'center', margin: '18px 0 10px' }}>
+      <svg width="64" height="14" viewBox="0 0 64 14" aria-hidden="true"><path d="M0 7h24M40 7h24" stroke={RED} strokeWidth="1" /><path d="M32 1l6 6-6 6-6-6z" fill="none" stroke={RED} strokeWidth="1.2" /></svg>
+    </div>
+  );
+}
+
+function Kicker({ children }) {
+  return <div style={{ fontSize: '10.5px', letterSpacing: '0.18em', textTransform: 'uppercase', color: RED, fontWeight: 700, fontFamily: fonts.sans }}>{children}</div>;
+}
+
+function Paras({ text, firstDrop }) {
+  const paras = String(text || '').split(/\n\s*\n/).map(s => s.trim()).filter(Boolean);
+  return paras.map((p, i) => (
+    <p key={i} style={{ margin: '0 0 12px', fontSize: '14.5px', lineHeight: 1.65, color: i === 0 ? INK : INK2 }}>
+      {firstDrop && i === 0 && (
+        <span style={{ fontFamily: SERIF_DISPLAY, fontWeight: 900, fontSize: '52px', lineHeight: 0.8, float: 'left', margin: '7px 8px 0 0', color: RED }}>{p.charAt(0)}</span>
+      )}
+      {firstDrop && i === 0 ? p.slice(1) : p}
+    </p>
+  ));
+}
+
+function Filler({ saying }) {
+  if (!saying) return null;
+  return (
+    <div style={{ borderTop: `1px solid ${INK}`, borderBottom: `1px solid ${INK}`, padding: '12px 4px', margin: '14px 0 20px', breakInside: 'avoid' }}>
+      <Kicker>{saying.pageTitle}</Kicker>
+      <div style={{ fontFamily: SERIF_DISPLAY, fontStyle: 'italic', fontSize: '18px', lineHeight: 1.3, marginTop: '6px' }}>"{String(saying.quote || '').replace(/^"|"$/g, '')}"{saying.when && <span style={{ fontFamily: SERIF_BODY, fontStyle: 'normal', fontSize: '12.5px', color: INK2 }}> — {saying.when}</span>}</div>
+    </div>
+  );
+}
+
+function PageBreak() {
+  return <div style={{ breakBefore: 'page', height: 0 }} className="issue-break" />;
+}
+
+function PieceOpener({ kicker, title, ornament = true }) {
+  return (
+    <div style={{ breakInside: 'avoid' }}>
+      {ornament && <Ornament />}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
+        <div style={{ width: '44px', height: '44px', borderRadius: '50%', background: '#E3DACB', flexShrink: 0 }} />
+        <div>
+          <Kicker>{kicker}</Kicker>
+          <h2 style={{ margin: '2px 0 0', fontFamily: SERIF_DISPLAY, fontWeight: 700, fontSize: '26px', lineHeight: 1.1, color: INK }}>{title}</h2>
         </div>
       </div>
     </div>
   );
+}
+
+function IssueView({ project, onProjectUpdate, onReturnToDashboard }) {
+  useIssueFonts();
+  const [sessions, setSessions] = useState([]);
+  const [photos, setPhotos] = useState([]);
+  const [urls, setUrls] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [note, setNote] = useState(project.buyer_note || '');
+  const [editingNote, setEditingNote] = useState(!project.buyer_note);
+  const [savingNote, setSavingNote] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      const { data: s } = await supabase
+        .from('interview_sessions')
+        .select('session_number, title, approved, pieces, recorded_on, recorded_where, others_present')
+        .eq('project_id', project.id)
+        .order('session_number', { ascending: true });
+      const { data: p } = await supabase
+        .from('interview_photos')
+        .select('*')
+        .eq('project_id', project.id)
+        .order('sort_order', { ascending: true })
+        .order('created_at', { ascending: true });
+      if (cancelled) return;
+      setSessions((s || []).filter(x => x.approved && x.pieces));
+      setPhotos(p || []);
+      if (p && p.length) {
+        const { data: signed } = await supabase.storage.from(PHOTO_BUCKET).createSignedUrls(p.map(x => x.storage_path), 3600);
+        if (!cancelled && signed) {
+          const map = {};
+          signed.forEach((x, i) => { if (x?.signedUrl) map[p[i].id] = x.signedUrl; });
+          setUrls(map);
+        }
+      }
+      setLoading(false);
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [project.id]);
+
+  const saveNote = async () => {
+    setSavingNote(true);
+    await supabase.from('interview_projects').update({ buyer_note: note.trim() || null }).eq('id', project.id);
+    onProjectUpdate({ ...project, buyer_note: note.trim() || null });
+    setSavingNote(false);
+    setEditingNote(false);
+  };
+
+  // ---- Assemble ----------------------------------------------------------
+  const rel = project.buyer_relationship;
+  const S = subjectPronoun(rel);
+  const P = possessive(rel);
+  const subject = project.subject_name || (S === 'He' ? 'Him' : S === 'They' ? 'Them' : 'Her');
+  const title = project.issue_title || `${subject}'s Issue`;
+  const buyer = prettyName(project.buyer_name) || 'the family';
+  const departments = activeDepartments(project).filter(d => d.state !== 'out');
+  const titleOf = (id) => departments.find(d => d.id === id)?.title || (id === 'sayings' ? `Things ${S} Always Said` : id);
+
+  const allPieces = sessions.flatMap(s => (s.pieces?.pieces || []).map(p => ({ ...p, _session: s.session_number })));
+  const byDept = {};
+  allPieces.forEach(p => { (byDept[p.department] = byDept[p.department] || []).push(p); });
+
+  const sayings = (byDept.sayings || []).flatMap(p => (p.items || []).map(it => ({ ...it, pageTitle: titleOf('sayings') })));
+  let fillerIdx = 0;
+  const nextFiller = () => (fillerIdx < sayings.length ? sayings[fillerIdx++] : null);
+
+  const feature = (byDept.feature || [])[0] || null;
+  const stories = byDept.family_stories || [];
+  const laughter = byDept.laughter || [];
+  const kitchen = (byDept.kitchen || [])[0] || null;
+  const knowNow = (byDept.know_now || []).flatMap(p => p.items || []);
+  const faith = byDept.faith || [];
+  const closing = (byDept.until_next_time || []).map(p => p.closing).filter(Boolean).slice(-1)[0] || '';
+  const custom = (Array.isArray(project.custom_departments) ? project.custom_departments : []).filter(c => c && c.id);
+
+  const shoeboxItems = (byDept.shoebox || []).flatMap(p => p.items || []);
+  const photoById = Object.fromEntries(photos.map(p => [p.id, p]));
+  const cover = photos.find(p => p.is_cover) || photos[0] || null;
+  const captioned = shoeboxItems.map(it => ({ ...it, photo: it.photo_id ? photoById[it.photo_id] : null })).filter(it => it.photo || it.caption);
+  const leadPhoto = captioned.find(it => it.photo && it.photo.id !== cover?.id && it.caption) || captioned.find(it => it.photo) || null;
+  const restPhotos = captioned.filter(it => it !== leadPhoto);
+
+  const provenance = sessions.map(s => ({ on: s.recorded_on, where: s.recorded_where, others: s.others_present })).filter(x => x.on || x.where);
+  const season = (() => { const m = new Date().getMonth(); return m < 2 || m === 11 ? 'Winter' : m < 5 ? 'Spring' : m < 8 ? 'Summer' : 'Autumn'; })();
+  const year = new Date().getFullYear();
+
+  // Contents in plan order, only pages that have something.
+  const order = (project.issue_plan?.departments || departments).map(d => d.id);
+  const contents = [];
+  contents.push({ title: 'A Note Before You Begin', page: 2 });
+  let pageNo = 3;
+  const has = (id) => id === 'feature' ? Boolean(feature) : id === 'family_stories' ? stories.length > 0 : id === 'sayings' ? sayings.length > 0 : id === 'laughter' ? laughter.length > 0 : id === 'shoebox' ? captioned.length > 0 : id === 'kitchen' ? Boolean(kitchen) : id === 'know_now' ? knowNow.length > 0 : id === 'faith' ? faith.length > 0 : id === 'until_next_time' ? true : (byDept[id] || []).length > 0;
+  order.forEach(id => {
+    if (!has(id)) return;
+    if (id === 'sayings') { contents.push({ title: titleOf('sayings'), page: 'throughout' }); return; }
+    contents.push({ title: titleOf(id), page: pageNo });
+    pageNo += id === 'feature' ? 4 : id === 'shoebox' ? 4 : 2;
+  });
+
+  const empty = sessions.length === 0;
+
+  const storyBlock = (p, i, kicker) => (
+    <div key={`${kicker}-${i}`}>
+      <PieceOpener kicker={kicker} title={p.title || 'Untitled'} />
+      <Paras text={p.body} firstDrop />
+      <Filler saying={nextFiller()} />
+    </div>
+  );
+
+  return (
+    <div style={{ minHeight: '100vh', background: colors.cream, fontFamily: fonts.sans, color: colors.text }}>
+      <div className="issue-chrome" style={{ maxWidth: '900px', margin: '0 auto', padding: '20px 16px 0' }}>
+        <div style={{ background: 'white', borderRadius: '16px', overflow: 'hidden', border: `0.5px solid ${colors.border}` }}>
+          <Header onBack={onReturnToDashboard} rightText={`${title} · Vol. 1`} />
+          <div style={{ padding: '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', background: colors.creamLight }}>
+            <div style={{ fontSize: '13px', color: colors.textSecondary }}>
+              {empty ? 'The issue begins taking shape after your first afternoon is approved.' : `${sessions.length} of ${TOTAL_SESSIONS} afternoons filed. This is the issue as it stands — it fills in as you go.`}
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button onClick={() => window.print()} style={{ fontSize: '13px', padding: '9px 16px', minHeight: '44px', background: colors.navy, color: 'white', border: 'none', borderRadius: '999px', fontFamily: 'inherit', cursor: 'pointer' }}>Print / Save as PDF</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {loading ? (
+        <div style={{ padding: '40px', textAlign: 'center', color: colors.textSecondary }}>Laying out the issue…</div>
+      ) : (
+        <div className="issue-paper" style={{ width: '816px', maxWidth: '100%', margin: '20px auto 40px', background: PAPER, color: INK, fontFamily: SERIF_BODY, boxShadow: '0 2px 18px rgba(0,0,0,0.08)', boxSizing: 'border-box' }}>
+
+          {/* ---- COVER ---- */}
+          <section style={{ padding: '40px', minHeight: '1056px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ flex: 1, border: `2px solid ${INK}`, outline: `1px solid ${INK}`, outlineOffset: '4px', padding: '32px 36px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
+              <div style={{ textAlign: 'center', fontSize: '11px', letterSpacing: '0.22em', textTransform: 'uppercase', color: INK2, fontFamily: fonts.sans }}>Vol. 1 · {season} {year} · Printed for the family</div>
+              <h1 style={{ margin: '18px 0 0', textAlign: 'center', fontFamily: SERIF_DISPLAY, fontWeight: 900, fontSize: title.length > 24 ? '46px' : '58px', lineHeight: 1.02, letterSpacing: '-0.01em' }}>{title}</h1>
+              <p style={{ margin: '10px 0 0', textAlign: 'center', fontFamily: SERIF_DISPLAY, fontStyle: 'italic', fontSize: '19px', color: INK2 }}>Stories, sayings & pictures from {subject}'s life</p>
+              <Ornament />
+              <div style={{ height: '300px', background: '#E3DACB', border: cover ? 'none' : '1px dashed #B8AB95', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', color: '#6E6353', fontStyle: 'italic', fontSize: '13px', textAlign: 'center', padding: cover ? 0 : '20px' }}>
+                {cover && urls[cover.id] ? <img src={urls[cover.id]} alt={cover.caption || 'Cover photograph'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : 'The cover photograph — mark one "Use as cover" when you review an afternoon'}
+              </div>
+              <div style={{ marginTop: '22px', fontSize: '11px', letterSpacing: '0.2em', textTransform: 'uppercase', color: RED, textAlign: 'center', fontWeight: 700, fontFamily: fonts.sans }}>In this issue</div>
+              <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', fontSize: '13.5px', lineHeight: 1.5 }}>
+                {contents.map((c, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                    <span style={{ fontWeight: c.title === titleOf('feature') ? 700 : 400 }}>{c.title}</span>
+                    <span style={{ flex: 1, borderBottom: '1px dotted #8F8371', transform: 'translateY(-4px)' }} />
+                    <span>{c.page}</span>
+                  </div>
+                ))}
+              </div>
+              <div style={{ marginTop: 'auto', textAlign: 'center', fontSize: '11px', letterSpacing: '0.16em', textTransform: 'uppercase', color: INK2, fontFamily: fonts.sans }}>MyStory.Family</div>
+            </div>
+          </section>
+
+          <PageBreak />
+
+          {/* ---- A NOTE BEFORE YOU BEGIN + HOW THIS ISSUE WAS MADE ---- */}
+          <section style={{ padding: '56px 64px 48px', minHeight: '1056px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
+            <RunningHead left={`${title} · Vol. 1`} right="A Note Before You Begin" />
+            <Ornament />
+            <h2 style={{ margin: '8px 0 0', textAlign: 'center', fontFamily: SERIF_DISPLAY, fontWeight: 700, fontSize: '32px', lineHeight: 1.1 }}>A Note Before You Begin</h2>
+            <p style={{ margin: '6px 0 0', textAlign: 'center', fontStyle: 'italic', fontSize: '14px', color: INK2 }}>From {buyer}</p>
+            <div style={{ marginTop: '28px', maxWidth: '560px', alignSelf: 'center', width: '100%' }}>
+              {editingNote ? (
+                <div className="issue-edit" style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontFamily: fonts.sans }}>
+                  <div style={{ fontSize: '13px', color: INK2 }}>This page is yours. Why you sat down with {S === 'He' ? 'him' : S === 'They' ? 'them' : 'her'}, what it was like, what you hope the grandchildren take from it. Three or four short paragraphs. Grace never touches this one.</div>
+                  <textarea value={note} onChange={e => setNote(e.target.value)} rows={10} style={{ width: '100%', boxSizing: 'border-box', padding: '12px 14px', fontSize: '15px', lineHeight: 1.6, fontFamily: SERIF_BODY, border: `1px solid ${RULE}`, borderRadius: '6px', background: 'white', resize: 'vertical' }} placeholder="Dear family," />
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button onClick={saveNote} disabled={savingNote} style={{ fontSize: '14px', padding: '10px 18px', minHeight: '44px', background: colors.navy, color: 'white', border: 'none', borderRadius: '8px', fontFamily: fonts.sans, cursor: 'pointer' }}>{savingNote ? 'Saving…' : 'Save the note'}</button>
+                    {project.buyer_note && <button onClick={() => { setNote(project.buyer_note || ''); setEditingNote(false); }} style={{ fontSize: '14px', padding: '10px 14px', minHeight: '44px', background: 'transparent', border: `1px solid ${RULE}`, borderRadius: '8px', fontFamily: fonts.sans, cursor: 'pointer', color: INK2 }}>Cancel</button>}
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <Paras text={project.buyer_note} firstDrop />
+                  <p style={{ margin: '6px 0 0', fontFamily: SERIF_DISPLAY, fontStyle: 'italic', fontSize: '17px' }}>— {buyer}</p>
+                  <button className="issue-edit" onClick={() => setEditingNote(true)} style={{ marginTop: '10px', fontSize: '12px', background: 'transparent', border: 'none', color: INK2, textDecoration: 'underline', fontFamily: fonts.sans, cursor: 'pointer', minHeight: '32px', padding: 0 }}>Edit this page</button>
+                </div>
+              )}
+            </div>
+            <div style={{ marginTop: 'auto', borderTop: `1px solid ${INK}`, borderBottom: `1px solid ${INK}`, padding: '16px 20px', fontSize: '13px', lineHeight: 1.55 }}>
+              <Kicker>How this issue was made</Kicker>
+              <p style={{ margin: '8px 0 0' }}>
+                Everything in these pages was told by {subject} to {buyer} over {sessions.length || 'several'} afternoon{sessions.length === 1 ? '' : 's'}
+                {provenance.length > 0 && <>, {provenance.map(x => [x.on, x.where].filter(Boolean).join(' at ')).filter(Boolean).join('; ')}</>}
+                {provenance.some(x => x.others && !/just the two/i.test(x.others)) && <>. Others present: {provenance.map(x => x.others).filter(x => x && !/just the two/i.test(x)).join(', ')}</>}
+                . The words are {P.toLowerCase() === 'their' ? 'theirs' : P.toLowerCase() === 'his' ? 'his' : 'hers'}. Grace, the editor, kept them in order and wrote them down.
+              </p>
+            </div>
+            <Folio n={2} />
+          </section>
+
+          {/* ---- THE FEATURE ---- */}
+          {feature && (
+            <>
+              <PageBreak />
+              <section style={{ padding: '56px 64px 48px', boxSizing: 'border-box' }}>
+                <RunningHead left="The Feature" right={`${season} ${year}`} />
+                {leadPhoto?.photo && urls[leadPhoto.photo.id] && (
+                  <div style={{ marginTop: '20px' }}>
+                    <img src={urls[leadPhoto.photo.id]} alt={leadPhoto.caption || ''} style={{ width: '100%', maxHeight: '340px', objectFit: 'cover', display: 'block' }} />
+                    <p style={{ margin: '8px 0 0', fontSize: '11.5px', color: INK2, fontStyle: 'italic' }}>{[leadPhoto.who, leadPhoto.where, leadPhoto.when].filter(Boolean).join(' · ')}</p>
+                  </div>
+                )}
+                <div style={{ marginTop: '26px', display: 'flex', alignItems: 'center', gap: '14px' }}>
+                  <div style={{ width: '54px', height: '54px', borderRadius: '50%', background: '#E3DACB', flexShrink: 0 }} />
+                  <Kicker>The Feature · As told by {subject}</Kicker>
+                </div>
+                <h2 style={{ margin: '14px 0 0', fontFamily: SERIF_DISPLAY, fontWeight: 900, fontSize: '42px', lineHeight: 1.04 }}>{feature.title}</h2>
+                {feature.deck && <p style={{ margin: '12px 0 0', fontFamily: SERIF_DISPLAY, fontStyle: 'italic', fontSize: '19px', lineHeight: 1.35, color: INK2 }}>{feature.deck}</p>}
+                <div style={{ marginTop: '20px', columns: 2, columnGap: '26px' }}>
+                  <Paras text={feature.body} firstDrop />
+                </div>
+                {feature.pull_quote && (
+                  <blockquote style={{ margin: '18px 0 0', padding: '14px 0', borderTop: `2px solid ${INK}`, borderBottom: `2px solid ${INK}`, fontFamily: SERIF_DISPLAY, fontStyle: 'italic', fontSize: '21px', lineHeight: 1.3, breakInside: 'avoid' }}>"{String(feature.pull_quote).replace(/^"|"$/g, '')}"</blockquote>
+                )}
+                <Ornament />
+                <Filler saying={nextFiller()} />
+              </section>
+            </>
+          )}
+
+          {/* ---- CUSTOM PAGES ---- */}
+          {custom.map(c => (byDept[c.id] || []).length > 0 && (
+            <React.Fragment key={c.id}>
+              <PageBreak />
+              <section style={{ padding: '56px 64px 48px', boxSizing: 'border-box' }}>
+                <RunningHead left={`${title} · Vol. 1`} right={c.title} />
+                {(byDept[c.id] || []).map((p, i) => Array.isArray(p.items)
+                  ? (
+                    <div key={i}>
+                      <PieceOpener kicker={c.title} title={p.title || c.title} />
+                      {p.items.map((it, k) => <div key={k} style={{ fontFamily: SERIF_DISPLAY, fontStyle: 'italic', fontSize: '18px', lineHeight: 1.35, margin: '0 0 12px' }}>"{String(it.quote || it.text || '').replace(/^"|"$/g, '')}"{it.when && <span style={{ fontFamily: SERIF_BODY, fontStyle: 'normal', fontSize: '12.5px', color: INK2 }}> — {it.when}</span>}</div>)}
+                    </div>
+                  )
+                  : storyBlock(p, i, c.title))}
+              </section>
+            </React.Fragment>
+          ))}
+
+          {/* ---- FAMILY STORIES ---- */}
+          {stories.length > 0 && (
+            <>
+              <PageBreak />
+              <section style={{ padding: '56px 64px 48px', boxSizing: 'border-box' }}>
+                <RunningHead left={`${title} · Vol. 1`} right={titleOf('family_stories')} />
+                {stories.map((p, i) => storyBlock(p, i, titleOf('family_stories')))}
+              </section>
+            </>
+          )}
+
+          {/* ---- LAUGHTER ---- */}
+          {laughter.length > 0 && (
+            <>
+              <PageBreak />
+              <section style={{ padding: '56px 64px 48px', boxSizing: 'border-box' }}>
+                <RunningHead left={`${title} · Vol. 1`} right={titleOf('laughter')} />
+                <PieceOpener kicker="Departments" title={titleOf('laughter')} />
+                <p style={{ margin: '0 0 16px', fontSize: '14px', color: INK2, fontStyle: 'italic' }}>The jokes and stories that got told every single holiday, whether anyone asked or not.</p>
+                {laughter.map((p, i) => (
+                  <div key={i} style={{ margin: '0 0 16px', breakInside: 'avoid' }}>
+                    {p.title && <div style={{ fontWeight: 700, color: RED, fontSize: '14px', marginBottom: '4px' }}>{p.title}</div>}
+                    <Paras text={p.body || (p.items || []).map(it => it.text || it.quote).join('\n\n')} />
+                  </div>
+                ))}
+                <Filler saying={nextFiller()} />
+              </section>
+            </>
+          )}
+
+          {/* ---- FROM THE SHOEBOX ---- */}
+          {captioned.length > 0 && (
+            <>
+              <PageBreak />
+              <section style={{ padding: '56px 64px 48px', boxSizing: 'border-box' }}>
+                <RunningHead left={`${title} · Vol. 1`} right={titleOf('shoebox')} />
+                <PieceOpener kicker={titleOf('shoebox')} title="The box in the closet" />
+                <p style={{ margin: '0 0 18px', fontSize: '13.5px', lineHeight: 1.6, color: INK2, maxWidth: '560px' }}>{buyer} held the pictures up one at a time. This is what {S === 'He' ? 'he' : S === 'They' ? 'they' : 'she'} said about each one.</p>
+                {leadPhoto?.photo && urls[leadPhoto.photo.id] && (
+                  <div style={{ marginBottom: '22px', breakInside: 'avoid' }}>
+                    <img src={urls[leadPhoto.photo.id]} alt={leadPhoto.caption || ''} style={{ width: '100%', maxHeight: '460px', objectFit: 'cover', display: 'block' }} />
+                    <div style={{ marginTop: '10px' }}>
+                      <Kicker>{[leadPhoto.who, leadPhoto.where, leadPhoto.when].filter(Boolean).join(' · ')}</Kicker>
+                      <p style={{ margin: '4px 0 0', fontSize: '13.5px', lineHeight: 1.55, color: INK2 }}>{leadPhoto.caption}</p>
+                    </div>
+                  </div>
+                )}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '22px 24px' }}>
+                  {restPhotos.map((it, i) => (
+                    <div key={i} style={{ breakInside: 'avoid' }}>
+                      <div style={{ height: '180px', background: '#E3DACB', overflow: 'hidden' }}>
+                        {it.photo && urls[it.photo.id] && <img src={urls[it.photo.id]} alt={it.caption || ''} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />}
+                      </div>
+                      <div style={{ marginTop: '6px' }}>
+                        <Kicker>{[it.who, it.where, it.when].filter(Boolean).join(' · ') || 'The one nobody could identify'}</Kicker>
+                        <p style={{ margin: '3px 0 0', fontSize: '12.5px', lineHeight: 1.5, color: INK2 }}>{it.caption || `Every shoebox has one. If you know, write it in: ______________________`}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <Filler saying={nextFiller()} />
+              </section>
+            </>
+          )}
+
+          {/* ---- FROM HER KITCHEN ---- */}
+          {kitchen && (
+            <>
+              <PageBreak />
+              <section style={{ padding: '56px 64px 48px', boxSizing: 'border-box' }}>
+                <RunningHead left={`${title} · Vol. 1`} right={titleOf('kitchen')} />
+                <PieceOpener kicker={titleOf('kitchen')} title={kitchen.title || 'One recipe'} />
+                {kitchen.intro && <p style={{ margin: '0 0 16px', fontFamily: SERIF_DISPLAY, fontStyle: 'italic', fontSize: '17px', lineHeight: 1.4 }}>{kitchen.intro}</p>}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.6fr', gap: '28px' }}>
+                  <div>
+                    <Kicker>What you need</Kicker>
+                    <ul style={{ margin: '8px 0 0', padding: '0 0 0 18px', fontSize: '14px', lineHeight: 1.7 }}>{(kitchen.ingredients || []).filter(Boolean).map((x, i) => <li key={i}>{x}</li>)}</ul>
+                  </div>
+                  <div>
+                    <Kicker>The way {S === 'He' ? 'he' : S === 'They' ? 'they' : 'she'} makes it</Kicker>
+                    <ol style={{ margin: '8px 0 0', padding: '0 0 0 20px', fontSize: '14px', lineHeight: 1.7 }}>{(kitchen.steps || []).filter(Boolean).map((x, i) => <li key={i} style={{ marginBottom: '6px' }}>{x}</li>)}</ol>
+                  </div>
+                </div>
+                {kitchen.her_note && <blockquote style={{ margin: '20px 0 0', padding: '12px 0', borderTop: `1px solid ${INK}`, borderBottom: `1px solid ${INK}`, fontFamily: SERIF_DISPLAY, fontStyle: 'italic', fontSize: '17px' }}>"{String(kitchen.her_note).replace(/^"|"$/g, '')}"</blockquote>}
+              </section>
+            </>
+          )}
+
+          {/* ---- FAITH (own pages) ---- */}
+          {faith.length > 0 && (
+            <>
+              <PageBreak />
+              <section style={{ padding: '56px 64px 48px', boxSizing: 'border-box' }}>
+                <RunningHead left={`${title} · Vol. 1`} right={titleOf('faith')} />
+                {faith.map((p, i) => storyBlock(p, i, titleOf('faith')))}
+              </section>
+            </>
+          )}
+
+          {/* ---- WHAT I KNOW NOW + UNTIL NEXT TIME ---- */}
+          <PageBreak />
+          <section style={{ padding: '56px 64px 48px', minHeight: '1056px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
+            <RunningHead left={`${title} · Vol. 1`} right={knowNow.length ? titleOf('know_now') : 'Until Next Time'} />
+            {knowNow.length > 0 && (
+              <>
+                <PieceOpener kicker={titleOf('know_now')} title="For the grandchildren" />
+                <p style={{ margin: '0 0 18px', fontSize: '13.5px', color: INK2, fontStyle: 'italic' }}>In no particular order, because that's how it came out.</p>
+                <ol style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  {knowNow.map((it, i) => (
+                    <li key={i} style={{ display: 'flex', gap: '16px', breakInside: 'avoid' }}>
+                      <span style={{ fontFamily: SERIF_DISPLAY, fontWeight: 900, fontSize: '26px', lineHeight: 1, color: RED, minWidth: '30px' }}>{i + 1}</span>
+                      <span style={{ fontSize: '14.5px', lineHeight: 1.6 }}>{it.advice || it.quote || it.text}{it.why && <span style={{ color: INK2 }}> {it.why}</span>}</span>
+                    </li>
+                  ))}
+                </ol>
+              </>
+            )}
+            <div style={{ marginTop: knowNow.length ? '40px' : 0, borderTop: knowNow.length ? `2px solid ${INK}` : 'none', paddingTop: knowNow.length ? '24px' : 0 }}>
+              <Ornament />
+              <h2 style={{ margin: '8px 0 0', textAlign: 'center', fontFamily: SERIF_DISPLAY, fontWeight: 700, fontSize: '30px' }}>Until Next Time</h2>
+              {closing ? (
+                <>
+                  <p style={{ margin: '22px auto 0', fontSize: '15.5px', lineHeight: 1.7, maxWidth: '540px', textAlign: 'center' }}>{closing}</p>
+                  <p style={{ margin: '10px 0 0', textAlign: 'center', fontFamily: SERIF_DISPLAY, fontStyle: 'italic', fontSize: '17px' }}>— {subject}</p>
+                </>
+              ) : (
+                <p style={{ margin: '22px auto 0', fontSize: '14px', color: INK2, fontStyle: 'italic', textAlign: 'center', maxWidth: '480px' }}>{subject}'s last word goes here — it comes from the fourth afternoon.</p>
+              )}
+              <div style={{ marginTop: '30px' }}>
+                <Kicker>What {S === 'He' ? 'he' : S === 'They' ? 'they' : 'she'} left out — for the family to add</Kicker>
+                <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '28px' }}>
+                  {[0, 1, 2, 3, 4, 5, 6].map(i => <div key={i} style={{ borderBottom: `1px solid ${RULE}` }} />)}
+                </div>
+              </div>
+            </div>
+            <div style={{ marginTop: 'auto', borderTop: `1px solid ${INK}`, paddingTop: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '24px', fontFamily: fonts.sans }}>
+              <p style={{ margin: 0, fontSize: '12px', lineHeight: 1.55, color: INK2, maxWidth: '440px' }}>This issue is complete on its own. There is more where it came from — Vol. 2, whenever the family decides.</p>
+              <p style={{ margin: 0, fontSize: '10.5px', letterSpacing: '0.16em', textTransform: 'uppercase', color: INK2 }}>MyStory.Family · Vol. 1</p>
+            </div>
+          </section>
+        </div>
+      )}
+
+      <style>{`
+        @page { size: letter; margin: 0; }
+        @media print {
+          body { background: white !important; }
+          .issue-chrome, .issue-edit { display: none !important; }
+          .issue-paper { box-shadow: none !important; margin: 0 !important; width: 8.5in !important; max-width: none !important; }
+          .issue-paper section { padding-top: 0.6in !important; padding-bottom: 0.5in !important; }
+          .issue-break { break-before: page; page-break-before: always; }
+          img { max-width: 100%; }
+        }
+        @media (max-width: 860px) { .issue-paper { width: 100% !important; } }
+      `}</style>
+    </div>
+  );
+}
+
+function RunningHead({ left, right }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10.5px', letterSpacing: '0.2em', textTransform: 'uppercase', color: INK2, borderBottom: `1px solid ${INK}`, paddingBottom: '8px', fontFamily: fonts.sans }}>
+      <span>{left}</span><span>{right}</span>
+    </div>
+  );
+}
+
+function Folio({ n }) {
+  return <div style={{ marginTop: '20px', fontSize: '11px', color: INK2, fontFamily: fonts.sans }}>{n}</div>;
 }
 
 // ============================================================
