@@ -37,6 +37,7 @@ The finished product is a printed, magazine-style issue. It has one long feature
 - know_now — "What I Know Now." Advice for the grandchildren. Her words, close to verbatim.
 - faith — only when the family chose it as its own department. Otherwise faith stays inside the stories where she put it.
 - until_next_time — her closing word. One line to a short paragraph, exactly as she said it.
+- present — the back cover. If she talks about a present she remembers from childhood — the one she asked for, the one she got, the one she never got — the back cover of the issue is a full-page "advertisement" for it, in the voice of a 1950s magazine ad, drawn from what she said. One per issue.
 
 # Two kinds of writing, and you must know which you are doing
 
@@ -82,17 +83,20 @@ IMPORTANT — anonymous speaker labels. Automatic transcription often labels spe
 The conversation will wander. That's fine; in this format a tangent is usually a different department filling itself in. File by what the material IS, not by what the session was supposed to collect:
 
 - A story with a beginning, people, and something that happened → family_stories (or feature, if it's the big one and this is the feature session or the family has chosen it)
-- A line she's clearly said many times, or that she quotes from her own mother, a pastor, a neighbor → sayings. Capture when she said it if she told you.
+- A line SHE has clearly said many times → sayings. "when" is at most eight words ("whenever anyone complained about the weather"). A line she quotes from someone else (her mother, her father, a pastor) is a saying only if she says she says it too; otherwise it stays inside the story where she told it. Never file the interviewer's words as a saying.
 - Something told to be funny, or a story everyone laughed at → laughter
 - Anything said while looking at a photograph → shoebox, attached to that photograph
 - A recipe or how she makes a dish → kitchen
 - Advice, a lesson, "what I'd tell the grandchildren" → know_now
 - What she believes, how she prayed, a verse she kept → faith (if the family chose that department) or leave it inside the story where she said it (if they didn't)
 - Something that sounds like a last word, a benediction, "that's what I'd want them to know" → until_next_time
+- A present she remembers from when she was small — asked for, received, or longed for — → present (the back cover). Only when she actually talks about one.
 
 One passage can feed two departments: a story about the flood can also yield a saying she dropped mid-story. Don't duplicate whole passages, but do catch the saying.
 
 The family may have invented pages of their own (listed in the request as custom departments, each with an id and a title). Treat them exactly like standard departments: when material fits one, file it there using that id, as a story-shaped piece ({"department": "<id>", "title": "", "body": ""}) or as items ({"department": "<id>", "items": [{"quote": "", "when": ""}]}) — whichever the material is. The family's titles for standard pages (e.g. the sayings page is called "Momisms") don't change where you file; ids stay the same.
+
+If the request lists what earlier afternoons ALREADY FILED (story titles, sayings, advice), do not file those again. A story told again in more detail may be filed again ONLY if this afternoon's telling is clearly the fuller one — then say so in editor_note so the family can retire the earlier version. A saying or piece of advice already on the list is skipped, full stop.
 
 A session yields what it yields. Session 1 (the shoebox) often produces many captions, two or three short stories, and the first glimpse of the feature. Session 3 may produce ten sayings and no story. Both are complete.
 
@@ -100,7 +104,7 @@ A session yields what it yields. Session 1 (the shoebox) often produces many cap
 
 The feature is the one long story. Only write a feature piece when (a) the family has told you which story it is, or (b) this is the feature session and one story clearly dominates the transcript. Otherwise, file long stories as family_stories and, in session 1, list the strongest story-length candidates in feature_candidates so the family can choose.
 
-A feature piece needs: a title, a one-sentence deck (what this story is and why it matters to her — only from what she said), the body (as long as the material supports, generously quoted), and one pull_quote — a line of hers that stops you, pulled from the body.
+A feature piece needs: a title, a one-sentence deck, the body (as long as the material supports, generously quoted), and one pull_quote — a line of hers that stops you, pulled from the body. The deck is NOT a narrator's summary of her life ("Karen learned to survive being uprooted"); it is built from her own words — a short line she said, or a sentence that quotes her ("Five houses and a route instead of a hometown," she says — and what that made her).
 
 # Photographs
 
@@ -133,13 +137,15 @@ Return ONE JSON object and nothing else. No prose before or after it, no code fe
     { "department": "kitchen", "title": "", "intro": "", "ingredients": [ "" ], "steps": [ "" ], "her_note": "" },
     { "department": "know_now", "items": [ { "advice": "", "why": "" } ] },
     { "department": "faith", "title": "", "body": "" },
-    { "department": "until_next_time", "closing": "" }
+    { "department": "until_next_time", "closing": "" },
+    { "department": "present", "item": "", "when": "", "where": "", "from": "", "headline": "", "deck": "", "lines": [ { "head": "", "body": "" } ], "quote": "" }
   ],
   "feature_candidates": [ "" ],
   "editor_note": ""
 }
 
 Rules for the shape:
+- The present piece, when there is one: "item" is the thing itself in two or three plain words with no brand name ("a red wagon", "a doll with a porcelain face", "a two-wheeler") — the layout draws it, so a brand would be wrong. "when" is a holiday or birthday and a year if she gave one; "where" the town or street; "from" who gave it if she said. "headline" is short and in the voice of an old magazine ad ("The One She Asked For", "Every Girl on Maple Street Wanted One"). "deck" is one line built from her own words. "lines" are two to four short ad-copy blocks, each a 2-4 word heading plus one or two sentences, playful but made ONLY from details she gave — what it was for, what happened to it, who else was involved. "quote" is the best thing she said about it, verbatim. If she only mentioned it in passing, file it with fewer lines rather than inventing any.
 - Include ONLY the pieces this transcript actually produced. An empty department is omitted, not padded. Several family_stories or laughter pieces are separate objects in the array.
 - Body text is plain prose with paragraphs separated by a blank line ("\\n\\n"). Standard double quotation marks around her words. No markdown, no headings, no asterisks.
 - "when" on a saying and "why" on advice are optional: fill them only if she said it, otherwise an empty string.
@@ -164,6 +170,7 @@ export default async function handler(req, res) {
       sessionNumber = 1,
       photos = [],
       quickNotes = [],
+      alreadyFiled = null,
       revisionRequest,
       existingDraft,
     } = req.body;
@@ -217,6 +224,18 @@ export default async function handler(req, res) {
       ? quickNotes.filter(n => n && n.type === 'saying' && n.text).map(n => `- "${String(n.text).replace(/"/g, '\\"')}"`).join('\n')
       : '';
 
+    const filedText = (() => {
+      if (!alreadyFiled || typeof alreadyFiled !== 'object') return '';
+      const lines = [];
+      const t = Array.isArray(alreadyFiled.titles) ? alreadyFiled.titles.filter(Boolean) : [];
+      const sy = Array.isArray(alreadyFiled.sayings) ? alreadyFiled.sayings.filter(Boolean) : [];
+      const ad = Array.isArray(alreadyFiled.advice) ? alreadyFiled.advice.filter(Boolean) : [];
+      if (t.length) lines.push(`Stories already filed (titles): ${t.map(x => `"${x}"`).join(', ')}`);
+      if (sy.length) lines.push(`Sayings already filed: ${sy.map(x => `"${x}"`).join(' | ')}`);
+      if (ad.length) lines.push(`Advice already filed: ${ad.map(x => `"${x}"`).join(' | ')}`);
+      return lines.length ? `\n# Already filed from earlier afternoons — do not file these again\n\n${lines.join('\n')}\n` : '';
+    })();
+
     const context = `# The subject
 
 Name: ${subjectName}
@@ -246,6 +265,7 @@ Meant to collect: ${collects}
 ${n === 1 ? 'This is the first session. Return feature_candidates — the two to four strongest story-length stories in this transcript, strongest first.' : ''}
 ${n === 2 ? 'This is the feature session. If one story clearly dominates the transcript, write it as the feature piece.' : ''}
 ${n === 4 ? 'This is the last session. Listen for the closing word for until_next_time — the line that sounds like what she would want the last page to say.' : ''}
+${filedText}
 ${sayingsCaught ? `\n# Sayings the interviewer wrote down word for word at the table\n\nThese are hers, verbatim. File each to the sayings page (or know_now if it is advice) even if the recording missed it. Add "when" only if the transcript says.\n${sayingsCaught}` : ''}
 ${photoList ? `\n# Photographs captured during this session\n\nAttach shoebox items to these by id where you can:\n${photoList}` : ''}
 
